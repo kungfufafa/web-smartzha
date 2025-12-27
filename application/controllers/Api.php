@@ -70,6 +70,15 @@ class Api extends CI_Controller
         ];
     }
 
+    private function is_supported_client($client)
+    {
+        $raw_agent = $this->input->user_agent();
+        if (!empty($raw_agent) && stripos($raw_agent, "SIMS-ALZ-") === 0) {
+            return true;
+        }
+        return $client["agent"] !== "unknown";
+    }
+
     private function get_cbt_context()
     {
         $siswa = $this->get_siswa();
@@ -274,6 +283,7 @@ class Api extends CI_Controller
         $jadwal_aktif = $context["jadwal_aktif"];
         $elapsed = $context["elapsed"];
         $sesi = $context["sesi"];
+        $periode = $context["periode"];
 
         $this->attach_cbt_status($jadwal_aktif, $elapsed, $cbt_info, $sesi);
 
@@ -281,8 +291,15 @@ class Api extends CI_Controller
             "status" => true,
             "cbt_info" => $cbt_info,
             "jadwal" => $jadwal_aktif,
+            "cbt_jadwal" => $jadwal_aktif,
             "elapsed" => $elapsed,
             "sesi" => $sesi,
+            "guru" => $this->cbt->getDataGuru(),
+            "tp" => $this->dashboard->getTahun(),
+            "tp_active" => $periode["tp"],
+            "smt" => $this->dashboard->getSemester(),
+            "smt_active" => $periode["smt"],
+            "running_text" => $this->dashboard->getRunningText(),
             "server_time" => date("Y-m-d H:i:s"),
         ]);
     }
@@ -349,6 +366,8 @@ class Api extends CI_Controller
         $jadwal_aktif = $context["jadwal_aktif"];
         $elapsed = $context["elapsed"];
         $sesi = $context["sesi"];
+        $client = $this->get_client_fingerprint();
+        $support = $this->is_supported_client($client);
 
         $info = $this->cbt->getJadwalById($id_jadwal);
         $bank = $this->cbt->getCbt($id_jadwal);
@@ -373,7 +392,6 @@ class Api extends CI_Controller
         if ($info && $info->reset_login == "1") {
             $log = $this->db->where("id_log", $siswa->id_siswa . "0" . $id_jadwal . "1")->get("log_ujian")->row();
             if ($log) {
-                $client = $this->get_client_fingerprint();
                 if ((int)$log->reset === 1) {
                     $this->db->set("address", $client["address"]);
                     $this->db->set("agent", $client["agent"]);
@@ -395,13 +413,19 @@ class Api extends CI_Controller
             "can_start" => false,
         ];
 
+        $kelas = $this->cbt->getKelas($periode['tp']->id_tp, $periode['smt']->id_smt);
+        $guru = $this->cbt->getDataGuru();
+
         $this->output_json([
             "status" => true,
             "jadwal" => $info,
             "bank" => $bank,
+            "kelas" => $kelas,
+            "guru" => $guru,
             "pengawas" => $pengawas,
             "token_required" => $info->token == '1',
             "valid" => $valid,
+            "support" => $support,
             "status_code" => $status["code"],
             "status_label" => $status["label"],
             "can_start" => $status["can_start"],
@@ -455,18 +479,23 @@ class Api extends CI_Controller
                     "status" => false,
                     "message" => "Token tidak valid",
                     "token_valid" => false,
+                    "token" => false,
                     "token_msg" => "Token tidak valid",
                 ]);
                 return;
             }
         }
 
+        $client = $this->get_client_fingerprint();
+        $support = $this->is_supported_client($client);
+
         $data = [
             "status" => true,
             "message" => "Melanjutkan ujian",
             "token_valid" => true,
+            "token" => true,
             "token_msg" => "",
-            "support" => true,
+            "support" => $support,
             "status_code" => $status["code"],
             "status_label" => $status["label"],
             "can_start" => $status["can_start"],
@@ -474,7 +503,6 @@ class Api extends CI_Controller
 
         $this->db->trans_start();
 
-        $client = $this->get_client_fingerprint();
         $curr_address = $client["address"];
         $curr_agent = $client["agent"];
         $curr_device = $client["device"];
@@ -576,6 +604,35 @@ class Api extends CI_Controller
                     $this->db->set("reset", 0);
                     $this->db->where("id_durasi", $id_durasi);
                     $this->db->update("cbt_durasi_siswa");
+                } elseif ($elapsed->reset == "3") {
+                    $ada_waktu = true;
+                    $this->db->set("lama_ujian", "00:00:00");
+                    $this->db->set("mulai", date("Y-m-d H:i:s"));
+                    $this->db->set("reset", 0);
+                    $this->db->where("id_durasi", $id_durasi);
+                    $this->db->update("cbt_durasi_siswa");
+                } else {
+                    $mulai = new DateTime($elapsed->mulai);
+                    $interval = $mulai->diff(new DateTime());
+                    $minutes = $interval->days * 24 * 60 + $interval->h * 60 + $interval->i;
+                    $data["interval"] = [
+                        "days" => $interval->days,
+                        "hari" => $interval->d,
+                        "jam" => $interval->h,
+                        "menit" => $interval->i,
+                        "detik" => $interval->s,
+                        "total" => $minutes,
+                    ];
+                    $ada_waktu = $minutes < $info->durasi_ujian;
+                    $data["warn"] = [
+                        "durasi_ujian" => $info->durasi_ujian,
+                        "siswa_mulai" => $elapsed->mulai,
+                        "durasi_siswa" => $elapsed->lama_ujian,
+                        "timer_elapsed" => $minutes,
+                        "terlampaui" => $minutes - $info->durasi_ujian,
+                        "status" => $ada_waktu ? 0 : 1,
+                        "msg" => $ada_waktu ? "" : "Waktu ujian sudah habis",
+                    ];
                 }
             }
         }
@@ -621,6 +678,7 @@ class Api extends CI_Controller
         $id_jadwal = $this->input->post("jadwal");
         $id_bank = $this->input->post("bank");
         $nomor = $this->input->post("nomor") ?: 1;
+        $timer = $this->input->post("timer");
 
         if (empty($id_siswa) || $id_siswa === "0") {
             $siswa_session = $this->get_siswa();
@@ -638,7 +696,7 @@ class Api extends CI_Controller
             return;
         }
 
-        // Update timer
+        // Update timer (sama dengan Siswa.php checkTimer)
         $id_durasi = $id_siswa . "0" . $id_jadwal;
         $durasi = $this->cbt->getElapsed($id_durasi);
         if ($durasi && $durasi->reset == "0") {
@@ -657,11 +715,13 @@ class Api extends CI_Controller
             return;
         }
 
-        // Process soal jodohkan
-        foreach ($soals as &$s) {
-            if ($s->jenis_soal == "3") {
-                $s->jawaban = unserialize($s->jawaban);
-                if ($s->jawaban_siswa) $s->jawaban_siswa = unserialize($s->jawaban_siswa);
+        // Process soal jodohkan (sama dengan Siswa.php)
+        for ($s = 0; $s < count($soals); $s++) {
+            if ($soals[$s]->jenis_soal == "3") {
+                $soals[$s]->jawaban = unserialize($soals[$s]->jawaban);
+                if ($soals[$s]->jawaban_siswa != null) {
+                    $soals[$s]->jawaban_siswa = unserialize($soals[$s]->jawaban_siswa);
+                }
             }
         }
 
@@ -675,77 +735,107 @@ class Api extends CI_Controller
         }
 
         $item_soal = $soals[$ind_soal];
-
-        // Build opsi jawaban
-        $opsis = [];
         $max_jawaban = [];
+        $opsis = [];
 
+        // Build opsi - MATCH SISWA.PHP FORMAT EXACTLY
         if ($item_soal->jenis_soal == "1") { // PG
-            $jwbSiswa = strtoupper($item_soal->jawaban_siswa ?? '');
+            $jwbSiswa = $item_soal->jawaban_siswa != null ? strtoupper($item_soal->jawaban_siswa) : '';
             $opsis = [
-                ["alias" => $item_soal->opsi_alias_a, "opsi" => $item_soal->opsi_a, "value" => "A", "checked" => $jwbSiswa == "A"],
-                ["alias" => $item_soal->opsi_alias_b, "opsi" => $item_soal->opsi_b, "value" => "B", "checked" => $jwbSiswa == "B"],
-                ["alias" => $item_soal->opsi_alias_c, "opsi" => $item_soal->opsi_c, "value" => "C", "checked" => $jwbSiswa == "C"],
-                ["alias" => $item_soal->opsi_alias_d, "opsi" => $item_soal->opsi_d, "value" => "D", "checked" => $jwbSiswa == "D"],
-                ["alias" => $item_soal->opsi_alias_e, "opsi" => $item_soal->opsi_e, "value" => "E", "checked" => $jwbSiswa == "E"],
+                ["valAlias" => $item_soal->opsi_alias_a, "opsi" => $item_soal->opsi_a, "value" => "A", "checked" => "A" === $jwbSiswa ? "checked" : ''],
+                ["valAlias" => $item_soal->opsi_alias_b, "opsi" => $item_soal->opsi_b, "value" => "B", "checked" => "B" === $jwbSiswa ? "checked" : ''],
+                ["valAlias" => $item_soal->opsi_alias_c, "opsi" => $item_soal->opsi_c, "value" => "C", "checked" => "C" === $jwbSiswa ? "checked" : ''],
+                ["valAlias" => $item_soal->opsi_alias_d, "opsi" => $item_soal->opsi_d, "value" => "D", "checked" => "D" === $jwbSiswa ? "checked" : ''],
+                ["valAlias" => $item_soal->opsi_alias_e, "opsi" => $item_soal->opsi_e, "value" => "E", "checked" => "E" === $jwbSiswa ? "checked" : '']
             ];
-            usort($opsis, fn($a, $b) => $a["alias"] <=> $b["alias"]);
+            usort($opsis, function ($a, $b) {
+                return $a["valAlias"] <=> $b["valAlias"];
+            });
         } elseif ($item_soal->jenis_soal == "2") { // Kompleks
+            $max_jawaban = [count(array_filter(unserialize($item_soal->jawaban)))];
             $item_soal->opsi_a = unserialize($item_soal->opsi_a);
-            $item_soal->jawaban_siswa = $item_soal->jawaban_siswa ? unserialize($item_soal->jawaban_siswa) : [];
-            $max_jawaban = count(array_filter(unserialize($item_soal->jawaban_benar ?? $item_soal->jawaban)));
-            
+            $item_soal->jawaban_siswa = unserialize($item_soal->jawaban_siswa);
+            $jwbSiswa = $item_soal->jawaban_siswa != null ? $item_soal->jawaban_siswa : [];
             foreach ($item_soal->opsi_a as $key => $opsi) {
                 $opsis[] = [
-                    "opsi" => $opsi,
-                    "value" => $key,
-                    "checked" => in_array(strtoupper($key), $item_soal->jawaban_siswa)
+                    "opsi" => $opsi, 
+                    "value" => $key, 
+                    "checked" => in_array(strtoupper($key), $jwbSiswa) ? 'checked="true"' : ''
                 ];
             }
-        }
-
-        // Build daftar soal untuk navigasi
-        $daftar_soal = [];
-        foreach ($soals as $s) {
-            $terjawab = false;
-            if ($s->jawaban_siswa) {
-                if ($s->jenis_soal == "3") {
-                    // Jodohkan - cek apakah ada jawaban
-                    $terjawab = is_array($s->jawaban_siswa) && !empty($s->jawaban_siswa);
-                } else {
-                    $terjawab = $s->jawaban_siswa != '';
+            usort($opsis, function ($a, $b) {
+                return $a["value"] <=> $b["value"];
+            });
+        } elseif ($item_soal->jenis_soal == "3") { // Jodohkan
+            $jwbs = $item_soal->jawaban;
+            if (isset($jwbs["jawaban"])) {
+                foreach ($jwbs["jawaban"] as $jwb) {
+                    $max_jawaban[$jwb[0]] = 0;
+                    for ($i = 1; $i < count($jwb); $i++) {
+                        if ($jwb[$i] == "1") {
+                            $max_jawaban[$jwb[0]] += 1;
+                        }
+                    }
                 }
             }
-            $daftar_soal[] = [
-                "nomor" => $s->no_soal_alias,
-                "jenis" => $s->jenis_soal,
-                "terjawab" => $terjawab,
-                "jawaban_alias" => $s->jawaban_alias
+            $ada_jawab = $item_soal->jawaban_siswa != null;
+            $jawaban_siswa = $ada_jawab ? $item_soal->jawaban_siswa : json_decode(json_encode($item_soal->jawaban));
+            $theader = [];
+            $tbody = [];
+            if (isset($jawaban_siswa->jawaban)) {
+                foreach ($jawaban_siswa->jawaban as $key => $jawaban) {
+                    if ($key === 0) {
+                        $theader = $jawaban;
+                    } else {
+                        if ($ada_jawab) {
+                            $tbody[] = $jawaban;
+                        } else {
+                            $tbody[$key] = [];
+                            foreach ($jawaban as $index => $nbaris) {
+                                if ($index === 0) {
+                                    $tbody[$key][] = $nbaris;
+                                } else {
+                                    $tbody[$key][] = '';
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            $opsis = [
+                "tabel" => isset($jwbs["jawaban"]) ? $jwbs["jawaban"] : [], 
+                "thead" => $theader, 
+                "tbody" => $tbody, 
+                "model" => isset($item_soal->jawaban["model"]) ? $item_soal->jawaban["model"] : "2", 
+                "type" => isset($item_soal->jawaban["type"]) ? $item_soal->jawaban["type"] : "2"
             ];
         }
 
-        $jadwal = $this->cbt->getJadwalById($id_jadwal);
+        // Count terjawab (simplified - sama dengan Siswa.php)
+        $arrJawaban = [];
+        foreach ($soals as $soal) {
+            if ($soal->jawaban_siswa != null && $soal->jawaban_siswa != '') {
+                $arrJawaban[] = $soal->jawaban_alias;
+            }
+        }
 
+        // Response FLAT - MATCH SISWA.PHP FORMAT EXACTLY
         $this->output_json([
             "status" => true,
-            "soal" => [
-                "id" => $item_soal->id_soal,
-                "id_soal_siswa" => $item_soal->id_soal_siswa,
-                "nomor" => $item_soal->no_soal_alias,
-                "jenis" => $item_soal->jenis_soal,
-                "soal" => $item_soal->soal,
-                "file" => $item_soal->file,
-                "opsi" => $opsis,
-                "jawaban_siswa" => $item_soal->jawaban_siswa,
-                "max_jawaban" => $max_jawaban
-            ],
             "durasi" => $durasi,
-            "jadwal" => [
-                "durasi_ujian" => $jadwal->durasi_ujian,
-                "reset_login" => $jadwal->reset_login
-            ],
-            "daftar_soal" => $daftar_soal,
-            "total_soal" => count($soals)
+            "timer" => $timer,
+            "soal_id" => $item_soal->id_soal,
+            "soal_siswa_id" => $item_soal->id_soal_siswa,
+            "soal_nomor" => $item_soal->no_soal_alias,
+            "soal_nomor_asli" => $item_soal->nomor_soal,
+            "soal_jenis" => $item_soal->jenis_soal,
+            "soal_soal" => $item_soal->soal,
+            "soal_file" => $item_soal->file,
+            "soal_opsi" => json_decode(json_encode($opsis)),
+            "soal_jawaban_siswa" => $item_soal->jawaban_siswa,
+            "max_jawaban" => $max_jawaban,
+            "soal_total" => count($soals),
+            "soal_terjawab" => count($arrJawaban)
         ]);
     }
 
@@ -753,48 +843,63 @@ class Api extends CI_Controller
     {
         if (!$this->check_login()) return;
 
-        $id_siswa = $this->input->post("siswa");
-        $id_jadwal = $this->input->post("jadwal");
-        $id_bank = $this->input->post("bank");
-        $elapsed = $this->input->post("elapsed");
-        $jawab = json_decode($this->input->post("data"));
+        $id_bank = $this->input->post("bank", true);
+        $timer = $this->input->post("waktu", true); // Same as Siswa.php
+        $id_siswa = $this->input->post("siswa", true);
+        $id_jadwal = $this->input->post("jadwal", true);
+        $elapsed = $this->input->post("elapsed", true);
+        $id_durasi = $id_siswa . "0" . $id_jadwal;
 
-        // Update elapsed time
-        if ($elapsed && $elapsed != "0") {
+        // Update elapsed (sama dengan Siswa.php)
+        if ($elapsed != "0") {
             $this->db->set("lama_ujian", $elapsed);
-            $this->db->where("id_durasi", $id_siswa . "0" . $id_jadwal);
+            $this->db->where("id_durasi", $id_durasi);
             $this->db->update("cbt_durasi_siswa");
         }
 
-        // Simpan jawaban
-        if ($jawab && isset($jawab->jenis)) {
-            if ($jawab->jenis == 1) { // PG
+        $update = true;
+        $jawab = json_decode($this->input->post("data", false));
+
+        if ($jawab != null && isset($jawab->jenis)) {
+            if ($jawab->jenis == 1) {
                 $this->db->set("jawaban_alias", $jawab->jawaban_alias);
                 $this->db->set("jawaban_siswa", $jawab->jawaban_siswa);
-            } elseif ($jawab->jenis == 2) { // Kompleks
+            } elseif ($jawab->jenis == 2) {
                 $this->db->set("jawaban_alias", '');
                 $this->db->set("jawaban_siswa", serialize($jawab->jawaban_siswa));
-            } elseif ($jawab->jenis == 3) { // Jodohkan
+            } elseif ($jawab->jenis == 3) {
+                $this->db->set("jawaban_alias", '');
                 $this->db->set("jawaban_siswa", serialize($jawab->jawaban_siswa));
-            } elseif ($jawab->jenis == 4 || $jawab->jenis == 5) { // Isian/Esai
-                $this->db->set("jawaban_siswa", $jawab->jawaban_siswa);
+            } else {
+                // Isian/Esai (jenis 4/5) - sama dengan Siswa.php
+                $jawab_essai = $this->input->post("jawaban", false);
+                $this->db->set("jawaban_alias", '');
+                $this->db->set("jawaban_siswa", $jawab_essai);
             }
             $this->db->where("id_soal_siswa", $jawab->id_soal_siswa);
-            $this->db->update("cbt_soal_siswa");
+            $update = $this->db->update("cbt_soal_siswa");
         }
 
-        // Hitung jumlah terjawab
-        $terjawab = $this->cbt->getJumlahJawaban($id_bank, $id_siswa);
-        $count = 0;
-        foreach ($terjawab as $j) {
-            if ($j->jawaban_siswa) $count++;
+        $data["status"] = $update;
+
+        // Hitung terjawab (sama dengan Siswa.php)
+        if ($update && $id_bank != null) {
+            $arrJawaban = [];
+            $terjawab = $this->cbt->getJumlahJawaban($id_bank, $id_siswa);
+            foreach ($terjawab as $jawab) {
+                if ($jawab->jawaban_siswa != null && $jawab->jawaban_siswa != '') {
+                    array_push($arrJawaban, $jawab);
+                }
+            }
+            $data["soal_terjawab"] = count($arrJawaban);
         }
 
-        $this->output_json([
-            "status" => true,
-            "message" => "Jawaban tersimpan",
-            "terjawab" => $count
-        ]);
+        // Auto-finish jika timer != null (sama dengan Siswa.php)
+        if ($update && $timer != null) {
+            $this->selesai();
+        }
+
+        $this->output_json($data);
     }
 
     public function selesai()
@@ -804,21 +909,15 @@ class Api extends CI_Controller
         $id_siswa = $this->input->post("siswa");
         $id_jadwal = $this->input->post("jadwal");
 
-        // Olah nilai
-        $this->olahNilai($id_siswa, $id_jadwal);
-
-        // Update status selesai
+        // Sama dengan Siswa.php selesaiUjian
+        $data["status_nilai"] = $this->olahNilai($id_siswa, $id_jadwal);
         $this->db->set("selesai", date("Y-m-d H:i:s"));
         $this->db->set("status", 2);
         $this->db->where("id_durasi", $id_siswa . "0" . $id_jadwal);
-        $this->db->update("cbt_durasi_siswa");
-
-        $this->cbt->saveLog($id_siswa, $id_jadwal, 2, "Menyelesaikan Ujian Mobile");
-
-        $this->output_json([
-            "status" => true,
-            "message" => "Ujian selesai"
-        ]);
+        $update = $this->db->update("cbt_durasi_siswa");
+        $this->cbt->saveLog($id_siswa, $id_jadwal, 2, "Menyelesaikan Ujian");
+        $data["status"] = $update;
+        $this->output_json($data);
     }
 
     public function cekStatusUjian()
@@ -871,6 +970,10 @@ class Api extends CI_Controller
                 $arrOpsi = ["A", "B"];
             } elseif ($opsis == "3") {
                 $arrOpsi = ["A", "B", "C"];
+            } elseif ($opsis == "4") {
+                $arrOpsi = ["A", "B", "C", "D"];
+            } else {
+                $arrOpsi = ["A", "B", "C", "D", "E"];
             }
             $arrNum = range(1, $total);
             if ($jadwal->acak_soal == "1") {
@@ -910,6 +1013,8 @@ class Api extends CI_Controller
                         $item_soal["point_soal"] = $jadwal->bobot_jodohkan > 0 ? round($jadwal->bobot_jodohkan / $jadwal->tampil_jodohkan, 2) : 0;
                     } elseif ($jenis == "4") {
                         $item_soal["point_soal"] = $jadwal->bobot_isian > 0 ? round($jadwal->bobot_isian / $jadwal->tampil_isian, 2) : 0;
+                    } elseif ($jenis == "5") {
+                        $item_soal["point_soal"] = $jadwal->bobot_esai > 0 ? round($jadwal->bobot_esai / $jadwal->tampil_esai, 2) : 0;
                     }
                     $item_soal["jawaban_benar"] = $soal->jawaban;
                     $item_soal["soal_end"] = $j + 1 === count($arrNum) ? "1" : "0";
