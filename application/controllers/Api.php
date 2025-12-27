@@ -49,6 +49,156 @@ class Api extends CI_Controller
         return $this->cbt->getDataSiswa($user->username, $periode['tp']->id_tp, $periode['smt']->id_smt);
     }
 
+    private function get_client_fingerprint()
+    {
+        $curr_address = $this->input->ip_address();
+        if ($this->agent->is_browser()) {
+            $curr_agent = $this->agent->browser() . " " . $this->agent->version();
+        } else {
+            if ($this->agent->is_mobile()) {
+                $curr_agent = $this->agent->mobile();
+            } else {
+                $curr_agent = "unknown";
+            }
+        }
+        $curr_device = $this->agent->platform();
+
+        return [
+            "address" => $curr_address,
+            "agent" => $curr_agent,
+            "device" => $curr_device,
+        ];
+    }
+
+    private function get_cbt_context()
+    {
+        $siswa = $this->get_siswa();
+        $periode = $this->get_tp_smt();
+        $today = strtotime(date("Y-m-d"));
+
+        $cbt_info = $this->cbt->getSiswaCbtInfo($siswa->id_siswa, $periode['tp']->id_tp, $periode['smt']->id_smt);
+        if ($cbt_info) {
+            $cbt_info->no_peserta = $this->cbt->getNomorPeserta($siswa->id_siswa);
+        }
+
+        $cbt_jadwal = $this->cbt->getJadwalCbt($periode['tp']->id_tp, $periode['smt']->id_smt, $siswa->level_id);
+        $jadwal_aktif = [];
+        $elapsed = [];
+
+        foreach ($cbt_jadwal as $jadwal) {
+            $kk = unserialize($jadwal->bank_kelas);
+            $arrKelas = array_column($kk, 'kelas_id');
+
+            if ($cbt_info && in_array($cbt_info->id_kelas, $arrKelas) && $jadwal->status === "1") {
+                $mulai = strtotime($jadwal->tgl_mulai);
+                $selesai = strtotime($jadwal->tgl_selesai);
+
+                if ($today >= $mulai && $today <= $selesai) {
+                    if ($jadwal->soal_agama == "-" || $jadwal->soal_agama == "0" || $jadwal->soal_agama == $siswa->agama) {
+                        $jadwal_aktif[$jadwal->tgl_mulai][] = $jadwal;
+                    }
+                }
+            }
+            $elapsed[$jadwal->id_jadwal] = $this->cbt->getElapsed($siswa->id_siswa . "0" . $jadwal->id_jadwal);
+        }
+
+        $this->load->model("Dropdown_model", "dropdown");
+        $sesi = $this->dropdown->getAllWaktuSesi();
+
+        return [
+            "siswa" => $siswa,
+            "periode" => $periode,
+            "cbt_info" => $cbt_info,
+            "jadwal_aktif" => $jadwal_aktif,
+            "elapsed" => $elapsed,
+            "sesi" => $sesi,
+        ];
+    }
+
+    private function attach_cbt_status(&$jadwal_aktif, $elapsed, $cbt_info, $sesi)
+    {
+        $status_map = [];
+        $today = strtotime(date("Y-m-d"));
+        $now = strtotime(date("H:i"));
+
+        $jamSesi = null;
+        $sesiMulai = null;
+        $sesiSampai = null;
+        $sesiLabel = "SESI";
+
+        if ($cbt_info) {
+            $jamSesi = isset($cbt_info->sesi_id) ? $cbt_info->sesi_id : $cbt_info->id_sesi;
+            if ($jamSesi && isset($sesi[$jamSesi])) {
+                $sesiMulai = $sesi[$jamSesi]["mulai"];
+                $sesiSampai = $sesi[$jamSesi]["akhir"];
+            }
+            if (!empty($cbt_info->nama_sesi)) {
+                $sesiLabel = strtoupper($cbt_info->nama_sesi);
+            }
+        }
+
+        $jadwal_selesai = [];
+
+        foreach ($jadwal_aktif as $tgl => $items) {
+            foreach ($items as $item) {
+                $durasi = isset($elapsed[$item->id_jadwal]) ? $elapsed[$item->id_jadwal] : null;
+                $selesai = $durasi != null && $durasi->selesai != null;
+                $lanjutkan = $durasi != null && $durasi->lama_ujian != null;
+                $reset = $durasi != null ? $durasi->reset : 0;
+
+                $jadwal_selesai[$tgl][$item->jam_ke] = $durasi != null ? $durasi->status == '2' : false;
+
+                $status_code = "kerjakan";
+                $status_label = "KERJAKAN";
+
+                if (!$lanjutkan && (string)$reset === "0" && !$selesai) {
+                    $startDay = strtotime($item->tgl_mulai);
+                    $endDay = strtotime($item->tgl_selesai);
+
+                    if ($today < $startDay) {
+                        $status_code = "belum_dimulai";
+                        $status_label = "BELUM DIMULAI";
+                    } elseif ($today > $endDay) {
+                        $status_code = "sudah_berakhir";
+                        $status_label = "SUDAH BERAKHIR";
+                    } else {
+                        if ($sesiMulai && $now < strtotime($sesiMulai)) {
+                            $status_code = "sesi_belum_mulai";
+                            $status_label = $sesiLabel . " BELUM DIMULAI";
+                        } elseif ($sesiSampai && $now > strtotime($sesiSampai)) {
+                            $status_code = "sesi_berakhir";
+                            $status_label = $sesiLabel . " SUDAH BERAKHIR";
+                        } else {
+                            $prevKey = $item->jam_ke - 1;
+                            if (isset($jadwal_selesai[$tgl][$prevKey]) && $jadwal_selesai[$tgl][$prevKey] == false) {
+                                $status_code = "menunggu";
+                                $status_label = "MENUNGGU";
+                            }
+                        }
+                    }
+                } elseif ($lanjutkan && !$selesai) {
+                    $status_code = "lanjutkan";
+                    $status_label = "LANJUTKAN";
+                } else {
+                    $status_code = "selesai";
+                    $status_label = "SUDAH SELESAI";
+                }
+
+                $item->status_code = $status_code;
+                $item->status_label = $status_label;
+                $item->can_start = $status_code === "kerjakan" || $status_code === "lanjutkan";
+
+                $status_map[$item->id_jadwal] = [
+                    "code" => $status_code,
+                    "label" => $status_label,
+                    "can_start" => $item->can_start,
+                ];
+            }
+        }
+
+        return $status_map;
+    }
+
     // ==================== AUTH ====================
 
     public function login()
@@ -119,45 +269,71 @@ class Api extends CI_Controller
     {
         if (!$this->check_login()) return;
 
-        $siswa = $this->get_siswa();
-        $periode = $this->get_tp_smt();
-        $today = strtotime(date("Y-m-d"));
+        $context = $this->get_cbt_context();
+        $cbt_info = $context["cbt_info"];
+        $jadwal_aktif = $context["jadwal_aktif"];
+        $elapsed = $context["elapsed"];
+        $sesi = $context["sesi"];
 
-        $cbt_info = $this->cbt->getSiswaCbtInfo($siswa->id_siswa, $periode['tp']->id_tp, $periode['smt']->id_smt);
-        if ($cbt_info) {
-            $cbt_info->no_peserta = $this->cbt->getNomorPeserta($siswa->id_siswa);
-        }
-
-        $cbt_jadwal = $this->cbt->getJadwalCbt($periode['tp']->id_tp, $periode['smt']->id_smt, $siswa->level_id);
-        $jadwal_aktif = [];
-        $elapsed = [];
-
-        foreach ($cbt_jadwal as $jadwal) {
-            $kk = unserialize($jadwal->bank_kelas);
-            $arrKelas = array_column($kk, 'kelas_id');
-
-            if ($cbt_info && in_array($cbt_info->id_kelas, $arrKelas) && $jadwal->status === "1") {
-                $mulai = strtotime($jadwal->tgl_mulai);
-                $selesai = strtotime($jadwal->tgl_selesai);
-
-                if ($today >= $mulai && $today <= $selesai) {
-                    if ($jadwal->soal_agama == "-" || $jadwal->soal_agama == "0" || $jadwal->soal_agama == $siswa->agama) {
-                        $jadwal_aktif[$jadwal->tgl_mulai][] = $jadwal;
-                    }
-                }
-            }
-            $elapsed[$jadwal->id_jadwal] = $this->cbt->getElapsed($siswa->id_siswa . "0" . $jadwal->id_jadwal);
-        }
-
-        $this->load->model("Dropdown_model", "dropdown");
-        $sesi = $this->dropdown->getAllWaktuSesi();
+        $this->attach_cbt_status($jadwal_aktif, $elapsed, $cbt_info, $sesi);
 
         $this->output_json([
             "status" => true,
             "cbt_info" => $cbt_info,
             "jadwal" => $jadwal_aktif,
             "elapsed" => $elapsed,
-            "sesi" => $sesi
+            "sesi" => $sesi,
+            "server_time" => date("Y-m-d H:i:s"),
+        ]);
+    }
+
+    public function checktimer($id_siswa = null, $id_jadwal = null)
+    {
+        if (!$this->check_login()) return;
+
+        $this->load->model("Cbt_model", "cbt");
+
+        if (empty($id_jadwal)) {
+            $this->output_json(["status" => false, "message" => "Jadwal tidak ditemukan"]);
+            return;
+        }
+
+        if (empty($id_siswa) || $id_siswa === "0") {
+            $siswa = $this->get_siswa();
+            $id_siswa = $siswa ? $siswa->id_siswa : $id_siswa;
+        }
+
+        if (empty($id_siswa) || $id_siswa === "0") {
+            $this->output_json(["status" => false, "message" => "Siswa tidak ditemukan"]);
+            return;
+        }
+
+        $id_durasi = $id_siswa . "0" . $id_jadwal;
+        $durasi = $this->cbt->getElapsed($id_durasi);
+        if ($durasi != null) {
+            $mulai = new DateTime($durasi->mulai);
+            $diff = $mulai->diff(new DateTime());
+            $elapsed = $diff->format("%H:%I:%S");
+            if ($durasi->reset == "0") {
+                $this->db->set("lama_ujian", $elapsed);
+                $this->db->where("id_durasi", $id_durasi);
+                $this->db->update("cbt_durasi_siswa");
+                $durasi = $this->cbt->getElapsed($id_durasi);
+            } elseif ($durasi->reset == "1") {
+                $this->db->set("lama_ujian", "00:00:00");
+                $this->db->set("reset", 0);
+                $this->db->where("id_durasi", $id_durasi);
+                $this->db->update("cbt_durasi_siswa");
+                $durasi = $this->cbt->getElapsed($id_durasi);
+            }
+        } else {
+            $durasi = null;
+        }
+
+        $this->output_json([
+            "status" => true,
+            "elapsed" => $durasi,
+            "server_time" => date("Y-m-d H:i:s"),
         ]);
     }
 
@@ -166,12 +342,20 @@ class Api extends CI_Controller
         if (!$this->check_login()) return;
 
         $this->load->model("Master_model", "master");
-        $siswa = $this->get_siswa();
-        $periode = $this->get_tp_smt();
+        $context = $this->get_cbt_context();
+        $siswa = $context["siswa"];
+        $periode = $context["periode"];
+        $cbt_info = $context["cbt_info"];
+        $jadwal_aktif = $context["jadwal_aktif"];
+        $elapsed = $context["elapsed"];
+        $sesi = $context["sesi"];
 
         $info = $this->cbt->getJadwalById($id_jadwal);
         $bank = $this->cbt->getCbt($id_jadwal);
-        $cbt_info = $this->cbt->getSiswaCbtInfo($siswa->id_siswa, $periode['tp']->id_tp, $periode['smt']->id_smt);
+        if (!$info) {
+            $this->output_json(["status" => false, "message" => "Jadwal tidak ditemukan"]);
+            return;
+        }
 
         // Get pengawas
         $pengawas = [];
@@ -186,14 +370,30 @@ class Api extends CI_Controller
 
         // Check device validity untuk reset_login
         $valid = true;
-        if ($info->reset_login == "1") {
+        if ($info && $info->reset_login == "1") {
             $log = $this->db->where("id_log", $siswa->id_siswa . "0" . $id_jadwal . "1")->get("log_ujian")->row();
-            if ($log && $log->reset == 0) {
-                $curr_agent = $this->agent->is_browser() ? $this->agent->browser() . " " . $this->agent->version() : 
-                             ($this->agent->is_mobile() ? $this->agent->mobile() : "Mobile App");
-                $valid = ($log->agent == $curr_agent || $log->agent == "Mobile App");
+            if ($log) {
+                $client = $this->get_client_fingerprint();
+                if ((int)$log->reset === 1) {
+                    $this->db->set("address", $client["address"]);
+                    $this->db->set("agent", $client["agent"]);
+                    $this->db->set("device", $client["device"]);
+                    $this->db->set("reset", 0);
+                    $this->db->where("id_log", $siswa->id_siswa . "0" . $id_jadwal . "1");
+                    if ($this->db->update("log_ujian")) {
+                        $log = $this->db->where("id_log", $siswa->id_siswa . "0" . $id_jadwal . "1")->get("log_ujian")->row();
+                    }
+                }
+                $valid = $log->address == $client["address"] && $log->agent == $client["agent"] && $log->device == $client["device"];
             }
         }
+
+        $status_map = $this->attach_cbt_status($jadwal_aktif, $elapsed, $cbt_info, $sesi);
+        $status = isset($status_map[$id_jadwal]) ? $status_map[$id_jadwal] : [
+            "code" => "tidak_tersedia",
+            "label" => "TIDAK TERSEDIA",
+            "can_start" => false,
+        ];
 
         $this->output_json([
             "status" => true,
@@ -201,7 +401,11 @@ class Api extends CI_Controller
             "bank" => $bank,
             "pengawas" => $pengawas,
             "token_required" => $info->token == '1',
-            "valid" => $valid
+            "valid" => $valid,
+            "status_code" => $status["code"],
+            "status_label" => $status["label"],
+            "can_start" => $status["can_start"],
+            "server_time" => date("Y-m-d H:i:s"),
         ]);
     }
 
@@ -215,53 +419,198 @@ class Api extends CI_Controller
         $token_siswa = $this->input->post("token");
 
         $info = $this->cbt->getJadwalById($id_jadwal);
+        if (!$info) {
+            $this->output_json(["status" => false, "message" => "Jadwal tidak ditemukan"]);
+            return;
+        }
+
+        if (empty($id_siswa) || $id_siswa === "0") {
+            $siswa = $this->get_siswa();
+            $id_siswa = $siswa->id_siswa;
+        }
+
+        $context = $this->get_cbt_context();
+        $status_map = $this->attach_cbt_status($context["jadwal_aktif"], $context["elapsed"], $context["cbt_info"], $context["sesi"]);
+        $status = isset($status_map[$id_jadwal]) ? $status_map[$id_jadwal] : null;
+        if (!$status) {
+            $this->output_json(["status" => false, "message" => "Ujian tidak tersedia"]);
+            return;
+        }
+        if ($status["can_start"] !== true) {
+            $this->output_json([
+                "status" => false,
+                "message" => "Ujian belum bisa dikerjakan: " . $status["label"],
+                "status_code" => $status["code"],
+                "status_label" => $status["label"],
+                "can_start" => $status["can_start"],
+            ]);
+            return;
+        }
 
         // Validasi token
         if ($info->token == "1") {
             $token = $this->cbt->getToken();
             if (!$token || $token->token != $token_siswa) {
-                $this->output_json(["status" => false, "message" => "Token tidak valid"]);
+                $this->output_json([
+                    "status" => false,
+                    "message" => "Token tidak valid",
+                    "token_valid" => false,
+                    "token_msg" => "Token tidak valid",
+                ]);
                 return;
             }
         }
 
+        $data = [
+            "status" => true,
+            "message" => "Melanjutkan ujian",
+            "token_valid" => true,
+            "token_msg" => "",
+            "support" => true,
+            "status_code" => $status["code"],
+            "status_label" => $status["label"],
+            "can_start" => $status["can_start"],
+        ];
+
+        $this->db->trans_start();
+
+        $client = $this->get_client_fingerprint();
+        $curr_address = $client["address"];
+        $curr_agent = $client["agent"];
+        $curr_device = $client["device"];
+
+        $mulai_baru = false;
+        $cek_reset_waktu = false;
+        $izinkan = false;
+
         // Cek/buat log ujian
         $log = $this->db->where("id_log", $id_siswa . "0" . $id_jadwal . "1")->get("log_ujian")->row();
-        $mulai_baru = false;
+        if ($log == null) {
+            $insert = [
+                "id_log" => $id_siswa . "0" . $id_jadwal . "1",
+                "id_siswa" => $id_siswa,
+                "id_jadwal" => $id_jadwal,
+                "log_type" => 1,
+                "log_desc" => "Memulai Ujian Mobile",
+                "address" => $curr_address,
+                "agent" => $curr_agent,
+                "device" => $curr_device,
+            ];
+            $inserted = $this->db->insert("log_ujian", $insert);
+            if ($inserted) {
+                $log = $this->db->where("id_log", $id_siswa . "0" . $id_jadwal . "1")->get("log_ujian")->row();
+                $izinkan = true;
+                $mulai_baru = true;
+            }
+        } else {
+            if ($info->reset_login == "1") {
+                if ($log->address == $curr_address && $log->agent == $curr_agent && $log->device == $curr_device) {
+                    $izinkan = true;
+                } else {
+                    if ($log->reset == "0") {
+                        $izinkan = false;
+                    } else {
+                        $this->db->set("address", $curr_address);
+                        $this->db->set("agent", $curr_agent);
+                        $this->db->set("device", $curr_device);
+                        $this->db->set("reset", 0);
+                        $this->db->where("id_log", $id_siswa . "0" . $id_jadwal . "1");
+                        if ($this->db->update("log_ujian")) {
+                            $log = $this->db->where("id_log", $id_siswa . "0" . $id_jadwal . "1")->get("log_ujian")->row();
+                            $izinkan = true;
+                        }
+                        $cek_reset_waktu = true;
+                    }
+                }
+            } else {
+                $izinkan = true;
+            }
+        }
 
-        if (!$log) {
-            $this->cbt->saveLog($id_siswa, $id_jadwal, 1, "Memulai Ujian Mobile");
-            $log = $this->db->where("id_log", $id_siswa . "0" . $id_jadwal . "1")->get("log_ujian")->row();
-            $mulai_baru = true;
+        $data["izinkan"] = $izinkan;
+        $data["log"] = $log;
+        $data["mulai_baru"] = $mulai_baru;
 
-            // Set device info
-            $this->db->set("agent", "Mobile App");
-            $this->db->set("device", "Mobile");
-            $this->db->set("address", $this->input->ip_address());
-            $this->db->where("id_log", $id_siswa . "0" . $id_jadwal . "1");
-            $this->db->update("log_ujian");
+        if (!$izinkan) {
+            $data["status"] = false;
+            $data["message"] = "Validasi device gagal. Reset login diperlukan.";
+            $this->db->trans_complete();
+            $this->output_json($data);
+            return;
         }
 
         // Cek/buat durasi
         $id_durasi = $id_siswa . "0" . $id_jadwal;
-        $durasi = $this->cbt->getElapsed($id_durasi);
-        if (!$durasi) {
-            $this->db->insert("cbt_durasi_siswa", [
-                "id_durasi" => $id_durasi,
-                "id_siswa" => $id_siswa,
-                "id_jadwal" => $id_jadwal,
-                "mulai" => date("Y-m-d H:i:s"),
-                "status" => 1
-            ]);
-            $durasi = $this->cbt->getElapsed($id_durasi);
+        $elapsed = $this->cbt->getElapsed($id_durasi);
+        $mulai_baru_d = false;
+        $ada_waktu = false;
+
+        if ($izinkan || $cek_reset_waktu) {
+            if ($elapsed == null) {
+                $ada_waktu = true;
+                $mulai_baru_d = true;
+                $this->db->insert("cbt_durasi_siswa", [
+                    "id_durasi" => $id_durasi,
+                    "id_siswa" => $id_siswa,
+                    "id_jadwal" => $id_jadwal,
+                    "status" => 1,
+                    "mulai" => date("Y-m-d H:i:s"),
+                    "lama_ujian" => "00:00:00",
+                    "reset" => 0,
+                ]);
+            } else {
+                $mulai_baru_d = $elapsed->reset == "3";
+                if ($elapsed->reset == "1") {
+                    $ada_waktu = true;
+                    $this->db->set("lama_ujian", "00:00:00");
+                    $this->db->set("mulai", date("Y-m-d H:i:s"));
+                    $this->db->set("reset", 0);
+                    $this->db->where("id_durasi", $id_durasi);
+                    $this->db->update("cbt_durasi_siswa");
+                } elseif ($elapsed->reset == "2") {
+                    $ada_waktu = true;
+                    $dt = explode(":", $elapsed->lama_ujian);
+                    $time = new DateTime();
+                    $time->sub(new DateInterval("PT" . $dt[0] . "H" . $dt[1] . "M" . $dt[2] . "S"));
+                    $this->db->set("mulai", $time->format("Y-m-d H:i:s"));
+                    $this->db->set("reset", 0);
+                    $this->db->where("id_durasi", $id_durasi);
+                    $this->db->update("cbt_durasi_siswa");
+                }
+            }
         }
 
-        $this->output_json([
-            "status" => true,
-            "message" => $mulai_baru ? "Ujian dimulai" : "Melanjutkan ujian",
-            "log" => $log,
-            "durasi" => $durasi
-        ]);
+        $data["mulai_baru_d"] = $mulai_baru_d;
+        $data["ada_waktu"] = $ada_waktu;
+        $data["elapsed"] = $this->cbt->getElapsed($id_durasi);
+
+        if ($ada_waktu) {
+            $soal = $this->cbt->getJumlahSoalSiswa($id_bank, $id_siswa);
+            if ($soal > 0) {
+                if ($mulai_baru && $mulai_baru_d) {
+                    $this->db->delete("cbt_soal_siswa", [
+                        "id_jadwal" => $id_jadwal,
+                        "id_siswa" => $id_siswa,
+                        "id_bank" => $id_bank,
+                    ]);
+                    $nomor_soal = $this->createQueueNumber($id_siswa, $id_bank, $id_jadwal);
+                    if (count($nomor_soal) > 0) {
+                        $this->db->insert_batch("cbt_soal_siswa", $nomor_soal);
+                    }
+                }
+            } else {
+                $nomor_soal = $this->createQueueNumber($id_siswa, $id_bank, $id_jadwal);
+                if (count($nomor_soal) > 0) {
+                    $this->db->insert_batch("cbt_soal_siswa", $nomor_soal);
+                }
+            }
+            $data["jml_soal"] = $this->cbt->getJumlahSoalSiswa($id_bank, $id_siswa);
+        }
+
+        $this->db->trans_complete();
+
+        $data["message"] = $mulai_baru ? "Ujian dimulai" : "Melanjutkan ujian";
+        $this->output_json($data);
     }
 
     public function loadsoal()
@@ -273,8 +622,21 @@ class Api extends CI_Controller
         $id_bank = $this->input->post("bank");
         $nomor = $this->input->post("nomor") ?: 1;
 
+        if (empty($id_siswa) || $id_siswa === "0") {
+            $siswa_session = $this->get_siswa();
+            $id_siswa = $siswa_session ? $siswa_session->id_siswa : $id_siswa;
+        }
+        if (empty($id_siswa) || $id_siswa === "0") {
+            $this->output_json(["status" => false, "message" => "Siswa tidak ditemukan"]);
+            return;
+        }
+
         $periode = $this->get_tp_smt();
         $siswa = $this->cbt->getDataSiswaById($periode['tp']->id_tp, $periode['smt']->id_smt, $id_siswa);
+        if (!$siswa) {
+            $this->output_json(["status" => false, "message" => "Data siswa tidak ditemukan"]);
+            return;
+        }
 
         // Update timer
         $id_durasi = $id_siswa . "0" . $id_jadwal;
@@ -486,6 +848,81 @@ class Api extends CI_Controller
             "server_time" => date("Y-m-d H:i:s"),
             "elapsed_seconds" => $elapsed_seconds
         ]);
+    }
+
+    private function createQueueNumber($id_siswa, $id_bank, $id_jadwal)
+    {
+        $cek_soal = $this->cbt->getAllIdSoal($id_bank);
+        $jadwal = $this->cbt->getInfoJadwal($id_bank);
+        $num1 = isset($cek_soal["1"]) ? count($cek_soal["1"]) : 0;
+        $num2 = isset($cek_soal["2"]) ? count($cek_soal["2"]) : 0;
+        $num3 = isset($cek_soal["3"]) ? count($cek_soal["3"]) : 0;
+        $num4 = isset($cek_soal["4"]) ? count($cek_soal["4"]) : 0;
+        $num5 = isset($cek_soal["5"]) ? count($cek_soal["5"]) : 0;
+        $total = $num1 + $num2 + $num3 + $num4 + $num5;
+        $ada1 = $num1 == (int) $jadwal->tampil_pg;
+        $ada2 = $num2 == (int) $jadwal->tampil_kompleks;
+        $ada3 = $num3 == (int) $jadwal->tampil_jodohkan;
+        $ada4 = $num4 == (int) $jadwal->tampil_isian;
+        $ada5 = $num5 == (int) $jadwal->tampil_esai;
+        if ($ada1 && $ada2 && $ada3 && $ada4 && $ada5) {
+            $opsis = $jadwal->opsi;
+            if ($opsis == "2") {
+                $arrOpsi = ["A", "B"];
+            } elseif ($opsis == "3") {
+                $arrOpsi = ["A", "B", "C"];
+            }
+            $arrNum = range(1, $total);
+            if ($jadwal->acak_soal == "1") {
+                shuffle($arrNum);
+            }
+            $items = [];
+            $j = 0;
+            foreach ($cek_soal as $jenis => $soals) {
+                foreach ($soals as $soal) {
+                    if ($jenis == "1") {
+                        if ($jadwal->acak_opsi == "1") {
+                            shuffle($arrOpsi);
+                        }
+                    }
+                    $item_soal["id_soal_siswa"] = $id_siswa . "0" . $id_jadwal . $id_bank . $arrNum[$j];
+                    $item_soal["id_bank"] = $id_bank;
+                    $item_soal["id_jadwal"] = $id_jadwal;
+                    $item_soal["id_soal"] = $soal->id_soal;
+                    $item_soal["id_siswa"] = $id_siswa;
+                    $item_soal["jenis_soal"] = $jenis;
+                    $item_soal["no_soal_alias"] = $arrNum[$j];
+                    if ($jenis == "1") {
+                        $item_soal["opsi_alias_a"] = $arrOpsi[0];
+                        $item_soal["opsi_alias_b"] = $arrOpsi[1];
+                        $item_soal["opsi_alias_c"] = isset($arrOpsi[2]) ? $arrOpsi[2] : '';
+                        $item_soal["opsi_alias_d"] = isset($arrOpsi[3]) ? $arrOpsi[3] : '';
+                        $item_soal["opsi_alias_e"] = isset($arrOpsi[4]) ? $arrOpsi[4] : '';
+                        $item_soal["point_soal"] = $jadwal->bobot_pg > 0 ? round($jadwal->bobot_pg / $jadwal->tampil_pg, 2) : 0;
+                    } elseif ($jenis == "2") {
+                        $item_soal["opsi_alias_a"] = "A";
+                        $item_soal["opsi_alias_b"] = '';
+                        $item_soal["opsi_alias_c"] = '';
+                        $item_soal["opsi_alias_d"] = '';
+                        $item_soal["opsi_alias_e"] = '';
+                        $item_soal["point_soal"] = $jadwal->bobot_kompleks > 0 ? round($jadwal->bobot_kompleks / $jadwal->tampil_kompleks, 2) : 0;
+                    } elseif ($jenis == "3") {
+                        $item_soal["point_soal"] = $jadwal->bobot_jodohkan > 0 ? round($jadwal->bobot_jodohkan / $jadwal->tampil_jodohkan, 2) : 0;
+                    } elseif ($jenis == "4") {
+                        $item_soal["point_soal"] = $jadwal->bobot_isian > 0 ? round($jadwal->bobot_isian / $jadwal->tampil_isian, 2) : 0;
+                    }
+                    $item_soal["jawaban_benar"] = $soal->jawaban;
+                    $item_soal["soal_end"] = $j + 1 === count($arrNum) ? "1" : "0";
+                    array_push($items, $item_soal);
+                    $j++;
+                }
+            }
+            usort($items, function ($a, $b) {
+                return $a["no_soal_alias"] <=> $b["no_soal_alias"];
+            });
+            return $items;
+        }
+        return array();
     }
 
     private function olahNilai($id_siswa, $id_jadwal)
