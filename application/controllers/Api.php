@@ -1759,4 +1759,539 @@ class Api extends CI_Controller
         $str = str_replace("Sun", "Minggu", $str);
         return $str;
     }
+
+    // ==================== POST & KOMENTAR ====================
+
+    /**
+     * Get posts untuk siswa berdasarkan kelas
+     * Mirror dari Siswa::getPost()
+     */
+    public function getpost()
+    {
+        if (!$this->check_login()) return;
+
+        $this->load->model("Post_model", "post");
+        $siswa = $this->get_siswa();
+        $kode = $this->input->get("kelas", true);
+        
+        // Jika kode tidak diberikan, gunakan kode_kelas siswa
+        if (empty($kode)) {
+            $kode = $siswa->kode_kelas;
+        }
+        
+        $post = $this->post->getPostForUser("'%siswa%'", "'%" . $kode . "%'");
+        $this->output_json(["status" => true, "data" => $post]);
+    }
+
+    /**
+     * Get komentar pada post
+     * Mirror dari Siswa::getComment()
+     */
+    public function getcomment($id_post = null, $page = 0)
+    {
+        if (!$this->check_login()) return;
+
+        if (empty($id_post)) {
+            $id_post = $this->input->get("id_post", true);
+            $page = $this->input->get("page", true) ?: 0;
+        }
+
+        if (empty($id_post)) {
+            $this->output_json(["status" => false, "message" => "ID post required"]);
+            return;
+        }
+
+        $perPage = 5;
+        $offset = $page * $perPage;
+
+        $this->db->query("SET SQL_BIG_SELECTS=1");
+        $this->db->select("a.*, b.nama_guru, b.foto, c.nama as nama_siswa, c.foto as foto_siswa, (SELECT COUNT(post_reply.id_reply) FROM post_reply WHERE a.id_comment = post_reply.id_comment) AS jml");
+        $this->db->from("post_comments a");
+        $this->db->join("master_guru b", "a.dari=b.id_guru", "left");
+        $this->db->join("master_siswa c", "a.dari=c.id_siswa", "left");
+        $this->db->order_by("a.tanggal", "desc");
+        $this->db->where("a.id_post", $id_post);
+        $this->db->limit($perPage, $offset);
+        $comment = $this->db->get()->result();
+
+        $this->output_json(["status" => true, "data" => $comment]);
+    }
+
+    /**
+     * Get balasan komentar
+     * Mirror dari Siswa::getReplies()
+     */
+    public function getreplies($id_comment = null, $page = 0)
+    {
+        if (!$this->check_login()) return;
+
+        if (empty($id_comment)) {
+            $id_comment = $this->input->get("id_comment", true);
+            $page = $this->input->get("page", true) ?: 0;
+        }
+
+        if (empty($id_comment)) {
+            $this->output_json(["status" => false, "message" => "ID comment required"]);
+            return;
+        }
+
+        $perPage = 5;
+        $offset = $page * $perPage;
+
+        $this->db->query("SET SQL_BIG_SELECTS=1");
+        $this->db->select("a.*, b.nama_guru, b.foto, c.nama as nama_siswa, c.foto as foto_siswa");
+        $this->db->from("post_reply a");
+        $this->db->join("master_guru b", "a.dari=b.id_guru", "left");
+        $this->db->join("master_siswa c", "a.dari=c.id_siswa", "left");
+        $this->db->order_by("a.tanggal", "desc");
+        $this->db->where("a.id_comment", $id_comment);
+        $this->db->limit($perPage, $offset);
+        $replies = $this->db->get()->result();
+
+        $this->output_json(["status" => true, "data" => $replies]);
+    }
+
+    /**
+     * Simpan komentar baru
+     * Mirror dari Siswa::saveKomentar()
+     */
+    public function savekomentar()
+    {
+        if (!$this->check_login()) return;
+
+        $id_post = $this->input->post("id_post", true);
+        $text = $this->input->post("text", true);
+
+        if (empty($id_post) || empty($text)) {
+            $this->output_json(["status" => false, "message" => "ID post dan text required"]);
+            return;
+        }
+
+        $siswa = $this->get_siswa();
+        $dari = $siswa->id_siswa;
+        $dari_group = 3; // 3 = siswa
+
+        $data = [
+            "type" => "1",
+            "id_post" => $id_post,
+            "dari" => $dari,
+            "dari_group" => $dari_group,
+            "text" => $text
+        ];
+
+        $this->db->insert("post_comments", $data);
+        $id = $this->db->insert_id();
+
+        // Get inserted comment with user info
+        $this->db->query("SET SQL_BIG_SELECTS=1");
+        $this->db->select("a.*, b.nama_guru, b.foto, c.nama as nama_siswa, c.foto as foto_siswa, (SELECT COUNT(post_reply.id_reply) FROM post_reply WHERE a.id_comment = post_reply.id_comment) AS jml");
+        $this->db->from("post_comments a");
+        $this->db->join("master_guru b", "a.dari=b.id_guru", "left");
+        $this->db->join("master_siswa c", "a.dari=c.id_siswa", "left");
+        $this->db->where("a.id_comment", $id);
+        $comment = $this->db->get()->row();
+
+        $this->output_json(["status" => true, "data" => $comment]);
+    }
+
+    /**
+     * Simpan balasan komentar
+     * Mirror dari Siswa::saveBalasan()
+     */
+    public function savebalasan()
+    {
+        if (!$this->check_login()) return;
+
+        $id_comment = $this->input->post("id_comment", true);
+        $text = $this->input->post("text", true);
+
+        if (empty($id_comment) || empty($text)) {
+            $this->output_json(["status" => false, "message" => "ID comment dan text required"]);
+            return;
+        }
+
+        $siswa = $this->get_siswa();
+        $dari = $siswa->id_siswa;
+        $dari_group = 3; // 3 = siswa
+
+        $data = [
+            "id_comment" => $id_comment,
+            "dari" => $dari,
+            "dari_group" => $dari_group,
+            "text" => $text
+        ];
+
+        $this->db->insert("post_reply", $data);
+        $id = $this->db->insert_id();
+
+        // Get inserted reply with user info
+        $this->db->query("SET SQL_BIG_SELECTS=1");
+        $this->db->select("a.*, b.nama_guru, b.foto, c.nama as nama_siswa, c.foto as foto_siswa");
+        $this->db->from("post_reply a");
+        $this->db->join("master_guru b", "a.dari=b.id_guru", "left");
+        $this->db->join("master_siswa c", "a.dari=c.id_siswa", "left");
+        $this->db->where("a.id_reply", $id);
+        $reply = $this->db->get()->row();
+
+        $this->output_json(["status" => true, "data" => $reply]);
+    }
+
+    // ==================== JADWAL SEMINGGU ====================
+
+    /**
+     * Get jadwal materi/tugas untuk hari tertentu
+     * Mirror dari Siswa::seminggu()
+     */
+    public function seminggu()
+    {
+        if (!$this->check_login()) return;
+
+        $this->load->model("Dropdown_model", "dropdown");
+        $this->load->model("Kelas_model", "kelas");
+
+        $id_siswa = $this->input->get("id_siswa", true);
+        $id_kelas = $this->input->get("id_kelas", true);
+        $tgl = $this->input->get("tgl", true);
+        $jenis = $this->input->get("jenis", true) ?: "1"; // 1=materi, 2=tugas
+
+        // Fallback ke siswa login jika tidak ada parameter
+        if (empty($id_siswa) || empty($id_kelas)) {
+            $siswa = $this->get_siswa();
+            $id_siswa = $siswa->id_siswa;
+            $id_kelas = $siswa->id_kelas;
+        }
+
+        if (empty($tgl)) {
+            $tgl = date("Y-m-d");
+        }
+
+        $mapels = $this->dropdown->getAllMapel();
+        $periode = $this->get_tp_smt();
+        $tp = $periode['tp'];
+        $smt = $periode['smt'];
+
+        $numday = date("N", strtotime($tgl));
+        $jadwal = $this->kelas->loadJadwalSiswaHariIni($tp->id_tp, $smt->id_smt, $id_kelas, $numday);
+        $materi_hari_ini = $this->kelas->getMateriSiswa($id_kelas, $tgl, $jenis);
+
+        $materi = [];
+        foreach ($jadwal as $key => $value) {
+            $materi["materi"][$key] = isset($materi_hari_ini[$key]) 
+                ? $materi_hari_ini[$key] 
+                : [
+                    "id_mapel" => $value->id_mapel, 
+                    "id_jadwal" => $value->id_jadwal, 
+                    "nama_mapel" => isset($mapels[$value->id_mapel]) ? $mapels[$value->id_mapel] : ''
+                ];
+        }
+
+        // Get status log untuk materi yang ada
+        $arrIdKjm = [];
+        if (isset($materi["materi"])) {
+            foreach ($materi["materi"] as $mtr) {
+                if (isset($mtr->id_kjm)) {
+                    array_push($arrIdKjm, $mtr->id_kjm);
+                }
+            }
+        }
+
+        if (count($arrIdKjm) > 0) {
+            $materi["logs"] = (array) $this->kelas->getStatusMateriSiswaByJadwal($id_siswa, $arrIdKjm);
+        } else {
+            $materi["logs"] = [];
+        }
+
+        $materi["jadwal"] = $jadwal;
+
+        // Get KBM info
+        $jadk = $this->kelas->getJadwalKbm($tp->id_tp, $smt->id_smt, $id_kelas);
+        if ($jadk) {
+            $jadk->istirahat = unserialize($jadk->istirahat);
+        }
+        $materi["kbm"] = $jadk;
+
+        // Get jadwal seminggu
+        $materi["seminggu"] = $this->kelas->loadJadwalSiswaSeminggu($tp->id_tp, $smt->id_smt, $id_kelas);
+
+        $this->output_json(["status" => true, "data" => $materi]);
+    }
+
+    // ==================== FILE UPLOAD ====================
+
+    /**
+     * Upload file siswa
+     * Mirror dari Siswa::uploadFile()
+     */
+    public function uploadfile()
+    {
+        if (!$this->check_login()) return;
+
+        $this->load->library("upload");
+
+        $max_size = $this->input->post("max_size", true) ?: 10240; // Default 10MB
+
+        if (!isset($_FILES["file_uploads"]["name"]) || empty($_FILES["file_uploads"]["name"])) {
+            $this->output_json(["status" => false, "message" => "File tidak ditemukan"]);
+            return;
+        }
+
+        $config["upload_path"] = "./uploads/file_siswa/";
+        $config["allowed_types"] = "jpg|jpeg|png|gif|mpeg|mpg|mpeg3|mp3|wav|wave|mp4|avi|doc|docx|xls|xlsx|ppt|pptx|csv|pdf|rtf|txt";
+        $config["max_size"] = $max_size;
+        $config["overwrite"] = FALSE;
+        $config["encrypt_name"] = TRUE;
+
+        // Pastikan folder exists
+        if (!is_dir($config["upload_path"])) {
+            mkdir($config["upload_path"], 0755, TRUE);
+        }
+
+        $this->upload->initialize($config);
+
+        if (!$this->upload->do_upload("file_uploads")) {
+            $this->output_json([
+                "status" => false,
+                "message" => strip_tags($this->upload->display_errors())
+            ]);
+            return;
+        }
+
+        $result = $this->upload->data();
+        $this->output_json([
+            "status" => true,
+            "src" => "uploads/file_siswa/" . $result["file_name"],
+            "filename" => pathinfo($result["file_name"], PATHINFO_FILENAME),
+            "type" => $_FILES["file_uploads"]["type"],
+            "size" => $_FILES["file_uploads"]["size"]
+        ]);
+    }
+
+    /**
+     * Hapus file siswa
+     * Mirror dari Siswa::deleteFile()
+     */
+    public function deletefile()
+    {
+        if (!$this->check_login()) return;
+
+        $src = $this->input->post("src", true);
+
+        if (empty($src)) {
+            $this->output_json(["status" => false, "message" => "Path file required"]);
+            return;
+        }
+
+        // Security: pastikan file ada di folder uploads/file_siswa
+        if (strpos($src, "uploads/file_siswa/") !== 0) {
+            $this->output_json(["status" => false, "message" => "Invalid file path"]);
+            return;
+        }
+
+        // Security: prevent directory traversal
+        if (strpos($src, "..") !== false) {
+            $this->output_json(["status" => false, "message" => "Invalid file path"]);
+            return;
+        }
+
+        $full_path = "./" . $src;
+
+        if (file_exists($full_path) && is_file($full_path)) {
+            if (unlink($full_path)) {
+                $this->output_json(["status" => true, "message" => "File berhasil dihapus"]);
+            } else {
+                $this->output_json(["status" => false, "message" => "Gagal menghapus file"]);
+            }
+        } else {
+            $this->output_json(["status" => false, "message" => "File tidak ditemukan"]);
+        }
+    }
+
+    // ==================== SAVE LOG MATERI/TUGAS (via POST) ====================
+
+    /**
+     * Save log materi via POST (alternatif dari GET)
+     */
+    public function savelogmateri()
+    {
+        if (!$this->check_login()) return;
+
+        $this->load->model("Kelas_model", "kelas");
+
+        // Support both GET and POST
+        $id_siswa = $this->input->get_post("id_siswa", true);
+        $id_kjm = $this->input->get_post("id_kjm", true);
+        $jamke = $this->input->get_post("jamke", true);
+        $mapel = $this->input->get_post("mapel", true);
+
+        // Fallback ke siswa login
+        if (empty($id_siswa)) {
+            $siswa = $this->get_siswa();
+            $id_siswa = $siswa->id_siswa;
+        }
+
+        if (empty($id_kjm)) {
+            $this->output_json(["status" => false, "message" => "ID KJM required"]);
+            return;
+        }
+
+        $result = $this->kelas->saveLog("log_materi", $id_siswa, $id_kjm, $jamke, $mapel, "Membuka materi");
+        $this->output_json(["status" => $result ? true : false, "data" => $result]);
+    }
+
+    /**
+     * Save log tugas via POST (alternatif dari GET)
+     */
+    public function savelogtugas()
+    {
+        if (!$this->check_login()) return;
+
+        $this->load->model("Kelas_model", "kelas");
+
+        // Support both GET and POST
+        $id_siswa = $this->input->get_post("id_siswa", true);
+        $id_kjm = $this->input->get_post("id_kjm", true);
+        $jamke = $this->input->get_post("jamke", true);
+        $mapel = $this->input->get_post("mapel", true);
+
+        // Fallback ke siswa login
+        if (empty($id_siswa)) {
+            $siswa = $this->get_siswa();
+            $id_siswa = $siswa->id_siswa;
+        }
+
+        if (empty($id_kjm)) {
+            $this->output_json(["status" => false, "message" => "ID KJM required"]);
+            return;
+        }
+
+        $result = $this->kelas->saveLog("log_materi", $id_siswa, $id_kjm, $jamke, $mapel, "Membuka tugas");
+        $this->output_json(["status" => $result ? true : false, "data" => $result]);
+    }
+
+    /**
+     * Save file materi selesai
+     * Mirror dari Siswa::saveFileMateriSelesai()
+     */
+    public function savefilemateriselesai()
+    {
+        if (!$this->check_login()) return;
+
+        $id_siswa = $this->input->post("id_siswa", true);
+        $id_kjm = $this->input->post("id_kjm", true);
+        $isi_materi = $this->input->post("isi_materi", true);
+        $jamke = $this->input->post("jamke", true);
+        $attach = json_decode($this->input->post("attach", true));
+
+        // Fallback ke siswa login
+        if (empty($id_siswa)) {
+            $siswa = $this->get_siswa();
+            $id_siswa = $siswa->id_siswa;
+        }
+
+        if (empty($id_kjm)) {
+            $this->output_json(["status" => false, "message" => "ID KJM required"]);
+            return;
+        }
+
+        $src_file = [];
+        if ($attach) {
+            foreach ($attach as $at) {
+                if (isset($at->name) && $at->name != null) {
+                    $src_file[] = [
+                        "src" => $at->src,
+                        "size" => $at->size,
+                        "type" => $at->type,
+                        "name" => $at->name
+                    ];
+                }
+            }
+        }
+
+        $id_log = $id_siswa . $id_kjm;
+        $insert = [
+            "id_siswa" => $id_siswa,
+            "id_materi" => $id_kjm,
+            "finish_time" => date("Y-m-d H:i:s"),
+            "jam_ke" => $jamke,
+            "log_desc" => "Menyelesaikan materi",
+            "text" => $isi_materi,
+            "file" => serialize($src_file)
+        ];
+
+        $this->db->where("id_log", $id_log);
+        $q = $this->db->get("log_materi");
+
+        if ($q->num_rows() > 0) {
+            $this->db->where("id_log", $id_log);
+            $update = $this->db->update("log_materi", $insert);
+        } else {
+            $this->db->set("id_log", $id_log);
+            $update = $this->db->insert("log_materi", $insert);
+        }
+
+        $this->output_json(["status" => $update]);
+    }
+
+    /**
+     * Save file tugas selesai
+     * Mirror dari Siswa::saveFileTugasSelesai()
+     */
+    public function savefiletugasselesai()
+    {
+        if (!$this->check_login()) return;
+
+        $id_siswa = $this->input->post("id_siswa", true);
+        $id_kjm = $this->input->post("id_kjm", true);
+        $isi_tugas = $this->input->post("isi_tugas", true);
+        $jamke = $this->input->post("jamke", true);
+        $attach = json_decode($this->input->post("attach", true));
+
+        // Fallback ke siswa login
+        if (empty($id_siswa)) {
+            $siswa = $this->get_siswa();
+            $id_siswa = $siswa->id_siswa;
+        }
+
+        if (empty($id_kjm)) {
+            $this->output_json(["status" => false, "message" => "ID KJM required"]);
+            return;
+        }
+
+        $src_file = [];
+        if ($attach) {
+            foreach ($attach as $at) {
+                if (isset($at->name) && $at->name != null) {
+                    $src_file[] = [
+                        "src" => $at->src,
+                        "size" => $at->size,
+                        "type" => $at->type,
+                        "name" => $at->name
+                    ];
+                }
+            }
+        }
+
+        $id_log = $id_siswa . $id_kjm;
+        $insert = [
+            "id_siswa" => $id_siswa,
+            "id_materi" => $id_kjm,
+            "jam_ke" => $jamke,
+            "log_desc" => "Menyelesaikan tugas",
+            "text" => $isi_tugas,
+            "file" => serialize($src_file)
+        ];
+
+        $this->db->where("id_log", $id_log);
+        $q = $this->db->get("log_tugas");
+
+        if ($q->num_rows() > 0) {
+            $this->db->where("id_log", $id_log);
+            $update = $this->db->update("log_tugas", $insert);
+        } else {
+            $this->db->set("id_log", $id_log);
+            $update = $this->db->insert("log_tugas", $insert);
+        }
+
+        $this->output_json(["status" => $update]);
+    }
 }
