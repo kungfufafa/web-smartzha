@@ -337,11 +337,22 @@ class Api extends CI_Controller
                 $this->db->update("cbt_durasi_siswa");
                 $durasi = $this->cbt->getElapsed($id_durasi);
             } elseif ($durasi->reset == "1") {
+                // Reset timer (sama dengan Siswa.php checkTimer reset==1)
                 $this->db->set("lama_ujian", "00:00:00");
                 $this->db->set("reset", 0);
                 $this->db->where("id_durasi", $id_durasi);
                 $this->db->update("cbt_durasi_siswa");
                 $durasi = $this->cbt->getElapsed($id_durasi);
+            } elseif ($durasi->reset == "2") {
+                // Resume timer (sama dengan Siswa.php checkTimer reset==2)
+                $this->db->set("lama_ujian", $elapsed);
+                $this->db->set("reset", 0);
+                $this->db->where("id_durasi", $id_durasi);
+                $this->db->update("cbt_durasi_siswa");
+                $durasi = $this->cbt->getElapsed($id_durasi);
+            } elseif ($durasi->reset == "3") {
+                // Full reset - exam should restart (sama dengan Siswa.php checkTimer reset==3)
+                $durasi = null;
             }
         } else {
             $durasi = null;
