@@ -878,4 +878,13 @@ class Master_model extends CI_Model
         }
         return $ret;
     }
+
+    public function getSiswaByUsername($username)
+    {
+        $this->db->select("a.*, b.status");
+        $this->db->from("master_siswa a");
+        $this->db->join("buku_induk b", "a.id_siswa=b.id_siswa", "left");
+        $this->db->where("a.username", $username);
+        return $this->db->get()->row();
+    }
 }

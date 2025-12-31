@@ -38,6 +38,7 @@
                 $infoelearning = ["kelascetak", "kelasstatus", "kelasabsensiharian", "kelasabsensiharianmapel", "kelasabsensibulanan", "kelasnilai", "kelascatatan"];
                 $cbt = ["cbtjenis", "cbtruang", "cbtsesi", "cbtsesisiswa", "cbtnomorpeserta", "cbtjadwal", "cbtbanksoal", "cbtalokasi", "cbtpengawas", "cbttoken"];
                 $infoujian = ["cbtcetak", "cbtpeserta", "cbtstatus", "cbtnilai", "cbtanalisis", "cbtrekap"];
+                $pembayaran = ["pembayaran"];
                 $usermanager = ["useradmin", "userguru", "usersiswa"];
                 $databases = ["dbmanager", "dbclear", "update"];
                 $users = ["users"];
@@ -356,6 +357,75 @@
                         <i class="fa fa-users nav-icon"></i>
                         <p>Alumni</p>
                     </a>
+                </li>
+                <li class="nav-header">PEMBAYARAN</li>
+                <li class="nav-item has-treeview <?= in_array($page, $pembayaran) ? "menu-open" : "" ?>">
+                    <a href="#" class="nav-link <?= in_array($page, $pembayaran) ? "active" : "" ?>">
+                        <i class="nav-icon fas fa-money-bill-wave"></i>
+                        <p>
+                            Pembayaran
+                            <?php if (isset($pending_count) && $pending_count > 0): ?>
+                                <span class="badge badge-danger right"><?= $pending_count ?></span>
+                            <?php else: ?>
+                                <i class="right fas fa-angle-left"></i>
+                            <?php endif; ?>
+                        </p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="<?= base_url('pembayaran') ?>"
+                               class="nav-link <?= $page === 'pembayaran' && $this->uri->segment(2) == '' ? "active" : "" ?>">
+                                <i class="fas fa-tachometer-alt nav-icon"></i>
+                                <p>Dashboard</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('pembayaran/config') ?>"
+                               class="nav-link <?= $this->uri->segment(2) === 'config' ? "active" : "" ?>">
+                                <i class="fas fa-cog nav-icon"></i>
+                                <p>Konfigurasi</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('pembayaran/jenis') ?>"
+                               class="nav-link <?= $this->uri->segment(2) === 'jenis' ? "active" : "" ?>">
+                                <i class="fas fa-tags nav-icon"></i>
+                                <p>Jenis Tagihan</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('pembayaran/tagihan') ?>"
+                               class="nav-link <?= $this->uri->segment(2) === 'tagihan' || $this->uri->segment(2) === 'addTagihan' ? "active" : "" ?>">
+                                <i class="fas fa-file-invoice-dollar nav-icon"></i>
+                                <p>Data Tagihan</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('pembayaran/verifikasi') ?>"
+                               class="nav-link <?= $this->uri->segment(2) === 'verifikasi' || $this->uri->segment(2) === 'detailTransaksi' ? "active" : "" ?>">
+                                <i class="fas fa-check-circle nav-icon"></i>
+                                <p>Verifikasi
+                                    <?php if (isset($pending_count) && $pending_count > 0): ?>
+                                        <span class="badge badge-danger"><?= $pending_count ?></span>
+                                    <?php endif; ?>
+                                </p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('pembayaran/riwayat') ?>"
+                               class="nav-link <?= $this->uri->segment(2) === 'riwayat' ? "active" : "" ?>">
+                                <i class="fas fa-history nav-icon"></i>
+                                <p>Riwayat</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('pembayaran/laporan') ?>"
+                               class="nav-link <?= $this->uri->segment(2) === 'laporan' ? "active" : "" ?>">
+                                <i class="fas fa-chart-bar nav-icon"></i>
+                                <p>Laporan</p>
+                            </a>
+                        </li>
+                    </ul>
                 </li>
                 <li class="nav-header">PENGATURAN</li>
                 <li class="nav-item">

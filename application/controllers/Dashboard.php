@@ -59,7 +59,7 @@ class Dashboard extends CI_Controller
 
     public function menu_siswa_box()
     {
-        $box = [["title" => "Jadwal Pelajaran", "icon" => "ic_online.png", "link" => "siswa/jadwalpelajaran"], ["title" => "Materi", "icon" => "ic_elearning.png", "link" => "siswa/materi"], ["title" => "Tugas", "icon" => "ic_questions.png", "link" => "siswa/tugas"], ["title" => "Ujian / Ulangan", "icon" => "ic_question.png", "link" => "siswa/cbt"], ["title" => "Nilai Hasil", "icon" => "ic_exam.png", "link" => "siswa/hasil"], ["title" => "Absensi", "icon" => "ic_clipboard.png", "link" => "siswa/kehadiran"], ["title" => "Catatan Guru", "icon" => "ic_student.png", "link" => "siswa/catatan"]];
+        $box = [["title" => "Jadwal Pelajaran", "icon" => "ic_online.png", "link" => "siswa/jadwalpelajaran"], ["title" => "Materi", "icon" => "ic_elearning.png", "link" => "siswa/materi"], ["title" => "Tugas", "icon" => "ic_questions.png", "link" => "siswa/tugas"], ["title" => "Ujian / Ulangan", "icon" => "ic_question.png", "link" => "siswa/cbt"], ["title" => "Nilai Hasil", "icon" => "ic_exam.png", "link" => "siswa/hasil"], ["title" => "Absensi", "icon" => "ic_clipboard.png", "link" => "siswa/kehadiran"], ["title" => "Catatan Guru", "icon" => "ic_student.png", "link" => "siswa/catatan"], ["title" => "Tagihan Saya", "icon" => "ic_certificate.png", "link" => "tagihanku"]];
         $info_box = json_decode(json_encode($box), FALSE);
         return $info_box;
     }
