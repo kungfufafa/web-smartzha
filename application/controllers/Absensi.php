@@ -253,4 +253,42 @@ class Absensi extends CI_Controller
         
         $this->load_view('absensi/riwayat', $data);
     }
+
+    public function jadwal()
+    {
+        $user = $this->ion_auth->user()->row();
+        $setting = $this->dashboard->getSetting();
+        
+        // Get schedule for current week (Monday to Sunday)
+        $start_of_week = date('Y-m-d', strtotime('monday this week'));
+        $end_of_week = date('Y-m-d', strtotime('sunday this week'));
+        
+        // Also get next week
+        $start_next_week = date('Y-m-d', strtotime('monday next week'));
+        $end_next_week = date('Y-m-d', strtotime('sunday next week'));
+        
+        $schedule_this_week = $this->shift->get_user_shift_schedule($user->id, $start_of_week, $end_of_week);
+        $schedule_next_week = $this->shift->get_user_shift_schedule($user->id, $start_next_week, $end_next_week);
+        
+        // Get current fixed shift assignment
+        $today = date('Y-m-d');
+        $current_shift = $this->shift->get_user_shift($user->id, $today);
+
+        $data = [
+            'user' => $user,
+            'judul' => 'Jadwal Shift',
+            'subjudul' => 'Jadwal Shift Saya',
+            'setting' => $setting,
+            'profile' => $this->dashboard->getProfileAdmin($user->id),
+            'schedule_this_week' => $schedule_this_week,
+            'schedule_next_week' => $schedule_next_week,
+            'current_shift' => $current_shift,
+            'start_of_week' => $start_of_week,
+            'end_of_week' => $end_of_week,
+            'start_next_week' => $start_next_week,
+            'end_next_week' => $end_next_week
+        ];
+        
+        $this->load_view('absensi/jadwal', $data);
+    }
 }

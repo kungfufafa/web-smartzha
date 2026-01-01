@@ -160,4 +160,69 @@ class Absensimanager extends CI_Controller
             $this->output_json(['status' => false, 'message' => 'Data tidak lengkap']);
         }
     }
+
+    // ASSIGN SHIFT TO GURU
+    public function assign()
+    {
+        $user = $this->ion_auth->user()->row();
+        $setting = $this->dashboard->getSetting();
+        
+        // Get all guru with their current shift assignment
+        $this->load->model('Master_model', 'master');
+        $guru_list = $this->shift->get_all_guru_with_shift();
+        
+        $data = [
+            'user' => $user,
+            'judul' => 'Assign Shift Guru',
+            'subjudul' => 'Pengaturan Shift untuk Guru',
+            'setting' => $setting,
+            'profile' => $this->dashboard->getProfileAdmin($user->id),
+            'guru_list' => $guru_list,
+            'shifts' => $this->shift->get_all_shifts()
+        ];
+        
+        $this->load->view('_templates/dashboard/_header', $data);
+        $this->load->view('absensi/assign/index', $data);
+        $this->load->view('_templates/dashboard/_footer');
+    }
+
+    public function save_guru_shift()
+    {
+        $this->form_validation->set_rules('id_user', 'Guru', 'required');
+        $this->form_validation->set_rules('id_shift', 'Shift', 'required');
+        $this->form_validation->set_rules('tgl_efektif', 'Tanggal Efektif', 'required');
+
+        if ($this->form_validation->run() == FALSE) {
+            $this->output_json([
+                'status' => false, 
+                'message' => validation_errors()
+            ]);
+            return;
+        }
+
+        $id_user = $this->input->post('id_user');
+        $id_shift = $this->input->post('id_shift');
+        $tgl_efektif = $this->input->post('tgl_efektif');
+
+        $this->shift->assign_fixed_shift($id_user, $id_shift, $tgl_efektif);
+        $this->output_json(['status' => true, 'message' => 'Shift guru berhasil diatur']);
+    }
+
+    public function delete_guru_shift()
+    {
+        $id_user = $this->input->post('id_user');
+        if (!$id_user) {
+            $this->output_json(['status' => false, 'message' => 'ID tidak valid']);
+            return;
+        }
+        
+        $this->shift->remove_user_shift($id_user);
+        $this->output_json(['status' => true, 'message' => 'Shift guru berhasil dihapus']);
+    }
+
+    public function get_guru_shift_data()
+    {
+        $guru_list = $this->shift->get_all_guru_with_shift();
+        $this->output_json(['status' => true, 'data' => $guru_list]);
+    }
 }

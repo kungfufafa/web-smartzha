@@ -428,12 +428,13 @@
                         </li>
                     </ul>
                 </li>
-                <li class="nav-header">ABSENSI KARYAWAN</li>
-                <li class="nav-item has-treeview <?= in_array($page, $absensi) ? "menu-open" : "" ?>">
-                    <a href="#" class="nav-link <?= in_array($page, $absensi) ? "active" : "" ?>">
-                        <i class="nav-icon fas fa-fingerprint"></i>
+                <li class="nav-header">KELOLA ABSENSI</li>
+                <?php $absensiManage = ["absensimanager"]; ?>
+                <li class="nav-item has-treeview <?= in_array($page, $absensiManage) ? "menu-open" : "" ?>">
+                    <a href="#" class="nav-link <?= in_array($page, $absensiManage) ? "active" : "" ?>">
+                        <i class="nav-icon fas fa-user-cog"></i>
                         <p>
-                            Absensi
+                            Manajemen
                             <i class="right fas fa-angle-left"></i>
                         </p>
                     </a>
@@ -443,20 +444,6 @@
                                class="nav-link <?= $page === 'absensimanager' && $this->uri->segment(2) == '' ? "active" : "" ?>">
                                 <i class="fas fa-tachometer-alt nav-icon"></i>
                                 <p>Dashboard</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?= base_url('absensi') ?>"
-                               class="nav-link <?= $page === 'absensi' ? "active" : "" ?>">
-                                <i class="fas fa-map-marker-alt nav-icon"></i>
-                                <p>Check-in / Check-out</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?= base_url('absensi/riwayat') ?>"
-                               class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) === 'riwayat' ? "active" : "" ?>">
-                                <i class="fas fa-history nav-icon"></i>
-                                <p>Riwayat Absensi</p>
                             </a>
                         </li>
                         <li class="nav-item">
@@ -474,17 +461,58 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?= base_url('pengajuan') ?>"
-                               class="nav-link <?= $page === 'pengajuan' && $this->uri->segment(2) == '' ? "active" : "" ?>">
-                                <i class="fas fa-file-alt nav-icon"></i>
-                                <p>Pengajuan Saya</p>
+                            <a href="<?= base_url('absensimanager/assign') ?>"
+                               class="nav-link <?= $this->uri->segment(2) === 'assign' ? "active" : "" ?>">
+                                <i class="fas fa-user-clock nav-icon"></i>
+                                <p>Assign Shift Guru</p>
                             </a>
                         </li>
                         <li class="nav-item">
                             <a href="<?= base_url('pengajuan/manage') ?>"
-                               class="nav-link <?= $this->uri->segment(2) === 'manage' ? "active" : "" ?>">
+                               class="nav-link <?= $page === 'pengajuan' && $this->uri->segment(2) === 'manage' ? "active" : "" ?>">
                                 <i class="fas fa-tasks nav-icon"></i>
                                 <p>Kelola Pengajuan</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li class="nav-header">ABSENSI SAYA</li>
+                <?php $absensiPersonal = ["absensi", "pengajuan"]; ?>
+                <li class="nav-item has-treeview <?= in_array($page, $absensiPersonal) && $this->uri->segment(2) !== 'manage' ? "menu-open" : "" ?>">
+                    <a href="#" class="nav-link <?= in_array($page, $absensiPersonal) && $this->uri->segment(2) !== 'manage' ? "active" : "" ?>">
+                        <i class="nav-icon fas fa-fingerprint"></i>
+                        <p>
+                            Absensi
+                            <i class="right fas fa-angle-left"></i>
+                        </p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi') ?>"
+                               class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) == '' ? "active" : "" ?>">
+                                <i class="fas fa-map-marker-alt nav-icon"></i>
+                                <p>Check-in / Check-out</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/riwayat') ?>"
+                               class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) === 'riwayat' ? "active" : "" ?>">
+                                <i class="fas fa-history nav-icon"></i>
+                                <p>Riwayat Absensi</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/jadwal') ?>"
+                               class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) === 'jadwal' ? "active" : "" ?>">
+                                <i class="fas fa-calendar-alt nav-icon"></i>
+                                <p>Jadwal Shift Saya</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('pengajuan') ?>"
+                               class="nav-link <?= $page === 'pengajuan' && $this->uri->segment(2) == '' ? "active" : "" ?>">
+                                <i class="fas fa-file-alt nav-icon"></i>
+                                <p>Pengajuan Izin/Cuti</p>
                             </a>
                         </li>
                     </ul>

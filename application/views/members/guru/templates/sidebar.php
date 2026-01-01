@@ -65,7 +65,7 @@
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
                             <a href="<?= base_url('absensi') ?>"
-                               class="nav-link <?= $page === 'absensi' ? "active" : "" ?>">
+                               class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) == '' ? "active" : "" ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>Check-in / Check-out</p>
                             </a>
@@ -75,6 +75,13 @@
                                class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) === 'riwayat' ? "active" : "" ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>Riwayat Absensi</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/jadwal') ?>"
+                               class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) === 'jadwal' ? "active" : "" ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Jadwal Shift Saya</p>
                             </a>
                         </li>
                         <li class="nav-item">
