@@ -11,7 +11,6 @@ CREATE TABLE `master_shift` (
   `kode_shift` varchar(20) NOT NULL,
   `jam_masuk` time NOT NULL,
   `jam_pulang` time NOT NULL,
-  `durasi_menit` int(11) GENERATED ALWAYS AS (TIMESTAMPDIFF(MINUTE, STR_TO_DATE(CONCAT('2000-01-01 ', jam_masuk)), STR_TO_DATE(CONCAT(IF(jam_pulang < jam_masuk, '2000-01-02 ', '2000-01-01 '), jam_pulang)))) STORED,
   `lintas_hari` tinyint(1) DEFAULT 0 COMMENT '1=Ya, 0=Tidak',
   `jam_awal_checkin` time DEFAULT NULL COMMENT 'Batas awal boleh absen',
   `jam_akhir_checkin` time DEFAULT NULL COMMENT 'Batas akhir terlambat',
@@ -93,7 +92,7 @@ CREATE TABLE `absensi_logs` (
   `tanggal` date NOT NULL COMMENT 'Tanggal Shift dimulai',
   `jam_masuk` datetime DEFAULT NULL,
   `jam_pulang` datetime DEFAULT NULL,
-  `status_kehadiran` enum('Hadir','Terlambat','Pulang Awal','Alpha','Izin','Sakit','Cuti') DEFAULT 'Alpha',
+  `status_kehadiran` enum('Hadir','Terlambat','Pulang Awal','Terlambat + Pulang Awal','Alpha','Izin','Sakit','Cuti') DEFAULT 'Alpha',
   `metode_masuk` enum('GPS','QR','Token','Manual') DEFAULT NULL,
   `metode_pulang` enum('GPS','QR','Token','Manual') DEFAULT NULL,
   `lat_masuk` decimal(10,8) DEFAULT NULL,
@@ -172,3 +171,11 @@ CREATE TABLE `absensi_setting` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- ----------------------------
+-- Alter setting table untuk lokasi kantor
+-- ----------------------------
+ALTER TABLE `setting` 
+ADD COLUMN IF NOT EXISTS `office_lat` DECIMAL(10,8) DEFAULT -6.175392,
+ADD COLUMN IF NOT EXISTS `office_lng` DECIMAL(11,8) DEFAULT 106.827153,
+ADD COLUMN IF NOT EXISTS `absen_radius` INT(11) DEFAULT 100;

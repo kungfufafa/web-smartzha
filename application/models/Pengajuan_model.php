@@ -34,6 +34,11 @@ class Pengajuan_model extends CI_Model
         return $this->db->get()->result();
     }
 
+    public function get_all_pending()
+    {
+        return $this->get_pending_all();
+    }
+
     public function update_status($id, $status, $approver_id, $reason = null)
     {
         $data = [

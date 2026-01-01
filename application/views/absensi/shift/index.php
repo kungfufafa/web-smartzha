@@ -163,8 +163,12 @@ $(document).ready(function() {
         if(confirm('Apakah anda yakin ingin menghapus data ini?')) {
             var id = $(this).data('id');
             $.ajax({
-                url: '<?= base_url("absensimanager/delete_shift/") ?>' + id,
-                type: 'GET',
+                url: '<?= base_url("absensimanager/delete_shift") ?>',
+                type: 'POST',
+                data: {
+                    id_shift: id,
+                    '<?= $this->security->get_csrf_token_name() ?>': '<?= $this->security->get_csrf_hash() ?>'
+                },
                 success: function(res) {
                     location.reload();
                 }

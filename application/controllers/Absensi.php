@@ -3,6 +3,11 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Absensi extends CI_Controller
 {
+    private $is_guru = false;
+    private $guru = null;
+    private $tp = null;
+    private $smt = null;
+
     public function __construct()
     {
         parent::__construct();
@@ -13,6 +18,15 @@ class Absensi extends CI_Controller
         $this->load->model('Shift_model', 'shift');
         $this->load->model('Absensi_model', 'absensi');
         $this->load->helper('absen');
+
+        // Determine if user is guru
+        $this->is_guru = $this->ion_auth->in_group('guru');
+        if ($this->is_guru) {
+            $this->tp = $this->dashboard->getTahunActive();
+            $this->smt = $this->dashboard->getSemesterActive();
+            $user = $this->ion_auth->user()->row();
+            $this->guru = $this->dashboard->getDataGuruByUserId($user->id, $this->tp->id_tp, $this->smt->id_smt);
+        }
     }
 
     public function output_json($data, $encode = true)
@@ -23,6 +37,29 @@ class Absensi extends CI_Controller
         $this->output->set_content_type('application/json')->set_output($data);
     }
 
+    /**
+     * Load view dengan template yang sesuai (admin vs guru)
+     */
+    private function load_view($view, $data)
+    {
+        if ($this->is_guru) {
+            $data['guru'] = $this->guru;
+            $data['tp'] = $this->dashboard->getTahun();
+            $data['tp_active'] = $this->tp;
+            $data['smt'] = $this->dashboard->getSemester();
+            $data['smt_active'] = $this->smt;
+            
+            $this->load->view('members/guru/templates/header', $data);
+            $this->load->view('members/guru/templates/sidebar', $data);
+            $this->load->view($view, $data);
+            $this->load->view('members/guru/templates/footer');
+        } else {
+            $this->load->view('_templates/dashboard/_header', $data);
+            $this->load->view($view, $data);
+            $this->load->view('_templates/dashboard/_footer');
+        }
+    }
+
     public function index()
     {
         $user = $this->ion_auth->user()->row();
@@ -31,10 +68,10 @@ class Absensi extends CI_Controller
             'user' => $user,
             'judul' => 'Absensi',
             'subjudul' => 'Check-in / Check-out',
-            'setting' => $setting
+            'setting' => $setting,
+            'profile' => $this->dashboard->getProfileAdmin($user->id)
         ];
 
-        // Get Today's Status
         $today = date('Y-m-d');
         $log = $this->absensi->get_today_log($user->id, $today);
         $shift = $this->shift->get_user_shift($user->id, $today);
@@ -42,9 +79,7 @@ class Absensi extends CI_Controller
         $data['log'] = $log;
         $data['shift'] = $shift;
         
-        $this->load->view('_templates/dashboard/_header', $data);
-        $this->load->view('absensi/checkin', $data);
-        $this->load->view('_templates/dashboard/_footer');
+        $this->load_view('absensi/checkin', $data);
     }
 
     public function do_checkin()
@@ -152,16 +187,33 @@ class Absensi extends CI_Controller
             return;
         }
 
-        // Get Shift info
+        $setting = $this->dashboard->getSetting();
+        $center_lat = isset($setting->office_lat) && $setting->office_lat ? $setting->office_lat : -6.175392;
+        $center_lng = isset($setting->office_lng) && $setting->office_lng ? $setting->office_lng : 106.827153;
+        $radius = isset($setting->absen_radius) && $setting->absen_radius ? $setting->absen_radius : 100;
+
+        $distance = calculate_distance($lat, $lng, $center_lat, $center_lng);
+        
+        if ($distance > $radius) {
+            $this->output_json([
+                'status' => false, 
+                'message' => 'Checkout harus dilakukan di area kantor (' . round($distance) . ' meter dari lokasi). Maksimal: ' . $radius . ' meter.'
+            ]);
+            return;
+        }
+
         $shift = $this->shift->get_shift_by_id($log->id_shift);
         
-        // Pulang Awal Logic
         $pulang_awal_menit = 0;
         $status = $log->status_kehadiran;
         
         if ($time < $shift->jam_pulang) {
-            $status = 'Pulang Awal';
-             $start = strtotime($time);
+            if ($log->status_kehadiran == 'Terlambat') {
+                $status = 'Terlambat + Pulang Awal';
+            } else {
+                $status = 'Pulang Awal';
+            }
+            $start = strtotime($time);
             $end = strtotime($shift->jam_pulang);
             $pulang_awal_menit = round(($end - $start) / 60);
         }
@@ -192,14 +244,13 @@ class Absensi extends CI_Controller
             'judul' => 'Riwayat Absensi',
             'subjudul' => 'Log Kehadiran',
             'setting' => $setting,
+            'profile' => $this->dashboard->getProfileAdmin($user->id),
             'bulan' => $bulan,
             'tahun' => $tahun,
             'logs' => $this->absensi->get_history($user->id, $bulan, $tahun),
             'rekap' => $this->absensi->get_rekap_bulanan($user->id, $bulan, $tahun)
         ];
         
-        $this->load->view('_templates/dashboard/_header', $data);
-        $this->load->view('absensi/riwayat', $data);
-        $this->load->view('_templates/dashboard/_footer');
+        $this->load_view('absensi/riwayat', $data);
     }
 }

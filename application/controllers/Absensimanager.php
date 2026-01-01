@@ -37,10 +37,10 @@ class Absensimanager extends CI_Controller
             'user' => $user,
             'judul' => 'Manajemen Absensi',
             'subjudul' => 'Dashboard Absensi',
-            'setting' => $setting
+            'setting' => $setting,
+            'profile' => $this->dashboard->getProfileAdmin($user->id)
         ];
 
-        // Summary Data - Data real dari database
         $data['total_karyawan'] = count($this->karyawan->get_all());
         $data['shift_active'] = count($this->shift->get_all_shifts());
         $data['hadir_hari_ini'] = $this->absensi->count_today_attendance($today);
@@ -48,7 +48,7 @@ class Absensimanager extends CI_Controller
         $data['logs_hari_ini'] = $this->absensi->get_today_logs($today);
         
         $this->load->view('_templates/dashboard/_header', $data);
-        $this->load->view('absensi/dashboard');
+        $this->load->view('absensi/dashboard', $data);
         $this->load->view('_templates/dashboard/_footer');
     }
 
@@ -62,6 +62,7 @@ class Absensimanager extends CI_Controller
             'judul' => 'Manajemen Shift',
             'subjudul' => 'Data Shift Kerja',
             'setting' => $setting,
+            'profile' => $this->dashboard->getProfileAdmin($user->id),
             'shifts' => $this->shift->get_all_shifts()
         ];
         
@@ -94,8 +95,13 @@ class Absensimanager extends CI_Controller
         $this->output_json(['status' => true]);
     }
 
-    public function delete_shift($id)
+    public function delete_shift()
     {
+        $id = $this->input->post('id_shift');
+        if (!$id) {
+            $this->output_json(['status' => false, 'message' => 'ID tidak valid']);
+            return;
+        }
         $this->db->where('id_shift', $id);
         $this->db->update('master_shift', ['is_active' => 0]);
         $this->output_json(['status' => true]);
@@ -111,6 +117,7 @@ class Absensimanager extends CI_Controller
             'judul' => 'Data Karyawan',
             'subjudul' => 'Manajemen Staff/Karyawan',
             'setting' => $setting,
+            'profile' => $this->dashboard->getProfileAdmin($user->id),
             'karyawan' => $this->karyawan->get_all(),
             'shifts' => $this->shift->get_all_shifts()
         ];
