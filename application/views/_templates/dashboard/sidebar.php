@@ -38,7 +38,7 @@
                 $infoelearning = ["kelascetak", "kelasstatus", "kelasabsensiharian", "kelasabsensiharianmapel", "kelasabsensibulanan", "kelasnilai", "kelascatatan"];
                 $cbt = ["cbtjenis", "cbtruang", "cbtsesi", "cbtsesisiswa", "cbtnomorpeserta", "cbtjadwal", "cbtbanksoal", "cbtalokasi", "cbtpengawas", "cbttoken"];
                 $infoujian = ["cbtcetak", "cbtpeserta", "cbtstatus", "cbtnilai", "cbtanalisis", "cbtrekap"];
-                $pembayaran = ["pembayaran"];
+                $pembayaran = ["pembayaran", "datajenistagihan", "datatagihan"];
                 $usermanager = ["useradmin", "userguru", "usersiswa"];
                 $databases = ["dbmanager", "dbclear", "update"];
                 $users = ["users"];
@@ -395,7 +395,7 @@
                         </li>
                         <li class="nav-item">
                             <a href="<?= base_url('pembayaran/tagihan') ?>"
-                               class="nav-link <?= $this->uri->segment(2) === 'tagihan' || $this->uri->segment(2) === 'addTagihan' ? "active" : "" ?>">
+                               class="nav-link <?= $this->uri->segment(2) === 'tagihan' ? "active" : "" ?>">
                                 <i class="fas fa-file-invoice-dollar nav-icon"></i>
                                 <p>Data Tagihan</p>
                             </a>

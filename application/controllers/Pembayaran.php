@@ -68,6 +68,228 @@ class Pembayaran extends CI_Controller
         $this->load->view('_templates/dashboard/_footer');
     }
 
+    public function jenis()
+    {
+        $data = $this->getCommonData();
+        $data['judul'] = 'Pembayaran';
+        $data['subjudul'] = 'Jenis Tagihan';
+
+        $this->load->view('_templates/dashboard/_header', $data);
+        $this->load->view('pembayaran/jenis/data');
+        $this->load->view('_templates/dashboard/_footer');
+    }
+
+    public function dataJenis()
+    {
+        $this->output_json($this->pembayaran->getDataTableJenisTagihan(), false);
+    }
+
+    public function tagihan()
+    {
+        $data = $this->getCommonData();
+        $data['judul'] = 'Pembayaran';
+        $data['subjudul'] = 'Data Tagihan';
+        $data['kelas'] = $this->kelas->getKelasList($data['tp_active']->id_tp, $data['smt_active']->id_smt);
+        $data['jenis'] = $this->pembayaran->getAllJenisTagihan();
+
+        $this->load->view('_templates/dashboard/_header', $data);
+        $this->load->view('pembayaran/tagihan/data');
+        $this->load->view('_templates/dashboard/_footer');
+    }
+
+    public function dataTagihan()
+    {
+        $id_tp = $this->dashboard->getTahunActive()->id_tp;
+        $id_smt = $this->dashboard->getSemesterActive()->id_smt;
+        $filters = [
+            'id_kelas' => $this->input->post('id_kelas'),
+            'id_jenis' => $this->input->post('id_jenis'),
+            'status' => $this->input->post('status'),
+            'bulan' => $this->input->post('bulan')
+        ];
+        $this->output_json($this->pembayaran->getDataTableTagihan($id_tp, $id_smt, $filters), false);
+    }
+
+    public function createTagihan()
+    {
+        $data = $this->getCommonData();
+        $data['judul'] = 'Pembayaran';
+        $data['subjudul'] = 'Buat Tagihan Baru';
+        $data['kelas'] = $this->kelas->getKelasList($data['tp_active']->id_tp, $data['smt_active']->id_smt);
+        $data['jenis'] = $this->pembayaran->getAllJenisTagihan();
+
+        $this->load->view('_templates/dashboard/_header', $data);
+        $this->load->view('pembayaran/tagihan/add');
+        $this->load->view('_templates/dashboard/_footer');
+    }
+
+    public function createTagihanProcess()
+    {
+        $id_jenis = $this->input->post('id_jenis');
+        $nominal = str_replace('.', '', $this->input->post('nominal'));
+        $diskon = str_replace('.', '', $this->input->post('diskon'));
+        $jatuh_tempo = $this->input->post('jatuh_tempo');
+        $keterangan = $this->input->post('keterangan');
+        $bulan = $this->input->post('bulan');
+        $tahun = $this->input->post('tahun');
+        $id_siswas = $this->input->post('id_siswa');
+        
+        $tp = $this->dashboard->getTahunActive();
+        $smt = $this->dashboard->getSemesterActive();
+
+        if (empty($id_siswas)) {
+            $this->output_json(['status' => false, 'message' => 'Pilih minimal satu siswa']);
+            return;
+        }
+
+        $jenis = $this->pembayaran->getJenisTagihanById($id_jenis);
+        if ($jenis->is_recurring == 1 && (empty($bulan) || empty($tahun))) {
+            $this->output_json(['status' => false, 'message' => 'Bulan dan Tahun wajib diisi untuk tagihan bulanan']);
+            return;
+        }
+
+        $data_batch = [];
+        $skipped = 0;
+
+        foreach ($id_siswas as $id_siswa) {
+            // Check duplicate
+            if ($jenis->is_recurring == 1) {
+                $exists = $this->pembayaran->checkTagihanExists($id_siswa, $id_jenis, $bulan, $tahun, $tp->id_tp, $smt->id_smt);
+            } else {
+                // Non-recurring: check if exists in this academic year/semester? 
+                // Usually non-recurring can be multiple times, but let's assume unique per type/student for now or allow duplicate?
+                // Based on logic, maybe just allow.
+                $exists = false; 
+            }
+
+            if ($exists) {
+                $skipped++;
+                continue;
+            }
+
+            $data_batch[] = [
+                'id_siswa' => $id_siswa,
+                'id_jenis' => $id_jenis,
+                'nominal' => $nominal,
+                'diskon' => $diskon,
+                // 'total' => $nominal - $diskon, // Total is generated column
+                'jatuh_tempo' => $jatuh_tempo,
+                'keterangan' => $keterangan,
+                'bulan' => $jenis->is_recurring == 1 ? $bulan : null,
+                'tahun' => $jenis->is_recurring == 1 ? $tahun : null,
+                'id_tp' => $tp->id_tp,
+                'id_smt' => $smt->id_smt,
+                'status' => 'belum_bayar',
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+        }
+
+        if (empty($data_batch)) {
+            $this->output_json(['status' => false, 'message' => 'Semua tagihan untuk siswa yang dipilih sudah ada']);
+            return;
+        }
+
+        $result = $this->pembayaran->createTagihanBatch($data_batch);
+        
+        if ($result) {
+            $msg = 'Berhasil membuat ' . count($data_batch) . ' tagihan.';
+            if ($skipped > 0) $msg .= ' (' . $skipped . ' dilewati karena sudah ada)';
+        } else {
+            $msg = 'Gagal menyimpan data tagihan. Terjadi kesalahan database.';
+        }
+
+        $this->output_json(['status' => $result, 'message' => $msg]);
+    }
+
+    public function getSiswaByKelas($id_kelas)
+    {
+        $tp = $this->dashboard->getTahunActive();
+        $smt = $this->dashboard->getSemesterActive();
+        $this->db->select('s.id_siswa, s.nama, s.nis');
+        $this->db->from('master_siswa s');
+        $this->db->join('kelas_siswa ks', 's.id_siswa = ks.id_siswa');
+        $this->db->where('ks.id_kelas', $id_kelas);
+        $this->db->where('ks.id_tp', $tp->id_tp);
+        $this->db->where('ks.id_smt', $smt->id_smt);
+        $this->db->order_by('s.nama', 'ASC');
+        $data = $this->db->get()->result();
+        $this->output_json(['status' => true, 'data' => $data]);
+    }
+
+    public function saveJenis()
+    {
+        $id = $this->input->post('id_jenis');
+        $data = [
+            'kode_jenis' => strtoupper($this->input->post('kode_jenis', true)),
+            'nama_jenis' => $this->input->post('nama_jenis', true),
+            'nominal_default' => str_replace('.', '', $this->input->post('nominal_default')),
+            'keterangan' => $this->input->post('keterangan', true),
+            'is_recurring' => $this->input->post('is_recurring') ? 1 : 0,
+            'is_active' => $this->input->post('is_active') ? 1 : 0
+        ];
+
+        if ($id) {
+            $result = $this->pembayaran->updateJenisTagihan($id, $data);
+        } else {
+            $result = $this->pembayaran->createJenisTagihan($data);
+        }
+
+        $this->output_json(['status' => $result, 'message' => $result ? 'Data berhasil disimpan' : 'Gagal menyimpan data']);
+    }
+
+    public function getJenis($id)
+    {
+        $data = $this->pembayaran->getJenisTagihanById($id);
+        $this->output_json(['status' => true, 'data' => $data]);
+    }
+
+    public function deleteJenis()
+    {
+        $ids = $this->input->post('ids');
+        $result = $this->pembayaran->deleteJenisTagihan($ids[0]);
+        
+        if ($result === false) {
+            $this->output_json(['status' => false, 'message' => 'Gagal menghapus: Jenis tagihan sedang digunakan oleh data tagihan lain.']);
+        } else {
+            $this->output_json(['status' => $result, 'message' => $result ? 'Data berhasil dihapus' : 'Gagal menghapus data']);
+        }
+    }
+
+    public function getTagihan($id)
+    {
+        $data = $this->pembayaran->getTagihanById($id);
+        $this->output_json(['status' => true, 'data' => $data]);
+    }
+
+    public function updateTagihan()
+    {
+        $id = $this->input->post('id_tagihan');
+        $data = [
+            'nominal' => str_replace('.', '', $this->input->post('nominal')),
+            'diskon' => str_replace('.', '', $this->input->post('diskon')),
+            'denda' => str_replace('.', '', $this->input->post('denda')),
+            'jatuh_tempo' => $this->input->post('jatuh_tempo'),
+            'keterangan' => $this->input->post('keterangan')
+        ];
+        // Total is generated column, do not update manually
+        // $data['total'] = $data['nominal'] - $data['diskon'] + $data['denda'];
+
+        $result = $this->pembayaran->updateTagihan($id, $data);
+        $this->output_json(['status' => $result, 'message' => $result ? 'Data berhasil diupdate' : 'Gagal update data']);
+    }
+
+    public function deleteTagihan()
+    {
+        $ids = $this->input->post('ids');
+        $result = $this->pembayaran->deleteTagihan($ids);
+        
+        if ($result === false) {
+            $this->output_json(['status' => false, 'message' => 'Gagal menghapus: Salah satu tagihan sudah memiliki riwayat transaksi/pembayaran.']);
+        } else {
+            $this->output_json(['status' => $result, 'message' => $result ? 'Data berhasil dihapus' : 'Gagal menghapus data']);
+        }
+    }
+
     public function saveConfig()
     {
         $data = [
@@ -108,251 +330,9 @@ class Pembayaran extends CI_Controller
         $this->output_json(['status' => $result, 'message' => $result ? 'Konfigurasi berhasil disimpan' : 'Gagal menyimpan konfigurasi']);
     }
 
-    public function jenis()
-    {
-        $data = $this->getCommonData();
-        $data['judul'] = 'Pembayaran';
-        $data['subjudul'] = 'Jenis Tagihan';
 
-        $this->load->view('_templates/dashboard/_header', $data);
-        $this->load->view('pembayaran/jenis');
-        $this->load->view('_templates/dashboard/_footer');
-    }
 
-    public function dataJenis()
-    {
-        $this->output_json($this->pembayaran->getDataTableJenisTagihan(), false);
-    }
 
-    public function saveJenis()
-    {
-        $this->form_validation->set_rules('kode_jenis', 'Kode', 'required|trim');
-        $this->form_validation->set_rules('nama_jenis', 'Nama Jenis', 'required|trim');
-
-        if ($this->form_validation->run() == false) {
-            $this->output_json(['status' => false, 'message' => validation_errors()]);
-            return;
-        }
-
-        $id = $this->input->post('id_jenis');
-        $data = [
-            'kode_jenis' => strtoupper($this->input->post('kode_jenis', true)),
-            'nama_jenis' => $this->input->post('nama_jenis', true),
-            'nominal_default' => (int) str_replace(['.', ','], '', $this->input->post('nominal_default', true)),
-            'is_recurring' => $this->input->post('is_recurring') ? 1 : 0,
-            'keterangan' => $this->input->post('keterangan', true),
-            'is_active' => $this->input->post('is_active') ? 1 : 0
-        ];
-
-        if ($id) {
-            $result = $this->pembayaran->updateJenisTagihan($id, $data);
-            $message = $result ? 'Jenis tagihan berhasil diupdate' : 'Gagal update jenis tagihan';
-        } else {
-            $existing = $this->pembayaran->getJenisTagihanByKode($data['kode_jenis']);
-            if ($existing) {
-                $this->output_json(['status' => false, 'message' => 'Kode jenis sudah digunakan']);
-                return;
-            }
-            $result = $this->pembayaran->createJenisTagihan($data);
-            $message = $result ? 'Jenis tagihan berhasil ditambahkan' : 'Gagal menambah jenis tagihan';
-        }
-
-        $this->output_json(['status' => (bool) $result, 'message' => $message]);
-    }
-
-    public function getJenis($id)
-    {
-        $jenis = $this->pembayaran->getJenisTagihanById($id);
-        $this->output_json(['status' => (bool) $jenis, 'data' => $jenis]);
-    }
-
-    public function deleteJenis()
-    {
-        $ids = $this->input->post('ids');
-        if (!$ids) {
-            $this->output_json(['status' => false, 'message' => 'Tidak ada data yang dipilih']);
-            return;
-        }
-
-        $result = true;
-        foreach ($ids as $id) {
-            if (!$this->pembayaran->deleteJenisTagihan($id)) {
-                $result = false;
-            }
-        }
-
-        $this->output_json(['status' => $result, 'message' => $result ? 'Jenis tagihan berhasil dihapus' : 'Gagal menghapus jenis tagihan']);
-    }
-
-    public function tagihan()
-    {
-        $data = $this->getCommonData();
-        $data['judul'] = 'Pembayaran';
-        $data['subjudul'] = 'Data Tagihan';
-        $data['kelas'] = $this->kelas->getKelasList($data['tp_active']->id_tp, $data['smt_active']->id_smt);
-        $data['jenis'] = $this->pembayaran->getAllJenisTagihan();
-
-        $this->load->view('_templates/dashboard/_header', $data);
-        $this->load->view('pembayaran/tagihan/data');
-        $this->load->view('_templates/dashboard/_footer');
-    }
-
-    public function dataTagihan()
-    {
-        $tp = $this->dashboard->getTahunActive();
-        $smt = $this->dashboard->getSemesterActive();
-
-        $filters = [
-            'id_kelas' => $this->input->get('id_kelas'),
-            'id_jenis' => $this->input->get('id_jenis'),
-            'status' => $this->input->get('status'),
-            'bulan' => $this->input->get('bulan')
-        ];
-
-        $this->output_json($this->pembayaran->getDataTableTagihan($tp->id_tp, $smt->id_smt, $filters), false);
-    }
-
-    public function addTagihan()
-    {
-        $data = $this->getCommonData();
-        $data['judul'] = 'Pembayaran';
-        $data['subjudul'] = 'Tambah Tagihan';
-        $data['kelas'] = $this->kelas->getKelasList($data['tp_active']->id_tp, $data['smt_active']->id_smt);
-        $data['jenis'] = $this->pembayaran->getAllJenisTagihan();
-
-        $this->load->view('_templates/dashboard/_header', $data);
-        $this->load->view('pembayaran/tagihan/add');
-        $this->load->view('_templates/dashboard/_footer');
-    }
-
-    public function getSiswaByKelas($id_kelas)
-    {
-        $tp = $this->dashboard->getTahunActive();
-        $smt = $this->dashboard->getSemesterActive();
-        $siswa = $this->master->getSiswaByKelas($tp->id_tp, $smt->id_smt, $id_kelas);
-        $this->output_json(['status' => true, 'data' => $siswa]);
-    }
-
-    public function saveTagihan()
-    {
-        $this->form_validation->set_rules('id_siswa[]', 'Siswa', 'required');
-        $this->form_validation->set_rules('id_jenis', 'Jenis Tagihan', 'required');
-        $this->form_validation->set_rules('nominal', 'Nominal', 'required');
-        $this->form_validation->set_rules('jatuh_tempo', 'Jatuh Tempo', 'required');
-
-        if ($this->form_validation->run() == false) {
-            $this->output_json(['status' => false, 'message' => validation_errors()]);
-            return;
-        }
-
-        $tp = $this->dashboard->getTahunActive();
-        $smt = $this->dashboard->getSemesterActive();
-        $user = $this->ion_auth->user()->row();
-
-        $siswa_ids = $this->input->post('id_siswa');
-        $id_jenis = $this->input->post('id_jenis');
-        $nominal = (int) str_replace(['.', ','], '', $this->input->post('nominal', true));
-        $diskon = (int) str_replace(['.', ','], '', $this->input->post('diskon', true));
-        $jatuh_tempo = $this->input->post('jatuh_tempo');
-        $bulan = $this->input->post('bulan') ?: null;
-        $tahun = $this->input->post('tahun') ?: null;
-        $keterangan = $this->input->post('keterangan', true);
-
-        $data_batch = [];
-        $skipped = 0;
-
-        foreach ($siswa_ids as $id_siswa) {
-            $existing = $this->pembayaran->checkTagihanExists($id_siswa, $id_jenis, $bulan, $tahun, $tp->id_tp, $smt->id_smt);
-            if ($existing) {
-                $skipped++;
-                continue;
-            }
-
-            $data_batch[] = [
-                'id_siswa' => $id_siswa,
-                'id_jenis' => $id_jenis,
-                'id_tp' => $tp->id_tp,
-                'id_smt' => $smt->id_smt,
-                'bulan' => $bulan,
-                'tahun' => $tahun,
-                'nominal' => $nominal,
-                'diskon' => $diskon,
-                'jatuh_tempo' => $jatuh_tempo,
-                'keterangan' => $keterangan,
-                'created_by' => $user->id
-            ];
-        }
-
-        if (empty($data_batch)) {
-            $this->output_json(['status' => false, 'message' => 'Semua tagihan sudah ada (' . $skipped . ' data di-skip)']);
-            return;
-        }
-
-        $result = $this->pembayaran->createTagihanBatch($data_batch);
-        $message = $result ? 'Berhasil membuat ' . count($data_batch) . ' tagihan' : 'Gagal membuat tagihan';
-        if ($skipped > 0) {
-            $message .= ' (' . $skipped . ' data di-skip karena sudah ada)';
-        }
-
-        $this->output_json(['status' => (bool) $result, 'message' => $message]);
-    }
-
-    public function getTagihan($id)
-    {
-        $tagihan = $this->pembayaran->getTagihanById($id);
-        $this->output_json(['status' => (bool) $tagihan, 'data' => $tagihan]);
-    }
-
-    public function updateTagihan()
-    {
-        $id = $this->input->post('id_tagihan');
-        if (!$id) {
-            $this->output_json(['status' => false, 'message' => 'ID tagihan tidak valid']);
-            return;
-        }
-
-        $tagihan = $this->pembayaran->getTagihanById($id);
-        if (!$tagihan) {
-            $this->output_json(['status' => false, 'message' => 'Tagihan tidak ditemukan']);
-            return;
-        }
-
-        if ($tagihan->status == 'lunas') {
-            $this->output_json(['status' => false, 'message' => 'Tagihan yang sudah lunas tidak dapat diedit']);
-            return;
-        }
-
-        $data = [
-            'nominal' => (int) str_replace(['.', ','], '', $this->input->post('nominal', true)),
-            'diskon' => (int) str_replace(['.', ','], '', $this->input->post('diskon', true)),
-            'denda' => (int) str_replace(['.', ','], '', $this->input->post('denda', true)),
-            'jatuh_tempo' => $this->input->post('jatuh_tempo'),
-            'keterangan' => $this->input->post('keterangan', true)
-        ];
-
-        $result = $this->pembayaran->updateTagihan($id, $data);
-        $this->output_json(['status' => $result, 'message' => $result ? 'Tagihan berhasil diupdate' : 'Gagal update tagihan']);
-    }
-
-    public function deleteTagihan()
-    {
-        $ids = $this->input->post('ids');
-        if (!$ids) {
-            $this->output_json(['status' => false, 'message' => 'Tidak ada data yang dipilih']);
-            return;
-        }
-
-        foreach ($ids as $id) {
-            $tagihan = $this->pembayaran->getTagihanById($id);
-            if ($tagihan && $tagihan->status == 'lunas') {
-                $this->output_json(['status' => false, 'message' => 'Tagihan yang sudah lunas tidak dapat dihapus']);
-                return;
-            }
-        }
-
-        $result = $this->pembayaran->deleteTagihan($ids);
-        $this->output_json(['status' => $result, 'message' => $result ? 'Tagihan berhasil dihapus' : 'Gagal menghapus tagihan']);
-    }
 
     public function verifikasi()
     {

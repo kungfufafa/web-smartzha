@@ -139,7 +139,7 @@
                         <div class="card-header bg-warning">
                             <h3 class="card-title"><i class="fas fa-upload"></i> Upload Bukti Pembayaran</h3>
                         </div>
-                        <form id="formBayar" enctype="multipart/form-data">
+                        <?= form_open_multipart('', array('id' => 'formBayar')); ?>
                             <div class="card-body">
                                 <input type="hidden" name="id_tagihan" value="<?= $tagihan->id_tagihan ?>">
                                 <div class="form-group">
@@ -174,7 +174,7 @@
                                     <i class="fas fa-paper-plane"></i> Kirim Bukti Pembayaran
                                 </button>
                             </div>
-                        </form>
+                        <?= form_close(); ?>
                     </div>
                     <?php endif; ?>
                 </div>
@@ -208,9 +208,6 @@ $(document).ready(function() {
         e.preventDefault();
 
         var formData = new FormData(this);
-        // Append CSRF Token
-        formData.append('<?= $this->security->get_csrf_token_name() ?>', '<?= $this->security->get_csrf_hash() ?>');
-
         var btn = $('#btnSubmit');
         btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Mengirim...');
 

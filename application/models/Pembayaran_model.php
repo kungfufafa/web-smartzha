@@ -66,6 +66,11 @@ class Pembayaran_model extends CI_Model
     public function deleteJenisTagihan($id)
     {
         $this->db->where('id_jenis', $id);
+        $count = $this->db->count_all_results('pembayaran_tagihan');
+        if ($count > 0) {
+            return false;
+        }
+        $this->db->where('id_jenis', $id);
         return $this->db->delete('pembayaran_jenis');
     }
 
@@ -106,11 +111,6 @@ class Pembayaran_model extends CI_Model
         return $this->db->get()->row();
     }
 
-    public function getTagihanByKode($kode)
-    {
-        return $this->db->get_where('pembayaran_tagihan', ['kode_tagihan' => $kode])->row();
-    }
-
     public function getTagihanBySiswa($id_siswa, $status = null)
     {
         $this->db->select('t.*, j.kode_jenis, j.nama_jenis');
@@ -128,22 +128,27 @@ class Pembayaran_model extends CI_Model
         return $this->db->get()->result();
     }
 
-    public function createTagihan($data)
-    {
-        if (empty($data['kode_tagihan'])) {
-            $data['kode_tagihan'] = $this->generateKodeTagihan();
-        }
-        $this->db->insert('pembayaran_tagihan', $data);
-        return $this->db->insert_id();
-    }
-
     public function createTagihanBatch($data_array)
     {
+        // Get last code once to prevent duplicate keys in batch
+        $prefix = 'TG-' . date('Ym') . '-';
+        $this->db->select_max('kode_tagihan');
+        $this->db->like('kode_tagihan', $prefix, 'after');
+        $row = $this->db->get('pembayaran_tagihan')->row();
+        
+        $last_num = 0;
+        if ($row && $row->kode_tagihan) {
+            $last_num = (int) substr($row->kode_tagihan, -5);
+        }
+
         foreach ($data_array as &$data) {
             if (empty($data['kode_tagihan'])) {
-                $data['kode_tagihan'] = $this->generateKodeTagihan();
+                $last_num++;
+                $new_num = str_pad($last_num, 5, '0', STR_PAD_LEFT);
+                $data['kode_tagihan'] = $prefix . $new_num;
             }
         }
+
         return $this->db->insert_batch('pembayaran_tagihan', $data_array);
     }
 
@@ -158,6 +163,15 @@ class Pembayaran_model extends CI_Model
         if (!is_array($ids)) {
             $ids = [$ids];
         }
+        
+        // Check for dependencies
+        $this->db->where_in('id_tagihan', $ids);
+        $count = $this->db->count_all_results('pembayaran_transaksi');
+        
+        if ($count > 0) {
+            return false;
+        }
+
         $this->db->where_in('id_tagihan', $ids);
         return $this->db->delete('pembayaran_tagihan');
     }
@@ -320,7 +334,7 @@ class Pembayaran_model extends CI_Model
             t.kode_tagihan, j.nama_jenis,
             s.nama as nama_siswa, s.nis,
             k.nama_kelas,
-            g.nama_guru as verified_by_name
+            COALESCE(g.nama_guru, up.nama_lengkap, u.username) as verified_by_name
         ");
         $this->datatables->from('pembayaran_transaksi tr');
         $this->datatables->join('pembayaran_tagihan t', 'tr.id_tagihan = t.id_tagihan');
@@ -330,6 +344,7 @@ class Pembayaran_model extends CI_Model
         $this->datatables->join('master_kelas k', 'ks.id_kelas = k.id_kelas', 'left');
         $this->datatables->join('users u', 'tr.verified_by = u.id', 'left');
         $this->datatables->join('master_guru g', 'u.username = g.username', 'left');
+        $this->datatables->join('users_profile up', 'u.id = up.id_user', 'left');
         $this->datatables->where_in('tr.status', ['verified', 'rejected']);
 
         if (!empty($filters['tanggal_dari'])) {
@@ -357,13 +372,6 @@ class Pembayaran_model extends CI_Model
         $data['ip_address'] = $this->input->ip_address();
         $data['user_agent'] = substr($this->input->user_agent(), 0, 500);
         return $this->db->insert('pembayaran_log', $data);
-    }
-
-    public function getLogByTagihan($id_tagihan)
-    {
-        $this->db->where('id_tagihan', $id_tagihan);
-        $this->db->order_by('created_at', 'DESC');
-        return $this->db->get('pembayaran_log')->result();
     }
 
     public function getLogByTransaksi($id_transaksi)

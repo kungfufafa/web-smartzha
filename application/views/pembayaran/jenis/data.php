@@ -45,7 +45,7 @@
                 <h5 class="modal-title">Form Jenis Tagihan</h5>
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
             </div>
-            <form id="formJenis">
+            <?= form_open('', array('id' => 'formJenis')); ?>
                 <div class="modal-body">
                     <input type="hidden" name="id_jenis" id="id_jenis">
                     <div class="form-group">
@@ -77,9 +77,8 @@
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
                     <button type="submit" class="btn btn-primary">Simpan</button>
                 </div>
-            </form>
+            <?= form_close(); ?>
         </div>
-    </div>
     </div>
 </div>
 
@@ -117,7 +116,7 @@ $(document).ready(function() {
 
     $('#formJenis').on('submit', function(e) {
         e.preventDefault();
-        var data = $(this).serialize() + "&" + '<?= $this->security->get_csrf_token_name() ?>' + "=" + '<?= $this->security->get_csrf_hash() ?>';
+        var data = $(this).serialize();
         $.ajax({
             url: '<?= base_url('pembayaran/saveJenis') ?>',
             type: 'POST',
@@ -127,9 +126,9 @@ $(document).ready(function() {
                 if (response.status) {
                     $('#modalJenis').modal('hide');
                     table.ajax.reload();
-                    Swal.fire('Berhasil', response.message, 'success');
+                    showSuccessToast(response.message);
                 } else {
-                    Swal.fire('Gagal', response.message, 'error');
+                    showDangerToast(response.message);
                 }
             }
         });

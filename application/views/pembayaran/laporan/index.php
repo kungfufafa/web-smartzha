@@ -117,10 +117,17 @@ function loadLaporanTunggakan() {
                 html += '<thead><tr><th>Siswa</th><th>Kelas</th><th>Tagihan</th><th>Total</th></tr></thead>';
                 html += '<tbody>';
                 response.data.forEach(function(row) {
+                    var infoTagihan = row.nama_jenis;
+                    if (row.bulan) {
+                        infoTagihan += ' (' + row.bulan + '/' + row.tahun + ')';
+                    } else if (row.tahun) {
+                        infoTagihan += ' (' + row.tahun + ')';
+                    }
+
                     html += '<tr>';
-                    html += '<td>' + row.nama + '</td>';
-                    html += '<td>' + row.nama_kelas + '</td>';
-                    html += '<td>' + row.jumlah_tagihan + ' tagihan</td>';
+                    html += '<td>' + row.nama_siswa + '</td>';
+                    html += '<td>' + (row.nama_kelas || '-') + '</td>';
+                    html += '<td>' + infoTagihan + '</td>';
                     html += '<td class="text-danger">Rp ' + parseInt(row.total).toLocaleString('id-ID') + '</td>';
                     html += '</tr>';
                 });

@@ -21,7 +21,7 @@
             </a>
         </div>
     </div>
-    <form id="formTagihan">
+    <?= form_open('', array('id' => 'formTagihan')); ?>
         <div class="card-body">
             <div class="row">
                 <div class="col-md-6">
@@ -119,7 +119,7 @@
                 <i class="fas fa-save"></i> Buat Tagihan
             </button>
         </div>
-    </form>
+    <?= form_close(); ?>
 </div>
 
         </div>
@@ -216,16 +216,10 @@ $(document).ready(function() {
             if (result.value || result.isConfirmed) {
                 $('#btnSubmit').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
 
-                var formData = new FormData(form); // Use captured form element
-                // Append CSRF token
-                formData.append('<?= $this->security->get_csrf_token_name() ?>', '<?= $this->security->get_csrf_hash() ?>');
-
                 $.ajax({
-                    url: '<?= base_url('pembayaran/saveTagihan') ?>',
+                    url: '<?= base_url('pembayaran/createTagihanProcess') ?>',
                     type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
+                    data: $(form).serialize(),
                     dataType: 'json',
                     success: function(response) {
                         if (response.status) {

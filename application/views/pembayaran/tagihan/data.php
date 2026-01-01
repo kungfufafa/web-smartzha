@@ -16,7 +16,7 @@
     <div class="card-header">
         <h3 class="card-title">Data Tagihan</h3>
         <div class="card-tools">
-            <a href="<?= base_url('pembayaran/addTagihan') ?>" class="btn btn-primary btn-sm">
+            <a href="<?= base_url('pembayaran/createTagihan') ?>" class="btn btn-primary btn-sm">
                 <i class="fas fa-plus"></i> Buat Tagihan
             </a>
         </div>
@@ -101,7 +101,7 @@
                 <h5 class="modal-title">Edit Tagihan</h5>
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
             </div>
-            <form id="formEdit">
+            <?= form_open('', array('id' => 'formEdit')); ?>
                 <div class="modal-body">
                     <input type="hidden" name="id_tagihan" id="edit_id_tagihan">
                     <div class="form-group">
@@ -129,9 +129,8 @@
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
                     <button type="submit" class="btn btn-primary">Simpan</button>
                 </div>
-            </form>
+            <?= form_close(); ?>
         </div>
-    </div>
     </div>
 </div>
 
@@ -150,6 +149,7 @@ $(document).ready(function() {
         serverSide: true,
         ajax: {
             url: '<?= base_url('pembayaran/dataTagihan') ?>',
+            type: 'POST',
             data: function(d) {
                 d.id_kelas = $('#filterKelas').val();
                 d.id_jenis = $('#filterJenis').val();
@@ -158,7 +158,7 @@ $(document).ready(function() {
             }
         },
         columns: [
-            {data: 'id_tagihan', render: function(data) { return '<input type="checkbox" class="check-item" value="' + data + '">'; }},
+            {data: 'id_tagihan', orderable: false, searchable: false, render: function(data) { return '<input type="checkbox" class="check-item" value="' + data + '">'; }},
             {data: 'kode_tagihan'},
             {data: 'nama_siswa'},
             {data: 'nama_kelas'},
@@ -180,7 +180,7 @@ $(document).ready(function() {
                 };
                 return badges[data] || data;
             }},
-            {data: 'id_tagihan', render: function(data, type, row) {
+            {data: 'id_tagihan', orderable: false, searchable: false, render: function(data, type, row) {
                 var btns = '<button class="btn btn-info btn-xs" onclick="editTagihan(' + data + ')"><i class="fas fa-edit"></i></button> ';
                 if (row.status !== 'lunas') {
                     btns += '<button class="btn btn-danger btn-xs" onclick="deleteTagihan(' + data + ')"><i class="fas fa-trash"></i></button>';
@@ -188,15 +188,29 @@ $(document).ready(function() {
                 return btns;
             }}
         ],
-        order: [[7, 'asc']]
+        order: [[1, 'desc']]
     });
 
     $('#filterKelas, #filterJenis, #filterStatus, #filterBulan').on('change', function() {
         table.ajax.reload();
     });
 
+    // Handle "Select All" click
     $('#checkAll').on('change', function() {
-        $('.check-item').prop('checked', $(this).prop('checked'));
+        var isChecked = $(this).prop('checked');
+        $('.check-item').prop('checked', isChecked);
+    });
+
+    // Sync "Select All" state when individual row is clicked
+    $('#tableTagihan tbody').on('change', '.check-item', function() {
+        var total = $('.check-item').length;
+        var checked = $('.check-item:checked').length;
+        $('#checkAll').prop('checked', total > 0 && total === checked);
+    });
+
+    // Reset "Select All" when table redraws (pagination, sort, filter)
+    table.on('draw', function() {
+        $('#checkAll').prop('checked', false);
     });
 
     $('.rupiah').on('keyup', function() {
@@ -207,24 +221,18 @@ $(document).ready(function() {
     $('#formEdit').on('submit', function(e) {
         e.preventDefault();
         
-        var formData = new FormData(this);
-        // Append CSRF token
-        formData.append('<?= $this->security->get_csrf_token_name() ?>', '<?= $this->security->get_csrf_hash() ?>');
-
         $.ajax({
             url: '<?= base_url('pembayaran/updateTagihan') ?>',
             type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
+            data: $(this).serialize(),
             dataType: 'json',
             success: function(response) {
                 if (response.status) {
                     $('#modalEdit').modal('hide');
                     table.ajax.reload();
-                    Swal.fire('Berhasil', response.message, 'success');
+                    showSuccessToast(response.message);
                 } else {
-                    Swal.fire('Gagal', response.message, 'error');
+                    showDangerToast(response.message);
                 }
             }
         });

@@ -197,7 +197,7 @@
                 <h5 class="modal-title">Setujui Pembayaran</h5>
                 <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
             </div>
-            <form id="formApprove">
+            <?= form_open('', array('id' => 'formApprove')); ?>
                 <div class="modal-body">
                     <input type="hidden" name="id_transaksi" value="<?= $transaksi->id_transaksi ?>">
                     <p>Yakin ingin menyetujui pembayaran ini?</p>
@@ -222,7 +222,7 @@
                         <i class="fas fa-check"></i> Ya, Setujui
                     </button>
                 </div>
-            </form>
+            <?= form_close(); ?>
         </div>
     </div>
 </div>
@@ -235,7 +235,7 @@
                 <h5 class="modal-title">Tolak Pembayaran</h5>
                 <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
             </div>
-            <form id="formReject">
+            <?= form_open('', array('id' => 'formReject')); ?>
                 <div class="modal-body">
                     <input type="hidden" name="id_transaksi" value="<?= $transaksi->id_transaksi ?>">
                     <?php if ($transaksi->reject_count >= 2): ?>
@@ -255,7 +255,7 @@
                         <i class="fas fa-times"></i> Tolak Pembayaran
                     </button>
                 </div>
-            </form>
+            <?= form_close(); ?>
         </div>
     </div>
 </div>
@@ -269,12 +269,10 @@ $(document).ready(function() {
         var btn = $(this).find('button[type="submit"]');
         btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Memproses...');
 
-        var data = $(this).serialize() + "&" + '<?= $this->security->get_csrf_token_name() ?>' + "=" + '<?= $this->security->get_csrf_hash() ?>';
-
         $.ajax({
             url: '<?= base_url('pembayaran/approve') ?>',
             type: 'POST',
-            data: data,
+            data: $(this).serialize(),
             dataType: 'json',
             success: function(response) {
                 if (response.status) {
@@ -302,12 +300,10 @@ $(document).ready(function() {
         var btn = $(this).find('button[type="submit"]');
         btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Memproses...');
 
-        var data = $(this).serialize() + "&" + '<?= $this->security->get_csrf_token_name() ?>' + "=" + '<?= $this->security->get_csrf_hash() ?>';
-
         $.ajax({
             url: '<?= base_url('pembayaran/reject') ?>',
             type: 'POST',
-            data: data,
+            data: $(this).serialize(),
             dataType: 'json',
             success: function(response) {
                 if (response.status) {
