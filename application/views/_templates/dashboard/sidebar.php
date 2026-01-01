@@ -430,8 +430,9 @@
                 </li>
                 <li class="nav-header">KELOLA ABSENSI</li>
                 <?php $absensiManage = ["absensimanager"]; ?>
-                <li class="nav-item has-treeview <?= in_array($page, $absensiManage) ? "menu-open" : "" ?>">
-                    <a href="#" class="nav-link <?= in_array($page, $absensiManage) ? "active" : "" ?>">
+                <?php $absensiSeg2 = $this->uri->segment(2); ?>
+                <li class="nav-item has-treeview <?= ($page === 'absensi' && in_array($absensiSeg2, ['dashboard_admin', 'config', 'lokasi', 'shift', 'assignShift', 'qrcode', 'manualEntry', 'monitoring', 'manageBypass', 'rekap', 'statistik'])) || in_array($page, $absensiManage) ? "menu-open" : "" ?>">
+                    <a href="#" class="nav-link <?= ($page === 'absensi' && in_array($absensiSeg2, ['dashboard_admin', 'config', 'lokasi', 'shift', 'assignShift', 'qrcode', 'manualEntry', 'monitoring', 'manageBypass', 'rekap', 'statistik'])) || in_array($page, $absensiManage) ? "active" : "" ?>">
                         <i class="nav-icon fas fa-user-cog"></i>
                         <p>
                             Manajemen
@@ -440,46 +441,88 @@
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
-                            <a href="<?= base_url('absensimanager') ?>"
-                               class="nav-link <?= $page === 'absensimanager' && $this->uri->segment(2) == '' ? "active" : "" ?>">
+                            <a href="<?= base_url('absensi/dashboard_admin') ?>"
+                               class="nav-link <?= $page === 'absensi' && $absensiSeg2 === 'dashboard_admin' ? "active" : "" ?>">
                                 <i class="fas fa-tachometer-alt nav-icon"></i>
                                 <p>Dashboard</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?= base_url('absensimanager/shift') ?>"
-                               class="nav-link <?= $this->uri->segment(2) === 'shift' ? "active" : "" ?>">
+                            <a href="<?= base_url('absensi/config') ?>"
+                               class="nav-link <?= $page === 'absensi' && $absensiSeg2 === 'config' ? "active" : "" ?>">
+                                <i class="fas fa-cog nav-icon"></i>
+                                <p>Konfigurasi</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/lokasi') ?>"
+                               class="nav-link <?= $page === 'absensi' && $absensiSeg2 === 'lokasi' ? "active" : "" ?>">
+                                <i class="fas fa-map-marker-alt nav-icon"></i>
+                                <p>Lokasi Kantor</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/shift') ?>"
+                               class="nav-link <?= $page === 'absensi' && $absensiSeg2 === 'shift' ? "active" : "" ?>">
                                 <i class="fas fa-clock nav-icon"></i>
                                 <p>Kelola Shift</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?= base_url('absensimanager/karyawan') ?>"
-                               class="nav-link <?= $this->uri->segment(2) === 'karyawan' ? "active" : "" ?>">
-                                <i class="fas fa-id-badge nav-icon"></i>
-                                <p>Data Karyawan</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?= base_url('absensimanager/assign') ?>"
-                               class="nav-link <?= $this->uri->segment(2) === 'assign' ? "active" : "" ?>">
+                            <a href="<?= base_url('absensi/assignShift') ?>"
+                               class="nav-link <?= $page === 'absensi' && $absensiSeg2 === 'assignShift' ? "active" : "" ?>">
                                 <i class="fas fa-user-clock nav-icon"></i>
-                                <p>Assign Shift Guru</p>
+                                <p>Assign Shift</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?= base_url('pengajuan/manage') ?>"
-                               class="nav-link <?= $page === 'pengajuan' && $this->uri->segment(2) === 'manage' ? "active" : "" ?>">
-                                <i class="fas fa-tasks nav-icon"></i>
-                                <p>Kelola Pengajuan</p>
+                            <a href="<?= base_url('absensi/qrcode') ?>"
+                               class="nav-link <?= $page === 'absensi' && $absensiSeg2 === 'qrcode' ? "active" : "" ?>">
+                                <i class="fas fa-qrcode nav-icon"></i>
+                                <p>QR Code</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/monitoring') ?>"
+                               class="nav-link <?= $page === 'absensi' && $absensiSeg2 === 'monitoring' ? "active" : "" ?>">
+                                <i class="fas fa-desktop nav-icon"></i>
+                                <p>Monitoring</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/manageBypass') ?>"
+                               class="nav-link <?= $page === 'absensi' && $absensiSeg2 === 'manageBypass' ? "active" : "" ?>">
+                                <i class="fas fa-shield-alt nav-icon"></i>
+                                <p>Bypass Request</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/manualEntry') ?>"
+                               class="nav-link <?= $page === 'absensi' && $absensiSeg2 === 'manualEntry' ? "active" : "" ?>">
+                                <i class="fas fa-edit nav-icon"></i>
+                                <p>Input Manual</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/rekap') ?>"
+                               class="nav-link <?= $page === 'absensi' && $absensiSeg2 === 'rekap' ? "active" : "" ?>">
+                                <i class="fas fa-chart-bar nav-icon"></i>
+                                <p>Rekap</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/statistik') ?>"
+                               class="nav-link <?= $page === 'absensi' && $absensiSeg2 === 'statistik' ? "active" : "" ?>">
+                                <i class="fas fa-chart-pie nav-icon"></i>
+                                <p>Statistik</p>
                             </a>
                         </li>
                     </ul>
                 </li>
                 <li class="nav-header">ABSENSI SAYA</li>
                 <?php $absensiPersonal = ["absensi", "pengajuan"]; ?>
-                <li class="nav-item has-treeview <?= in_array($page, $absensiPersonal) && $this->uri->segment(2) !== 'manage' ? "menu-open" : "" ?>">
-                    <a href="#" class="nav-link <?= in_array($page, $absensiPersonal) && $this->uri->segment(2) !== 'manage' ? "active" : "" ?>">
+                <li class="nav-item has-treeview <?= in_array($page, $absensiPersonal) && !in_array($absensiSeg2, ['dashboard_admin', 'config', 'lokasi', 'shift', 'assignShift', 'qrcode', 'manualEntry', 'monitoring', 'manageBypass', 'rekap', 'statistik']) ? "menu-open" : "" ?>">
+                    <a href="#" class="nav-link <?= in_array($page, $absensiPersonal) && !in_array($absensiSeg2, ['dashboard_admin', 'config', 'lokasi', 'shift', 'assignShift', 'qrcode', 'manualEntry', 'monitoring', 'manageBypass', 'rekap', 'statistik']) ? "active" : "" ?>">
                         <i class="nav-icon fas fa-fingerprint"></i>
                         <p>
                             Absensi
@@ -488,29 +531,36 @@
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
-                            <a href="<?= base_url('absensi') ?>"
-                               class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) == '' ? "active" : "" ?>">
+                            <a href="<?= base_url('absensi/checkin') ?>"
+                               class="nav-link <?= $page === 'absensi' && ($absensiSeg2 == '' || $absensiSeg2 === 'checkin') ? "active" : "" ?>">
                                 <i class="fas fa-map-marker-alt nav-icon"></i>
                                 <p>Check-in / Check-out</p>
                             </a>
                         </li>
                         <li class="nav-item">
                             <a href="<?= base_url('absensi/riwayat') ?>"
-                               class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) === 'riwayat' ? "active" : "" ?>">
+                               class="nav-link <?= $page === 'absensi' && $absensiSeg2 === 'riwayat' ? "active" : "" ?>">
                                 <i class="fas fa-history nav-icon"></i>
                                 <p>Riwayat Absensi</p>
                             </a>
                         </li>
                         <li class="nav-item">
                             <a href="<?= base_url('absensi/jadwal') ?>"
-                               class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) === 'jadwal' ? "active" : "" ?>">
+                               class="nav-link <?= $page === 'absensi' && $absensiSeg2 === 'jadwal' ? "active" : "" ?>">
                                 <i class="fas fa-calendar-alt nav-icon"></i>
                                 <p>Jadwal Shift Saya</p>
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a href="<?= base_url('absensi/bypass') ?>"
+                               class="nav-link <?= $page === 'absensi' && $absensiSeg2 === 'bypass' ? "active" : "" ?>">
+                                <i class="fas fa-map-pin nav-icon"></i>
+                                <p>Bypass Lokasi</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a href="<?= base_url('pengajuan') ?>"
-                               class="nav-link <?= $page === 'pengajuan' && $this->uri->segment(2) == '' ? "active" : "" ?>">
+                               class="nav-link <?= $page === 'pengajuan' && $absensiSeg2 == '' ? "active" : "" ?>">
                                 <i class="fas fa-file-alt nav-icon"></i>
                                 <p>Pengajuan Izin/Cuti</p>
                             </a>
