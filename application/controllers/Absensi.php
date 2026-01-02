@@ -5,7 +5,9 @@ class Absensi extends CI_Controller
 {
     private $is_admin = false;
     private $is_guru = false;
+    private $is_siswa = false;
     private $guru = null;
+    private $siswa = null;
     private $tp = null;
     private $smt = null;
 
@@ -25,12 +27,19 @@ class Absensi extends CI_Controller
         
         $this->is_admin = $this->ion_auth->is_admin();
         $this->is_guru = $this->ion_auth->in_group('guru');
+        $this->is_siswa = $this->ion_auth->in_group('siswa');
         
         if ($this->is_guru) {
             $this->tp = $this->dashboard->getTahunActive();
             $this->smt = $this->dashboard->getSemesterActive();
             $user = $this->ion_auth->user()->row();
             $this->guru = $this->dashboard->getDataGuruByUserId($user->id, $this->tp->id_tp, $this->smt->id_smt);
+        } elseif ($this->is_siswa) {
+            $this->tp = $this->dashboard->getTahunActive();
+            $this->smt = $this->dashboard->getSemesterActive();
+            $user = $this->ion_auth->user()->row();
+            // Fetch student data similar to Dashboard logic
+            $this->siswa = $this->dashboard->getDataSiswa($user->username, $this->tp->id_tp, $this->smt->id_smt);
         }
     }
 
@@ -44,13 +53,23 @@ class Absensi extends CI_Controller
     {
         $user = $this->ion_auth->user()->row();
         $setting = $this->dashboard->getSetting();
+        
+        // Get tahun pelajaran and semester for template compatibility
+        $tp_active = $this->dashboard->getTahunActive();
+        $smt_active = $this->dashboard->getSemesterActive();
+        
         return [
             'user' => $user,
             'setting' => $setting,
             'profile' => $this->dashboard->getProfileAdmin($user->id),
             'is_admin' => $this->is_admin,
             'pending_bypass_count' => $this->is_admin ? $this->absensi->countPendingBypass() : 0,
-            'pending_pengajuan_count' => $this->is_admin ? $this->absensi->countPendingPengajuan() : 0
+            'pending_pengajuan_count' => $this->is_admin ? $this->absensi->countPendingPengajuan() : 0,
+            // Template required variables
+            'tp_active' => $tp_active,
+            'smt_active' => $smt_active,
+            'tp' => $this->dashboard->getTahun(),
+            'smt' => $this->dashboard->getSemester()
         ];
     }
 
@@ -67,6 +86,29 @@ class Absensi extends CI_Controller
             $this->load->view('members/guru/templates/sidebar', $data);
             $this->load->view($view, $data);
             $this->load->view('members/guru/templates/footer');
+        } elseif ($this->is_siswa) {
+            $data['siswa'] = $this->siswa;
+            $data['tp'] = $this->dashboard->getTahun();
+            $data['tp_active'] = $this->tp;
+            $data['smt'] = $this->dashboard->getSemester();
+            $data['smt_active'] = $this->smt;
+
+            // Replicate menu_siswa_box from Dashboard controller
+            $box = [
+                ["title" => "Jadwal Pelajaran", "icon" => "ic_online.png", "link" => "siswa/jadwalpelajaran"], 
+                ["title" => "Materi", "icon" => "ic_elearning.png", "link" => "siswa/materi"], 
+                ["title" => "Tugas", "icon" => "ic_questions.png", "link" => "siswa/tugas"], 
+                ["title" => "Ujian / Ulangan", "icon" => "ic_question.png", "link" => "siswa/cbt"], 
+                ["title" => "Nilai Hasil", "icon" => "ic_exam.png", "link" => "siswa/hasil"], 
+                ["title" => "Absensi", "icon" => "ic_clipboard.png", "link" => "siswa/kehadiran"], 
+                ["title" => "Catatan Guru", "icon" => "ic_student.png", "link" => "siswa/catatan"], 
+                ["title" => "Tagihan Saya", "icon" => "ic_certificate.png", "link" => "tagihanku"]
+            ];
+            $data['menu'] = json_decode(json_encode($box), FALSE);
+
+            $this->load->view('members/siswa/templates/header', $data);
+            $this->load->view($view, $data);
+            $this->load->view('members/siswa/templates/footer');
         } else {
             $this->load->view('_templates/dashboard/_header', $data);
             $this->load->view($view, $data);
@@ -117,7 +159,9 @@ class Absensi extends CI_Controller
         
         $data['log'] = $this->absensi->getTodayLog($user->id, $today);
         $data['shift'] = $this->shift->getUserShift($user->id, $today);
-        $data['config'] = $this->absensi->getConfig();
+        // Use user-specific config
+        $data['config'] = (array) $this->absensi->getAbsensiConfigForUser($user->id);
+        
         $data['locations'] = $this->absensi->getActiveLocations();
         $data['has_bypass'] = $this->absensi->hasApprovedBypass($user->id, $today);
         
@@ -149,7 +193,8 @@ class Absensi extends CI_Controller
             return;
         }
         
-        $config = $this->absensi->getConfig();
+        // Use user-specific config
+        $config = (array) $this->absensi->getAbsensiConfigForUser($user->id);
         $validation_result = $this->validateAttendanceMethod($method, $lat, $lng, $qr_token, $id_lokasi, $user->id, $today, 'checkin', $config);
         
         if (!$validation_result['valid']) {
@@ -160,6 +205,11 @@ class Absensi extends CI_Controller
         $status = 'Hadir';
         $terlambat_menit = 0;
         $toleransi = isset($shift->toleransi_terlambat) ? $shift->toleransi_terlambat : 0;
+        
+        // Check config override for tolerance
+        if (isset($config['toleransi_terlambat']) && $config['toleransi_terlambat'] !== null) {
+            $toleransi = $config['toleransi_terlambat'];
+        }
         
         $jam_masuk_toleransi = date('H:i:s', strtotime($shift->jam_masuk) + ($toleransi * 60));
         if ($time > $jam_masuk_toleransi) {
@@ -219,7 +269,8 @@ class Absensi extends CI_Controller
             return;
         }
         
-        $config = $this->absensi->getConfig();
+        // Use user-specific config
+        $config = (array) $this->absensi->getAbsensiConfigForUser($user->id);
         $validation_result = $this->validateAttendanceMethod($method, $lat, $lng, $qr_token, $log->id_lokasi, $user->id, $today, 'checkout', $config);
         
         if (!$validation_result['valid']) {
@@ -405,12 +456,128 @@ class Absensi extends CI_Controller
         $this->output_json(['status' => true, 'message' => 'Konfigurasi berhasil disimpan']);
     }
 
+    public function groupConfig()
+    {
+        $this->requireAdmin();
+        $data = $this->getCommonData();
+        $data['judul'] = 'Konfigurasi Grup Absensi';
+        $data['subjudul'] = 'Pengaturan per Tipe Pegawai';
+        
+        $configs = $this->db->select('gc.*, g.name as group_name')
+            ->from('absensi_group_config gc')
+            ->join('groups g', 'gc.id_group = g.id', 'left')
+            ->order_by('g.id', 'ASC')
+            ->order_by('gc.kode_tipe', 'ASC')
+            ->get()->result();
+        
+        $data['group_configs'] = $configs;
+        $data['groups'] = $this->db->get('groups')->result();
+        $data['shifts'] = $this->shift->getAllActive();
+        
+        $this->loadView('absensi/admin/group_config', $data);
+    }
+
+    public function saveGroupConfig()
+    {
+        $this->requireAdmin();
+        
+        $id_group = $this->input->post('id_group');
+        $kode_tipe = $this->input->post('kode_tipe');
+        $kode_tipe = $kode_tipe ? strtoupper(trim($kode_tipe)) : null;
+        
+        $existing = $this->db->where('id_group', $id_group)
+            ->where('kode_tipe', $kode_tipe)
+            ->get('absensi_group_config')->row();
+        
+        if ($existing) {
+            $this->output_json(['status' => false, 'message' => 'Konfigurasi untuk grup dan tipe ini sudah ada']);
+            return;
+        }
+        
+        $working_days = $this->input->post('working_days');
+        $working_days = is_array($working_days) ? array_map('intval', $working_days) : [1,2,3,4,5];
+        
+        $data = [
+            'id_group' => $id_group,
+            'kode_tipe' => $kode_tipe,
+            'nama_konfigurasi' => $this->input->post('nama_konfigurasi'),
+            'working_days' => json_encode($working_days),
+            'id_shift_default' => $this->input->post('id_shift_default') ?: null,
+            'follow_academic_calendar' => $this->input->post('follow_academic_calendar') ? 1 : 0,
+            'holiday_group' => $this->input->post('holiday_group') ?: 'all',
+            'enable_gps' => $this->input->post('enable_gps') ? 1 : 0,
+            'enable_qr' => $this->input->post('enable_qr') ? 1 : 0,
+            'enable_manual' => $this->input->post('enable_manual') ? 1 : 0,
+            'require_photo' => $this->input->post('require_photo') ? 1 : 0,
+            'allow_bypass' => $this->input->post('allow_bypass') ? 1 : 0,
+            'toleransi_terlambat' => $this->input->post('toleransi_terlambat') ?: null,
+            'is_active' => 1
+        ];
+        
+        $result = $this->db->insert('absensi_group_config', $data);
+        $this->output_json(['status' => $result, 'message' => $result ? 'Konfigurasi berhasil disimpan' : 'Gagal menyimpan']);
+    }
+
+    public function updateGroupConfig()
+    {
+        $this->requireAdmin();
+        
+        $id = $this->input->post('id');
+        if (!$id) {
+            $this->output_json(['status' => false, 'message' => 'ID tidak valid']);
+            return;
+        }
+        
+        $kode_tipe = $this->input->post('kode_tipe');
+        $kode_tipe = $kode_tipe ? strtoupper(trim($kode_tipe)) : null;
+        
+        $working_days = $this->input->post('working_days');
+        $working_days = is_array($working_days) ? array_map('intval', $working_days) : [1,2,3,4,5];
+        
+        $data = [
+            'id_group' => $this->input->post('id_group'),
+            'kode_tipe' => $kode_tipe,
+            'nama_konfigurasi' => $this->input->post('nama_konfigurasi'),
+            'working_days' => json_encode($working_days),
+            'id_shift_default' => $this->input->post('id_shift_default') ?: null,
+            'follow_academic_calendar' => $this->input->post('follow_academic_calendar') ? 1 : 0,
+            'holiday_group' => $this->input->post('holiday_group') ?: 'all',
+            'enable_gps' => $this->input->post('enable_gps') ? 1 : 0,
+            'enable_qr' => $this->input->post('enable_qr') ? 1 : 0,
+            'enable_manual' => $this->input->post('enable_manual') ? 1 : 0,
+            'require_photo' => $this->input->post('require_photo') ? 1 : 0,
+            'allow_bypass' => $this->input->post('allow_bypass') ? 1 : 0,
+            'toleransi_terlambat' => $this->input->post('toleransi_terlambat') ?: null,
+            'is_active' => $this->input->post('is_active') ? 1 : 0
+        ];
+        
+        $this->db->where('id', $id);
+        $result = $this->db->update('absensi_group_config', $data);
+        $this->output_json(['status' => $result, 'message' => $result ? 'Konfigurasi berhasil diperbarui' : 'Gagal memperbarui']);
+    }
+
+    public function deleteGroupConfig()
+    {
+        $this->requireAdmin();
+        
+        $id = $this->input->post('id');
+        if (!$id) {
+            $this->output_json(['status' => false, 'message' => 'ID tidak valid']);
+            return;
+        }
+        
+        $this->db->where('id', $id);
+        $result = $this->db->delete('absensi_group_config');
+        $this->output_json(['status' => $result, 'message' => $result ? 'Konfigurasi berhasil dihapus' : 'Gagal menghapus']);
+    }
+
     public function lokasi()
     {
         $this->requireAdmin();
         $data = $this->getCommonData();
         $data['judul'] = 'Absensi';
         $data['subjudul'] = 'Kelola Lokasi';
+        $data['locations'] = $this->absensi->getActiveLocations();
         
         $this->loadView('absensi/admin/lokasi', $data);
     }
@@ -509,9 +676,10 @@ class Absensi extends CI_Controller
         $data['subjudul'] = 'Assign Shift';
         $data['guru_list'] = $this->shift->getAllGuruWithShift();
         $data['karyawan_list'] = $this->absensi->getAllKaryawanWithShift();
+        $data['siswa_list'] = $this->shift->getAllSiswaWithShift();
         $data['shifts'] = $this->shift->getAllShifts();
         
-        $this->loadView('absensi/admin/assign', $data);
+        $this->loadView('absensi/assign/index', $data);
     }
 
     public function saveAssignment()
@@ -583,6 +751,9 @@ class Absensi extends CI_Controller
         
         $user = $this->ion_auth->user()->row();
         $data['my_requests'] = $this->absensi->getUserBypassRequests($user->id);
+        $data['bypass_history'] = $data['my_requests'];
+        $data['bypass_count'] = $this->absensi->countUserBypassThisMonth($user->id);
+        $data['config'] = $this->absensi->getConfig();
         
         $this->loadView('absensi/bypass', $data);
     }
@@ -734,7 +905,9 @@ class Absensi extends CI_Controller
         
         $today = date('Y-m-d');
         $data['today'] = $today;
+        $data['filter_date'] = $today;
         $data['stats'] = $this->absensi->getDashboardStats($today);
+        $data['logs'] = $this->absensi->getRekapHarian($today);
         
         $this->loadView('absensi/admin/monitoring', $data);
     }

@@ -174,7 +174,7 @@ CREATE TABLE `absensi_group_config` (
 
 -- -----------------------------------------------------------
 -- Table: absensi_lokasi
--- Description: Office locations for GPS validation
+-- Description: School/campus locations for GPS validation
 -- -----------------------------------------------------------
 DROP TABLE IF EXISTS `absensi_lokasi`;
 CREATE TABLE `absensi_lokasi` (
@@ -195,7 +195,7 @@ CREATE TABLE `absensi_lokasi` (
 
 -- Default location (update with actual coordinates)
 INSERT INTO `absensi_lokasi` (`nama_lokasi`, `kode_lokasi`, `alamat`, `latitude`, `longitude`, `radius_meter`, `is_default`) VALUES
-('Kantor Pusat', 'HQ', 'Jl. Contoh No. 123', -6.17539200, 106.82715300, 100, 1);
+('Gedung Utama Sekolah', 'SEKOLAH', 'Jl. Pendidikan No. 1', -6.17539200, 106.82715300, 100, 1);
 
 -- ============================================================
 -- PART 4: SHIFT ASSIGNMENT TABLES

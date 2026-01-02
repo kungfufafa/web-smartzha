@@ -41,11 +41,18 @@ class Absensi_model extends CI_Model
 
     /**
      * Get single config value
+     * Supports both: getConfigValue($key, $default) and getConfigValue($key, $config_array)
      */
-    public function getConfigValue($key, $default = null)
+    public function getConfigValue($key, $config_or_default = null)
     {
+        // If second param is an array, extract from it
+        if (is_array($config_or_default)) {
+            return isset($config_or_default[$key]) ? $config_or_default[$key] : null;
+        }
+        
+        // Original behavior - query from database
         $row = $this->db->where('config_key', $key)->get('absensi_config')->row();
-        if (!$row) return $default;
+        if (!$row) return $config_or_default; // $config_or_default is the default value
         return $this->parseConfigValue($row->config_value, $row->config_type);
     }
 
@@ -76,11 +83,125 @@ class Absensi_model extends CI_Model
 
     /**
      * Check if attendance method is enabled
+     * Supports both single parameter and config array parameter
      */
-    public function isMethodEnabled($method)
+    public function isMethodEnabled($method_or_key, $config = null)
     {
-        $key = 'enable_' . strtolower($method);
+        // If config is provided, extract from key directly
+        if ($config !== null) {
+            $key = $method_or_key;
+            return !empty($config[$key]);
+        }
+        
+        // Original behavior
+        $key = 'enable_' . strtolower($method_or_key);
         return (bool) $this->getConfigValue($key, false);
+    }
+
+    /**
+     * Get config as associative array (alias for Controller compatibility)
+     */
+    public function getConfig()
+    {
+        return $this->getAllConfig();
+    }
+
+    public function getAllGroupConfig()
+    {
+        if (!$this->db->table_exists('absensi_group_config')) {
+            return [];
+        }
+        return $this->db->get('absensi_group_config')->result();
+    }
+
+    public function getAbsensiConfigForUser($id_user)
+    {
+        if (!$this->db->table_exists('absensi_group_config')) {
+            return $this->getDefaultUserConfig();
+        }
+
+        $user_group = $this->getUserPrimaryGroup($id_user);
+        if (!$user_group) {
+            return $this->getDefaultUserConfig();
+        }
+
+        $tipe_karyawan = null;
+        if ($user_group->name === 'karyawan') {
+            $karyawan = $this->db->select('tipe_karyawan')
+                ->from('master_karyawan')
+                ->where('id_user', $id_user)
+                ->where('is_active', 1)
+                ->get()->row();
+            $tipe_karyawan = $karyawan ? $karyawan->tipe_karyawan : null;
+        }
+
+        $config = $this->db->where('id_group', $user_group->id)
+            ->where('kode_tipe', $tipe_karyawan)
+            ->where('is_active', 1)
+            ->get('absensi_group_config')->row();
+
+        if (!$config && $tipe_karyawan) {
+            $config = $this->db->where('id_group', $user_group->id)
+                ->where('kode_tipe IS NULL', null, false)
+                ->where('is_active', 1)
+                ->get('absensi_group_config')->row();
+        }
+
+        if (!$config) {
+            return $this->getDefaultUserConfig();
+        }
+
+        return (object) [
+            'working_days' => json_decode($config->working_days, true) ?: [1,2,3,4,5],
+            'id_shift_default' => $config->id_shift_default,
+            'follow_academic_calendar' => (bool) $config->follow_academic_calendar,
+            'holiday_group' => $config->holiday_group,
+            'enable_gps' => (bool) $config->enable_gps,
+            'enable_qr' => (bool) $config->enable_qr,
+            'enable_manual' => (bool) $config->enable_manual,
+            'require_photo' => (bool) $config->require_photo,
+            'allow_bypass' => (bool) $config->allow_bypass,
+            'toleransi_terlambat' => $config->toleransi_terlambat,
+            'id_lokasi_default' => $config->id_lokasi_default,
+            'group_name' => $user_group->name,
+            'kode_tipe' => $tipe_karyawan
+        ];
+    }
+
+    private function getUserPrimaryGroup($id_user)
+    {
+        return $this->db->select('g.id, g.name')
+            ->from('users_groups ug')
+            ->join('groups g', 'ug.group_id = g.id')
+            ->where('ug.user_id', $id_user)
+            ->order_by('g.id', 'ASC')
+            ->limit(1)
+            ->get()->row();
+    }
+
+    private function getDefaultUserConfig()
+    {
+        $global = $this->getAllConfig();
+        return (object) [
+            'working_days' => isset($global['working_days']) ? $global['working_days'] : [1,2,3,4,5],
+            'id_shift_default' => null,
+            'follow_academic_calendar' => false,
+            'holiday_group' => 'all',
+            'enable_gps' => isset($global['enable_gps']) ? $global['enable_gps'] : true,
+            'enable_qr' => isset($global['enable_qr']) ? $global['enable_qr'] : true,
+            'enable_manual' => isset($global['enable_manual']) ? $global['enable_manual'] : false,
+            'require_photo' => isset($global['require_photo_checkin']) ? $global['require_photo_checkin'] : true,
+            'allow_bypass' => isset($global['allow_bypass_request']) ? $global['allow_bypass_request'] : true,
+            'toleransi_terlambat' => null,
+            'id_lokasi_default' => null,
+            'group_name' => 'unknown',
+            'kode_tipe' => null
+        ];
+    }
+
+    public function getConfigValueFromArray($key, $config, $default = null)
+    {
+        return isset($config[$key]) ? $config[$key] : $default;
     }
 
     /**
@@ -429,27 +550,39 @@ class Absensi_model extends CI_Model
 
     /**
      * Validate QR token
+     * Returns array with 'valid', 'message', 'id_lokasi' keys for Controller compatibility
      */
-    public function validateQrToken($token_code, $type = 'checkin')
+    public function validateQrToken($token_code, $date = null, $type = 'checkin')
     {
         $now = date('Y-m-d H:i:s');
+        $today = $date ?: date('Y-m-d');
 
         $token = $this->db->where('token_code', $token_code)
             ->where('is_active', 1)
             ->where('valid_from <=', $now)
             ->where('valid_until >=', $now)
-            ->where("(token_type = 'both' OR token_type = '{$type}')")
+            ->group_start()
+                ->where('token_type', 'both')
+                ->or_where('token_type', $type)
+            ->group_end()
             ->get('absensi_qr_token')
             ->row();
 
-        if (!$token) return false;
+        if (!$token) {
+            return ['valid' => false, 'message' => 'QR Code tidak valid atau sudah kadaluarsa.'];
+        }
 
         // Check max usage
         if ($token->max_usage !== null && $token->used_count >= $token->max_usage) {
-            return false;
+            return ['valid' => false, 'message' => 'QR Code sudah mencapai batas penggunaan maksimal.'];
         }
 
-        return $token;
+        return [
+            'valid' => true, 
+            'message' => 'QR Code valid.',
+            'id_lokasi' => $token->id_lokasi,
+            'token' => $token
+        ];
     }
 
     /**
@@ -528,7 +661,10 @@ class Absensi_model extends CI_Model
         $this->db->where('id_user', $id_user);
         $this->db->where('tanggal', $date);
         $this->db->where('status', 'approved');
-        $this->db->where("(tipe_bypass = 'both' OR tipe_bypass = '{$type}')");
+        $this->db->group_start()
+            ->where('tipe_bypass', 'both')
+            ->or_where('tipe_bypass', $type)
+        ->group_end();
         return $this->db->get('absensi_bypass_request')->row();
     }
 
@@ -679,12 +815,13 @@ class Absensi_model extends CI_Model
     public function getRekapHarian($date)
     {
         return $this->db->select('al.*, u.username, 
-                                  COALESCE(g.nama_guru, k.nama_karyawan, u.first_name) as nama_lengkap,
+                                  COALESCE(g.nama_guru, k.nama_karyawan, ms.nama, u.first_name) as nama_lengkap,
                                   s.nama_shift, l.nama_lokasi')
             ->from('absensi_logs al')
             ->join('users u', 'al.id_user = u.id', 'left')
             ->join('master_guru g', 'u.id = g.id_user', 'left')
             ->join('master_karyawan k', 'u.id = k.id_user', 'left')
+            ->join('master_siswa ms', 'u.username = ms.username', 'left')
             ->join('master_shift s', 'al.id_shift = s.id_shift', 'left')
             ->join('absensi_lokasi l', 'al.id_lokasi = l.id_lokasi', 'left')
             ->where('al.tanggal', $date)
@@ -700,8 +837,8 @@ class Absensi_model extends CI_Model
     {
         return $this->db->select("
             al.id_user,
-            COALESCE(g.nama_guru, k.nama_karyawan, u.first_name) as nama_lengkap,
-            COALESCE(g.nip, k.nip, '') as nip,
+            COALESCE(g.nama_guru, k.nama_karyawan, ms.nama, u.first_name) as nama_lengkap,
+            COALESCE(g.nip, k.nip, ms.nis, '') as nip,
             COUNT(*) as total_hari,
             SUM(CASE WHEN al.status_kehadiran IN ('Hadir', 'Terlambat', 'Pulang Awal', 'Terlambat + Pulang Awal') THEN 1 ELSE 0 END) as hadir,
             SUM(CASE WHEN al.status_kehadiran = 'Terlambat' THEN 1 ELSE 0 END) as terlambat,
@@ -713,6 +850,7 @@ class Absensi_model extends CI_Model
             ->join('users u', 'al.id_user = u.id', 'left')
             ->join('master_guru g', 'u.id = g.id_user', 'left')
             ->join('master_karyawan k', 'u.id = k.id_user', 'left')
+            ->join('master_siswa ms', 'u.username = ms.username', 'left')
             ->where('MONTH(al.tanggal)', $month)
             ->where('YEAR(al.tanggal)', $year)
             ->group_by('al.id_user')
@@ -775,12 +913,13 @@ class Absensi_model extends CI_Model
     public function getRecentLogs($limit = 10)
     {
         return $this->db->select('al.*, u.username,
-                                  COALESCE(g.nama_guru, k.nama_karyawan, u.first_name) as nama_lengkap,
+                                  COALESCE(g.nama_guru, k.nama_karyawan, ms.nama, u.first_name) as nama_lengkap,
                                   s.nama_shift')
             ->from('absensi_logs al')
             ->join('users u', 'al.id_user = u.id', 'left')
             ->join('master_guru g', 'u.id = g.id_user', 'left')
             ->join('master_karyawan k', 'u.id = k.id_user', 'left')
+            ->join('master_siswa ms', 'u.username = ms.username', 'left')
             ->join('master_shift s', 'al.id_shift = s.id_shift', 'left')
             ->order_by('al.updated_at', 'DESC')
             ->limit($limit)
@@ -796,12 +935,13 @@ class Absensi_model extends CI_Model
         $date = $date ?: date('Y-m-d');
 
         return $this->db->select('al.*, u.username,
-                                  COALESCE(g.nama_guru, k.nama_karyawan, u.first_name) as nama_lengkap,
+                                  COALESCE(g.nama_guru, k.nama_karyawan, ms.nama, u.first_name) as nama_lengkap,
                                   s.nama_shift, s.jam_masuk as shift_masuk')
             ->from('absensi_logs al')
             ->join('users u', 'al.id_user = u.id', 'left')
             ->join('master_guru g', 'u.id = g.id_user', 'left')
             ->join('master_karyawan k', 'u.id = k.id_user', 'left')
+            ->join('master_siswa ms', 'u.username = ms.username', 'left')
             ->join('master_shift s', 'al.id_shift = s.id_shift', 'left')
             ->where('al.tanggal', $date)
             ->where('al.terlambat_menit >', 0)
@@ -824,17 +964,18 @@ class Absensi_model extends CI_Model
             ->get_compiled_select();
 
         return $this->db->select('u.id, u.username,
-                                  COALESCE(g.nama_guru, k.nama_karyawan, u.first_name) as nama_lengkap,
+                                  COALESCE(g.nama_guru, k.nama_karyawan, ms.nama, u.first_name) as nama_lengkap,
                                   s.nama_shift, s.jam_masuk')
             ->from('users u')
             ->join('users_groups ug', 'u.id = ug.user_id')
             ->join('groups gr', 'ug.group_id = gr.id')
             ->join('master_guru g', 'u.id = g.id_user', 'left')
             ->join('master_karyawan k', 'u.id = k.id_user', 'left')
+            ->join('master_siswa ms', 'u.username = ms.username', 'left')
             ->join('pegawai_shift ps', 'u.id = ps.id_user', 'left')
             ->join('master_shift s', 'ps.id_shift_fixed = s.id_shift', 'left')
             ->where("u.id NOT IN ({$subquery})", null, false)
-            ->where_in('gr.name', ['guru', 'karyawan'])
+            ->where_in('gr.name', ['guru', 'karyawan', 'siswa'])
             ->where('u.active', 1)
             ->get()
             ->result();
@@ -842,9 +983,23 @@ class Absensi_model extends CI_Model
 
     /**
      * Get statistics by status for period
+     * Supports both (month, year) and (start_date, end_date) parameters
      */
-    public function getStatistikByStatus($start_date, $end_date)
+    public function getStatistikByStatus($param1, $param2)
     {
+        // Detect if params are month/year or date range
+        if (strlen($param1) <= 2 && strlen($param2) == 4) {
+            // Month and Year format
+            $month = $param1;
+            $year = $param2;
+            $start_date = "$year-$month-01";
+            $end_date = date('Y-m-t', strtotime($start_date));
+        } else {
+            // Date range format
+            $start_date = $param1;
+            $end_date = $param2;
+        }
+
         return $this->db->select("
             status_kehadiran,
             COUNT(*) as jumlah
@@ -859,9 +1014,23 @@ class Absensi_model extends CI_Model
 
     /**
      * Get daily attendance statistics
+     * Supports both (month, year) and (start_date, end_date) parameters
      */
-    public function getStatistikDaily($start_date, $end_date)
+    public function getStatistikDaily($param1, $param2)
     {
+        // Detect if params are month/year or date range
+        if (strlen($param1) <= 2 && strlen($param2) == 4) {
+            // Month and Year format
+            $month = $param1;
+            $year = $param2;
+            $start_date = "$year-$month-01";
+            $end_date = date('Y-m-t', strtotime($start_date));
+        } else {
+            // Date range format
+            $start_date = $param1;
+            $end_date = $param2;
+        }
+
         return $this->db->select("
             tanggal,
             COUNT(*) as total,
@@ -885,7 +1054,7 @@ class Absensi_model extends CI_Model
     {
         return $this->db->select("
             al.id_user,
-            COALESCE(g.nama_guru, k.nama_karyawan, u.first_name) as nama_lengkap,
+            COALESCE(g.nama_guru, k.nama_karyawan, ms.nama, u.first_name) as nama_lengkap,
             COUNT(*) as jumlah_terlambat,
             SUM(al.terlambat_menit) as total_menit
         ")
@@ -893,6 +1062,7 @@ class Absensi_model extends CI_Model
             ->join('users u', 'al.id_user = u.id', 'left')
             ->join('master_guru g', 'u.id = g.id_user', 'left')
             ->join('master_karyawan k', 'u.id = k.id_user', 'left')
+            ->join('master_siswa ms', 'u.username = ms.username', 'left')
             ->where('MONTH(al.tanggal)', $month)
             ->where('YEAR(al.tanggal)', $year)
             ->where('al.terlambat_menit >', 0)
@@ -910,13 +1080,14 @@ class Absensi_model extends CI_Model
     {
         return $this->db->select("
             al.id_user,
-            COALESCE(g.nama_guru, k.nama_karyawan, u.first_name) as nama_lengkap,
+            COALESCE(g.nama_guru, k.nama_karyawan, ms.nama, u.first_name) as nama_lengkap,
             COUNT(*) as jumlah_alpha
         ")
             ->from('absensi_logs al')
             ->join('users u', 'al.id_user = u.id', 'left')
             ->join('master_guru g', 'u.id = g.id_user', 'left')
             ->join('master_karyawan k', 'u.id = k.id_user', 'left')
+            ->join('master_siswa ms', 'u.username = ms.username', 'left')
             ->where('MONTH(al.tanggal)', $month)
             ->where('YEAR(al.tanggal)', $year)
             ->where('al.status_kehadiran', 'Alpha')
@@ -939,14 +1110,15 @@ class Absensi_model extends CI_Model
         $date = $date ?: date('Y-m-d');
 
         $this->db->select('al.*, u.username,
-                          COALESCE(g.nama_guru, k.nama_karyawan, u.first_name) as nama_lengkap,
-                          COALESCE(g.nip, k.nip, \'\') as nip,
+                          COALESCE(g.nama_guru, k.nama_karyawan, ms.nama, u.first_name) as nama_lengkap,
+                          COALESCE(g.nip, k.nip, ms.nis, \'\') as nip,
                           s.nama_shift, s.jam_masuk as shift_masuk, s.jam_pulang as shift_pulang,
                           l.nama_lokasi');
         $this->db->from('absensi_logs al');
         $this->db->join('users u', 'al.id_user = u.id', 'left');
         $this->db->join('master_guru g', 'u.id = g.id_user', 'left');
         $this->db->join('master_karyawan k', 'u.id = k.id_user', 'left');
+        $this->db->join('master_siswa ms', 'u.username = ms.username', 'left');
         $this->db->join('master_shift s', 'al.id_shift = s.id_shift', 'left');
         $this->db->join('absensi_lokasi l', 'al.id_lokasi = l.id_lokasi', 'left');
         $this->db->where('al.tanggal', $date);
@@ -964,20 +1136,21 @@ class Absensi_model extends CI_Model
     // =========================================================================
 
     /**
-     * Get all users who should attend (guru + karyawan)
+     * Get all users who should attend (guru + karyawan + siswa)
      */
     public function getAllAttendanceUsers()
     {
         return $this->db->select('u.id, u.username, u.first_name, u.last_name,
-                                  COALESCE(g.nama_guru, k.nama_karyawan, u.first_name) as nama_lengkap,
-                                  COALESCE(g.nip, k.nip, \'\') as nip,
+                                  COALESCE(g.nama_guru, k.nama_karyawan, ms.nama, u.first_name) as nama_lengkap,
+                                  COALESCE(g.nip, k.nip, ms.nis, \'\') as nip,
                                   gr.name as group_name')
             ->from('users u')
             ->join('users_groups ug', 'u.id = ug.user_id')
             ->join('groups gr', 'ug.group_id = gr.id')
             ->join('master_guru g', 'u.id = g.id_user', 'left')
             ->join('master_karyawan k', 'u.id = k.id_user', 'left')
-            ->where_in('gr.name', ['guru', 'karyawan'])
+            ->join('master_siswa ms', 'u.username = ms.username', 'left')
+            ->where_in('gr.name', ['guru', 'karyawan', 'siswa'])
             ->where('u.active', 1)
             ->order_by('nama_lengkap', 'ASC')
             ->get()
@@ -992,7 +1165,7 @@ class Absensi_model extends CI_Model
         return $this->db->from('users u')
             ->join('users_groups ug', 'u.id = ug.user_id')
             ->join('groups gr', 'ug.group_id = gr.id')
-            ->where_in('gr.name', ['guru', 'karyawan'])
+            ->where_in('gr.name', ['guru', 'karyawan', 'siswa'])
             ->where('u.active', 1)
             ->count_all_results();
     }
@@ -1053,19 +1226,66 @@ class Absensi_model extends CI_Model
         return $count > 0;
     }
 
-    /**
-     * Check if date is a working day
-     */
-    public function isWorkingDay($date)
+    public function isWorkingDay($date, $id_user = null)
     {
-        // Check if holiday
+        if ($id_user) {
+            return $this->isWorkingDayForUser($date, $id_user);
+        }
+
         if ($this->isHoliday($date)) return false;
 
-        // Check working days config
         $working_days = $this->getConfigValue('working_days', [1, 2, 3, 4, 5]);
-        $day_of_week = date('N', strtotime($date)); // 1=Monday, 7=Sunday
+        $day_of_week = (int) date('N', strtotime($date));
 
         return in_array($day_of_week, $working_days);
+    }
+
+    public function isWorkingDayForUser($date, $id_user)
+    {
+        $config = $this->getAbsensiConfigForUser($id_user);
+        $day_of_week = (int) date('N', strtotime($date));
+
+        if (!in_array($day_of_week, $config->working_days)) {
+            return false;
+        }
+
+        return !$this->isHolidayForUser($date, $config);
+    }
+
+    public function isHolidayForUser($date, $config)
+    {
+        if ($config->holiday_group === 'none') {
+            return false;
+        }
+
+        if ($config->holiday_group === 'all') {
+            return $this->isHoliday($date);
+        }
+
+        if ($config->holiday_group === 'essential') {
+            return $this->isNationalHoliday($date);
+        }
+
+        if ($config->holiday_group === 'academic') {
+            return $this->isAcademicHoliday($date);
+        }
+
+        return $this->isHoliday($date);
+    }
+
+    public function isNationalHoliday($date)
+    {
+        $count = $this->db->where('tanggal', $date)
+            ->where('is_active', 1)
+            ->where("(nama_libur LIKE '%nasional%' OR nama_libur LIKE '%kemerdekaan%' OR nama_libur LIKE '%tahun baru%' OR is_recurring = 1)", null, false)
+            ->count_all_results('master_hari_libur');
+
+        return $count > 0;
+    }
+
+    public function isAcademicHoliday($date)
+    {
+        return $this->isHoliday($date);
     }
 
     // =========================================================================
@@ -1074,9 +1294,24 @@ class Absensi_model extends CI_Model
 
     /**
      * Create audit log entry
+     * Supports both: logAudit($data_array) and logAudit($id_log, $id_user, $action, $action_by, $changes)
      */
-    public function logAudit($data)
+    public function logAudit($id_log_or_data, $id_user_target = null, $action = null, $action_by = null, $changes = null)
     {
+        // Check if called with array (original signature)
+        if (is_array($id_log_or_data)) {
+            $data = $id_log_or_data;
+        } else {
+            // Called with individual parameters (Controller signature)
+            $data = [
+                'id_log' => $id_log_or_data,
+                'id_user_target' => $id_user_target,
+                'action' => $action,
+                'action_by' => $action_by,
+                'changes' => is_array($changes) ? json_encode($changes) : $changes
+            ];
+        }
+
         $data['ip_address'] = $this->input->ip_address();
         $data['user_agent'] = substr($this->input->user_agent(), 0, 255);
         $data['created_at'] = date('Y-m-d H:i:s');
