@@ -34,6 +34,11 @@ CREATE TABLE `absensi_group_config` (
   `toleransi_terlambat` int(11) DEFAULT NULL COMMENT 'Grace period minutes (NULL=use shift/global)',
   `id_lokasi_default` int(11) DEFAULT NULL COMMENT 'Default location for this group',
   
+  -- Checkout & Lembur Config
+  `require_checkout` tinyint(1) DEFAULT 1 COMMENT '1=Checkout wajib, 0=Checkout opsional/tidak perlu',
+  `enable_lembur` tinyint(1) DEFAULT 0 COMMENT '1=Lembur diaktifkan, 0=Lembur tidak berlaku',
+  `lembur_require_approval` tinyint(1) DEFAULT 1 COMMENT '1=Lembur harus ada pengajuan approved, 0=Otomatis dari checkout',
+  
   `is_active` tinyint(1) DEFAULT 1,
   `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -71,40 +76,59 @@ DEALLOCATE PREPARE stmt;
 -- Note: id_group values depend on your Ion Auth groups
 -- Typically: 1=admin, 2=guru, 3=siswa, 4=karyawan (verify with SELECT * FROM groups)
 
--- Config for Guru (group_id typically 2)
+-- Config for Siswa (group_id typically 3)
 INSERT INTO `absensi_group_config` 
-(`id_group`, `kode_tipe`, `nama_konfigurasi`, `working_days`, `id_shift_default`, `follow_academic_calendar`, `holiday_group`, `enable_gps`, `enable_qr`, `toleransi_terlambat`)
+(`id_group`, `kode_tipe`, `nama_konfigurasi`, `working_days`, `id_shift_default`, `follow_academic_calendar`, `holiday_group`, `enable_gps`, `enable_qr`, `toleransi_terlambat`, `require_checkout`, `enable_lembur`, `lembur_require_approval`)
 VALUES
-(2, 'GURU', 'Guru', '[1,2,3,4,5]', NULL, 1, 'academic', 1, 1, 15)
+(3, 'SISWA', 'Siswa', '[1,2,3,4,5,6]', NULL, 1, 'academic', 1, 1, 15, 0, 0, 0)
 ON DUPLICATE KEY UPDATE 
   `nama_konfigurasi` = VALUES(`nama_konfigurasi`),
+  `require_checkout` = VALUES(`require_checkout`),
+  `enable_lembur` = VALUES(`enable_lembur`),
+  `updated_at` = CURRENT_TIMESTAMP;
+
+-- Config for Guru (group_id typically 2)
+INSERT INTO `absensi_group_config` 
+(`id_group`, `kode_tipe`, `nama_konfigurasi`, `working_days`, `id_shift_default`, `follow_academic_calendar`, `holiday_group`, `enable_gps`, `enable_qr`, `toleransi_terlambat`, `require_checkout`, `enable_lembur`, `lembur_require_approval`)
+VALUES
+(2, 'GURU', 'Guru', '[1,2,3,4,5]', NULL, 1, 'academic', 1, 1, 15, 1, 0, 1)
+ON DUPLICATE KEY UPDATE 
+  `nama_konfigurasi` = VALUES(`nama_konfigurasi`),
+  `require_checkout` = VALUES(`require_checkout`),
+  `enable_lembur` = VALUES(`enable_lembur`),
   `updated_at` = CURRENT_TIMESTAMP;
 
 -- Config for Karyawan TU (group_id typically 4)
 INSERT INTO `absensi_group_config` 
-(`id_group`, `kode_tipe`, `nama_konfigurasi`, `working_days`, `id_shift_default`, `follow_academic_calendar`, `holiday_group`, `enable_gps`, `enable_qr`, `toleransi_terlambat`)
+(`id_group`, `kode_tipe`, `nama_konfigurasi`, `working_days`, `id_shift_default`, `follow_academic_calendar`, `holiday_group`, `enable_gps`, `enable_qr`, `toleransi_terlambat`, `require_checkout`, `enable_lembur`, `lembur_require_approval`)
 VALUES
-(4, 'TU', 'Tata Usaha', '[1,2,3,4,5,6]', NULL, 0, 'all', 1, 1, 15)
+(4, 'TU', 'Tata Usaha', '[1,2,3,4,5,6]', NULL, 0, 'all', 1, 1, 15, 1, 1, 1)
 ON DUPLICATE KEY UPDATE 
   `nama_konfigurasi` = VALUES(`nama_konfigurasi`),
+  `require_checkout` = VALUES(`require_checkout`),
+  `enable_lembur` = VALUES(`enable_lembur`),
   `updated_at` = CURRENT_TIMESTAMP;
 
 -- Config for Satpam (group_id 4, different tipe)
 INSERT INTO `absensi_group_config` 
-(`id_group`, `kode_tipe`, `nama_konfigurasi`, `working_days`, `id_shift_default`, `follow_academic_calendar`, `holiday_group`, `enable_gps`, `enable_qr`, `toleransi_terlambat`)
+(`id_group`, `kode_tipe`, `nama_konfigurasi`, `working_days`, `id_shift_default`, `follow_academic_calendar`, `holiday_group`, `enable_gps`, `enable_qr`, `toleransi_terlambat`, `require_checkout`, `enable_lembur`, `lembur_require_approval`)
 VALUES
-(4, 'SATPAM', 'Satpam', '[1,2,3,4,5,6,7]', NULL, 0, 'essential', 1, 1, 0)
+(4, 'SATPAM', 'Satpam', '[1,2,3,4,5,6,7]', NULL, 0, 'essential', 1, 1, 0, 1, 1, 1)
 ON DUPLICATE KEY UPDATE 
   `nama_konfigurasi` = VALUES(`nama_konfigurasi`),
+  `require_checkout` = VALUES(`require_checkout`),
+  `enable_lembur` = VALUES(`enable_lembur`),
   `updated_at` = CURRENT_TIMESTAMP;
 
 -- Config for Tukang Kebun (group_id 4, different tipe)
 INSERT INTO `absensi_group_config` 
-(`id_group`, `kode_tipe`, `nama_konfigurasi`, `working_days`, `id_shift_default`, `follow_academic_calendar`, `holiday_group`, `enable_gps`, `enable_qr`, `toleransi_terlambat`)
+(`id_group`, `kode_tipe`, `nama_konfigurasi`, `working_days`, `id_shift_default`, `follow_academic_calendar`, `holiday_group`, `enable_gps`, `enable_qr`, `toleransi_terlambat`, `require_checkout`, `enable_lembur`, `lembur_require_approval`)
 VALUES
-(4, 'KEBUN', 'Tukang Kebun', '[1,2,3,4,5,6]', NULL, 0, 'all', 1, 0, 30)
+(4, 'KEBUN', 'Tukang Kebun', '[1,2,3,4,5,6]', NULL, 0, 'all', 1, 0, 30, 1, 1, 1)
 ON DUPLICATE KEY UPDATE 
   `nama_konfigurasi` = VALUES(`nama_konfigurasi`),
+  `require_checkout` = VALUES(`require_checkout`),
+  `enable_lembur` = VALUES(`enable_lembur`),
   `updated_at` = CURRENT_TIMESTAMP;
 
 SET FOREIGN_KEY_CHECKS = 1;

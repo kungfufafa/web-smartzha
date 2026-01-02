@@ -163,6 +163,9 @@ class Absensi_model extends CI_Model
             'allow_bypass' => (bool) $config->allow_bypass,
             'toleransi_terlambat' => $config->toleransi_terlambat,
             'id_lokasi_default' => $config->id_lokasi_default,
+            'require_checkout' => isset($config->require_checkout) ? (bool) $config->require_checkout : true,
+            'enable_lembur' => isset($config->enable_lembur) ? (bool) $config->enable_lembur : false,
+            'lembur_require_approval' => isset($config->lembur_require_approval) ? (bool) $config->lembur_require_approval : true,
             'group_name' => $user_group->name,
             'kode_tipe' => $tipe_karyawan
         ];
@@ -194,6 +197,9 @@ class Absensi_model extends CI_Model
             'allow_bypass' => isset($global['allow_bypass_request']) ? $global['allow_bypass_request'] : true,
             'toleransi_terlambat' => null,
             'id_lokasi_default' => null,
+            'require_checkout' => true,
+            'enable_lembur' => false,
+            'lembur_require_approval' => true,
             'group_name' => 'unknown',
             'kode_tipe' => null
         ];
@@ -1497,5 +1503,169 @@ class Absensi_model extends CI_Model
 
         $this->db->trans_complete();
         return $this->db->trans_status();
+    }
+
+    public function markAbsentAsAlpha($date, $admin_id = null)
+    {
+        $this->load->model('Pengajuan_model', 'pengajuan_model');
+        
+        $users = $this->getUsersWhoShouldWork($date);
+        $marked = 0;
+
+        $this->db->trans_start();
+
+        foreach ($users as $user) {
+            $existing = $this->getTodayLog($user->id, $date);
+            if ($existing) {
+                continue;
+            }
+
+            $has_leave = $this->pengajuan_model->has_approved_leave($user->id, $date);
+            if ($has_leave) {
+                continue;
+            }
+
+            $shift = $this->getUserShiftForDate($user->id, $date);
+            
+            $data = [
+                'id_user' => $user->id,
+                'tanggal' => $date,
+                'status_kehadiran' => 'Alpha',
+                'id_shift' => $shift ? $shift->id_shift : null,
+                'keterangan' => 'Tidak hadir tanpa keterangan',
+                'is_manual_entry' => $admin_id ? 1 : 0,
+                'manual_entry_by' => $admin_id,
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+
+            $this->db->insert('absensi_logs', $data);
+            $marked++;
+        }
+
+        $this->db->trans_complete();
+        
+        return [
+            'success' => $this->db->trans_status(),
+            'marked' => $marked
+        ];
+    }
+
+    public function getUsersWhoShouldWork($date)
+    {
+        $day_of_week = (int) date('N', strtotime($date));
+        
+        if ($this->isHoliday($date)) {
+            return [];
+        }
+        
+        $already_logged = $this->db->select('id_user')
+            ->from('absensi_logs')
+            ->where('tanggal', $date)
+            ->get()
+            ->result_array();
+        
+        $logged_ids = array_column($already_logged, 'id_user');
+
+        $users = $this->db->select('u.id, u.username, gr.name as group_name, gr.id as group_id')
+            ->from('users u')
+            ->join('users_groups ug', 'u.id = ug.user_id')
+            ->join('groups gr', 'ug.group_id = gr.id')
+            ->where_in('gr.name', ['guru', 'karyawan', 'siswa'])
+            ->where('u.active', 1)
+            ->get()
+            ->result();
+
+        if (empty($users)) {
+            return [];
+        }
+
+        $filtered_users = [];
+        foreach ($users as $user) {
+            if (!empty($logged_ids) && in_array($user->id, $logged_ids)) {
+                continue;
+            }
+            
+            $config = $this->getAbsensiConfigForUser($user->id);
+            $working_days = isset($config->working_days) ? $config->working_days : [1,2,3,4,5];
+            
+            if (is_string($working_days)) {
+                $working_days = json_decode($working_days, true);
+            }
+            
+            if (!is_array($working_days)) {
+                $working_days = [1,2,3,4,5];
+            }
+            
+            if (!in_array($day_of_week, $working_days)) {
+                continue;
+            }
+            
+            $filtered_users[] = $user;
+        }
+
+        return $filtered_users;
+    }
+
+    public function getUserShiftForDate($id_user, $date)
+    {
+        $rotating = $this->db->select('sj.*, s.*')
+            ->from('shift_jadwal sj')
+            ->join('master_shift s', 'sj.id_shift = s.id_shift')
+            ->where('sj.id_user', $id_user)
+            ->where('sj.tanggal', $date)
+            ->get()
+            ->row();
+
+        if ($rotating) {
+            return $rotating;
+        }
+
+        return $this->db->select('ps.*, s.*')
+            ->from('pegawai_shift ps')
+            ->join('master_shift s', 'ps.id_shift_fixed = s.id_shift')
+            ->where('ps.id_user', $id_user)
+            ->where('ps.tgl_efektif <=', $date)
+            ->order_by('ps.tgl_efektif', 'DESC')
+            ->get()
+            ->row();
+    }
+
+    public function getUnmarkedUsersCount($date)
+    {
+        $logged = $this->db->select('id_user')
+            ->from('absensi_logs')
+            ->where('tanggal', $date)
+            ->get()
+            ->result_array();
+        
+        $logged_ids = array_column($logged, 'id_user');
+
+        $this->db->from('users u')
+            ->join('users_groups ug', 'u.id = ug.user_id')
+            ->join('groups gr', 'ug.group_id = gr.id')
+            ->where_in('gr.name', ['guru', 'karyawan', 'siswa'])
+            ->where('u.active', 1);
+
+        if (!empty($logged_ids)) {
+            $this->db->where_not_in('u.id', $logged_ids);
+        }
+
+        return $this->db->count_all_results();
+    }
+
+    public function calculateOvertimeMinutes($jam_pulang, $shift_jam_pulang)
+    {
+        if (empty($jam_pulang) || empty($shift_jam_pulang)) {
+            return 0;
+        }
+
+        $pulang = strtotime($jam_pulang);
+        $batas = strtotime($shift_jam_pulang);
+
+        if ($pulang > $batas) {
+            return round(($pulang - $batas) / 60);
+        }
+        
+        return 0;
     }
 }

@@ -74,7 +74,7 @@ class Pengajuan extends CI_Controller
 
     public function create()
     {
-        $this->form_validation->set_rules('tipe_pengajuan', 'Tipe Pengajuan', 'required|in_list[Izin,Lembur]');
+        $this->form_validation->set_rules('tipe_pengajuan', 'Tipe Pengajuan', 'required|in_list[Izin,Sakit,Cuti,Dinas,Lembur]');
         $this->form_validation->set_rules('tgl_mulai', 'Tanggal Mulai', 'required');
         $this->form_validation->set_rules('tgl_selesai', 'Tanggal Selesai', 'required');
         $this->form_validation->set_rules('keterangan', 'Keterangan', 'required|max_length[500]');
@@ -97,12 +97,19 @@ class Pengajuan extends CI_Controller
             'status' => 'Pending'
         ];
 
-        if ($tipe == 'Izin') {
+        if ($tipe === 'Izin') {
             $data['id_jenis_izin'] = $this->input->post('id_jenis_izin');
-        } elseif ($tipe == 'Lembur') {
+        }
+        
+        if ($tipe === 'Lembur') {
             $data['jam_mulai'] = $this->input->post('jam_mulai');
             $data['jam_selesai'] = $this->input->post('jam_selesai');
         }
+
+        $start = new DateTime($data['tgl_mulai']);
+        $end = new DateTime($data['tgl_selesai']);
+        $diff = $start->diff($end);
+        $data['jumlah_hari'] = $diff->days + 1;
         
         $this->pengajuan->create($data);
         $this->session->set_flashdata('success', 'Pengajuan berhasil dikirim');
@@ -149,7 +156,112 @@ class Pengajuan extends CI_Controller
             return;
         }
 
-        $this->pengajuan->update_status($id, $status, $user->id, $alasan);
+        $result = $this->pengajuan->update_status($id, $status, $user->id, $alasan);
+        
+        if ($result && $status === 'Disetujui') {
+            $pengajuan = $this->pengajuan->get_by_id($id);
+            if ($pengajuan && $pengajuan->tipe_pengajuan === 'Lembur') {
+                $this->pengajuan->syncLemburToAbsensiLog($id);
+            }
+        }
+        
         $this->output_json(['status' => true, 'message' => 'Pengajuan berhasil di-' . strtolower($status)]);
+    }
+
+    public function izinKeluar()
+    {
+        if (!$this->ion_auth->is_admin() && !$this->ion_auth->in_group('guru')) {
+            $this->output_json(['status' => false, 'message' => 'Akses ditolak']);
+            return;
+        }
+
+        $this->form_validation->set_rules('id_siswa', 'Siswa', 'required|numeric');
+        $this->form_validation->set_rules('jam_keluar', 'Jam Keluar', 'required');
+        $this->form_validation->set_rules('alasan', 'Alasan', 'required');
+
+        if ($this->form_validation->run() == FALSE) {
+            $this->output_json(['status' => false, 'message' => validation_errors()]);
+            return;
+        }
+
+        $id_siswa = $this->input->post('id_siswa');
+        $jam_keluar = $this->input->post('jam_keluar');
+        $tanggal = date('Y-m-d');
+        $user = $this->ion_auth->user()->row();
+
+        $this->load->model('Absensi_model', 'absensi');
+        $existing = $this->db->where('id_user', $id_siswa)
+            ->where('tanggal', $tanggal)
+            ->get('absensi_logs')
+            ->row();
+
+        if (!$existing || !$existing->jam_masuk) {
+            $this->output_json(['status' => false, 'message' => 'Siswa belum check-in hari ini']);
+            return;
+        }
+
+        if ($existing->jam_pulang) {
+            $this->output_json(['status' => false, 'message' => 'Siswa sudah tercatat pulang']);
+            return;
+        }
+
+        $data = [
+            'id_user' => $id_siswa,
+            'tipe_pengajuan' => 'IzinKeluar',
+            'id_jenis_izin' => $this->input->post('id_jenis_izin'),
+            'tgl_mulai' => $tanggal,
+            'tgl_selesai' => $tanggal,
+            'jam_selesai' => $jam_keluar,
+            'jumlah_hari' => 1,
+            'keterangan' => $this->security->xss_clean($this->input->post('alasan')),
+            'status' => 'Disetujui',
+            'approved_by' => $user->id,
+            'approved_at' => date('Y-m-d H:i:s')
+        ];
+
+        $status_ortu = $this->input->post('status_ortu');
+        if ($status_ortu) {
+            $data['keterangan'] .= ' [' . $status_ortu . ']';
+        }
+
+        $this->pengajuan->create($data);
+        $id_pengajuan = $this->db->insert_id();
+
+        $this->pengajuan->syncIzinKeluarToAbsensiLog($id_pengajuan);
+
+        $this->output_json(['status' => true, 'message' => 'Izin keluar berhasil dicatat']);
+    }
+
+    public function formIzinKeluar()
+    {
+        if (!$this->ion_auth->is_admin() && !$this->ion_auth->in_group('guru')) {
+            show_error('Akses Ditolak', 403);
+        }
+
+        $user = $this->ion_auth->user()->row();
+        $setting = $this->dashboard->getSetting();
+        
+        $today = date('Y-m-d');
+        $siswa_hadir = $this->db->select('al.id_log, al.id_user, al.jam_masuk, u.first_name, u.last_name')
+            ->from('absensi_logs al')
+            ->join('users u', 'al.id_user = u.id')
+            ->where('al.tanggal', $today)
+            ->where('al.jam_masuk IS NOT NULL', null, false)
+            ->where('al.jam_pulang IS NULL', null, false)
+            ->where_in('al.status_kehadiran', ['Hadir', 'Terlambat'])
+            ->get()
+            ->result();
+
+        $data = [
+            'user' => $user,
+            'judul' => 'Izin Keluar Siswa',
+            'subjudul' => 'Catat Siswa Pulang Lebih Awal',
+            'setting' => $setting,
+            'profile' => $this->dashboard->getProfileAdmin($user->id),
+            'siswa_hadir' => $siswa_hadir,
+            'jenis_izin' => $this->pengajuan->get_jenis_izin()
+        ];
+        
+        $this->load_view('absensi/pengajuan/izin_keluar', $data);
     }
 }

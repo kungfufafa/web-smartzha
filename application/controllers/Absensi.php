@@ -181,6 +181,15 @@ class Absensi extends CI_Controller
         $today = date('Y-m-d');
         $time = date('H:i:s');
         
+        $config = (array) $this->absensi->getAbsensiConfigForUser($user->id);
+        
+        $gps_enabled = !empty($config['enable_gps']);
+        $qr_enabled = !empty($config['enable_qr']);
+        
+        if (!$gps_enabled && !$qr_enabled) {
+            $method = 'Manual';
+        }
+        
         $shift = $this->shift->getUserShift($user->id, $today);
         if (!$shift) {
             $this->output_json(['status' => false, 'message' => 'Anda tidak memiliki jadwal shift hari ini.']);
@@ -193,8 +202,14 @@ class Absensi extends CI_Controller
             return;
         }
         
-        // Use user-specific config
-        $config = (array) $this->absensi->getAbsensiConfigForUser($user->id);
+        if ($log && in_array($log->status_kehadiran, ['Izin', 'Sakit', 'Cuti', 'Dinas Luar'])) {
+            $this->output_json([
+                'status' => false, 
+                'message' => 'Anda sudah tercatat ' . $log->status_kehadiran . ' hari ini. Hubungi admin jika ingin membatalkan.'
+            ]);
+            return;
+        }
+        
         $validation_result = $this->validateAttendanceMethod($method, $lat, $lng, $qr_token, $id_lokasi, $user->id, $today, 'checkin', $config);
         
         if (!$validation_result['valid']) {
@@ -206,18 +221,14 @@ class Absensi extends CI_Controller
         $terlambat_menit = 0;
         $toleransi = isset($shift->toleransi_terlambat) ? $shift->toleransi_terlambat : 0;
         
-        // Check config override for tolerance
         if (isset($config['toleransi_terlambat']) && $config['toleransi_terlambat'] !== null) {
             $toleransi = $config['toleransi_terlambat'];
         }
         
-        $jam_masuk_toleransi = date('H:i:s', strtotime($shift->jam_masuk) + ($toleransi * 60));
-        if ($time > $jam_masuk_toleransi) {
-            $status = 'Terlambat';
-            $start = strtotime($shift->jam_masuk);
-            $end = strtotime($time);
-            $terlambat_menit = round(($end - $start) / 60);
-        }
+        $is_overnight = isset($shift->lintas_hari) && $shift->lintas_hari == 1;
+        $terlambat_result = $this->calculateLateStatus($time, $shift->jam_masuk, $toleransi, $is_overnight);
+        $status = $terlambat_result['status'];
+        $terlambat_menit = $terlambat_result['menit'];
         
         $foto_filename = $this->handlePhotoUpload($foto, 'checkin', $user->id);
         
@@ -259,6 +270,13 @@ class Absensi extends CI_Controller
         $today = date('Y-m-d');
         $time = date('H:i:s');
         
+        $userConfig = $this->absensi->getAbsensiConfigForUser($user->id);
+        
+        if (!$userConfig->require_checkout) {
+            $this->output_json(['status' => false, 'message' => 'Checkout tidak diperlukan untuk grup Anda.']);
+            return;
+        }
+        
         $log = $this->absensi->getTodayLog($user->id, $today);
         if (!$log) {
             $this->output_json(['status' => false, 'message' => 'Anda belum check-in hari ini.']);
@@ -269,8 +287,7 @@ class Absensi extends CI_Controller
             return;
         }
         
-        // Use user-specific config
-        $config = (array) $this->absensi->getAbsensiConfigForUser($user->id);
+        $config = (array) $userConfig;
         $validation_result = $this->validateAttendanceMethod($method, $lat, $lng, $qr_token, $log->id_lokasi, $user->id, $today, 'checkout', $config);
         
         if (!$validation_result['valid']) {
@@ -280,17 +297,31 @@ class Absensi extends CI_Controller
         
         $shift = $this->shift->getShiftById($log->id_shift);
         $pulang_awal_menit = 0;
+        $lembur_menit = 0;
         $status = $log->status_kehadiran;
         
-        if ($time < $shift->jam_pulang) {
-            $start = strtotime($time);
-            $end = strtotime($shift->jam_pulang);
-            $pulang_awal_menit = round(($end - $start) / 60);
+        if ($shift) {
+            $is_overnight = isset($shift->lintas_hari) && $shift->lintas_hari == 1;
+            $early_leave = $this->calculateEarlyLeave($time, $shift->jam_pulang, $is_overnight);
+            $pulang_awal_menit = $early_leave['menit'];
             
-            if ($log->status_kehadiran == 'Terlambat') {
-                $status = 'Terlambat + Pulang Awal';
+            if ($early_leave['is_early']) {
+                if ($log->status_kehadiran == 'Terlambat') {
+                    $status = 'Terlambat + Pulang Awal';
+                } else {
+                    $status = 'Pulang Awal';
+                }
             } else {
-                $status = 'Pulang Awal';
+                if ($userConfig->enable_lembur) {
+                    $actual_overtime = $this->absensi->calculateOvertimeMinutes($time, $shift->jam_pulang);
+                    
+                    if ($userConfig->lembur_require_approval) {
+                        $approved_lembur = $this->hasApprovedLemburRequest($user->id, $today);
+                        $lembur_menit = $approved_lembur ? $actual_overtime : 0;
+                    } else {
+                        $lembur_menit = $actual_overtime;
+                    }
+                }
             }
         }
         
@@ -301,7 +332,8 @@ class Absensi extends CI_Controller
             'long_pulang' => $lng,
             'qr_token_pulang' => $qr_token,
             'status_kehadiran' => $status,
-            'pulang_awal_menit' => $pulang_awal_menit
+            'pulang_awal_menit' => $pulang_awal_menit,
+            'lembur_menit' => $lembur_menit
         ];
         
         $this->absensi->clockOut($log->id_log, $update_data);
@@ -309,13 +341,33 @@ class Absensi extends CI_Controller
         
         $this->output_json(['status' => true, 'message' => 'Check-out berhasil!']);
     }
+    
+    private function hasApprovedLemburRequest($id_user, $date)
+    {
+        return $this->db->where('id_user', $id_user)
+            ->where('tanggal_mulai <=', $date)
+            ->where('tanggal_selesai >=', $date)
+            ->where('tipe_pengajuan', 'Lembur')
+            ->where('status', 'Approved')
+            ->get('absensi_pengajuan')
+            ->num_rows() > 0;
+    }
 
     private function validateAttendanceMethod($method, $lat, $lng, $qr_token, $id_lokasi, $id_user, $date, $type, $config)
     {
         $result = ['valid' => false, 'message' => '', 'id_lokasi' => $id_lokasi, 'bypass_id' => null];
         
+        $gps_enabled = !empty($config['enable_gps']);
+        $qr_enabled = !empty($config['enable_qr']);
+        
+        if (!$gps_enabled && !$qr_enabled) {
+            $result['valid'] = true;
+            $result['id_lokasi'] = null;
+            return $result;
+        }
+        
         if ($method === 'GPS') {
-            if (!$this->absensi->isMethodEnabled('enable_gps', $config)) {
+            if (!$gps_enabled) {
                 $result['message'] = 'Metode GPS tidak diaktifkan.';
                 return $result;
             }
@@ -351,7 +403,7 @@ class Absensi extends CI_Controller
             $result['id_lokasi'] = $nearest->id_lokasi;
             
         } elseif ($method === 'QR') {
-            if (!$this->absensi->isMethodEnabled('enable_qr', $config)) {
+            if (!$qr_enabled) {
                 $result['message'] = 'Metode QR tidak diaktifkan.';
                 return $result;
             }
@@ -365,11 +417,70 @@ class Absensi extends CI_Controller
             $result['valid'] = true;
             $result['id_lokasi'] = $qr['id_lokasi'];
             
+        } elseif ($method === 'Manual' || empty($method)) {
+            if ($gps_enabled || $qr_enabled) {
+                $result['message'] = 'Silakan gunakan GPS atau QR untuk absensi.';
+                return $result;
+            }
+            $result['valid'] = true;
+            
         } else {
             $result['message'] = 'Metode absensi tidak valid.';
         }
         
         return $result;
+    }
+
+    private function calculateLateStatus($current_time, $shift_jam_masuk, $toleransi, $is_overnight = false)
+    {
+        $now = strtotime($current_time);
+        $shift_time = strtotime($shift_jam_masuk);
+        $batas = $shift_time + ($toleransi * 60);
+        
+        if ($is_overnight) {
+            if ($now < 43200) {
+                $now += 86400;
+            }
+            if ($shift_time >= 43200) {
+            } else {
+                $shift_time += 86400;
+                $batas = $shift_time + ($toleransi * 60);
+            }
+        }
+        
+        if ($now > $batas) {
+            $late_seconds = $now - $shift_time;
+            return [
+                'status' => 'Terlambat',
+                'menit' => max(0, round($late_seconds / 60))
+            ];
+        }
+        
+        return ['status' => 'Hadir', 'menit' => 0];
+    }
+
+    private function calculateEarlyLeave($current_time, $shift_jam_pulang, $is_overnight = false)
+    {
+        $now = strtotime($current_time);
+        $shift_time = strtotime($shift_jam_pulang);
+        
+        if ($is_overnight) {
+            if ($shift_time < 43200) {
+                $shift_time += 86400;
+            }
+            if ($now < 43200) {
+                $now += 86400;
+            }
+        }
+        
+        if ($now < $shift_time) {
+            return [
+                'is_early' => true,
+                'menit' => round(($shift_time - $now) / 60)
+            ];
+        }
+        
+        return ['is_early' => false, 'menit' => 0];
     }
 
     private function handlePhotoUpload($base64_photo, $type, $user_id)
@@ -511,6 +622,9 @@ class Absensi extends CI_Controller
             'require_photo' => $this->input->post('require_photo') ? 1 : 0,
             'allow_bypass' => $this->input->post('allow_bypass') ? 1 : 0,
             'toleransi_terlambat' => $this->input->post('toleransi_terlambat') ?: null,
+            'require_checkout' => $this->input->post('require_checkout') ? 1 : 0,
+            'enable_lembur' => $this->input->post('enable_lembur') ? 1 : 0,
+            'lembur_require_approval' => $this->input->post('lembur_require_approval') ? 1 : 0,
             'is_active' => 1
         ];
         
@@ -548,6 +662,9 @@ class Absensi extends CI_Controller
             'require_photo' => $this->input->post('require_photo') ? 1 : 0,
             'allow_bypass' => $this->input->post('allow_bypass') ? 1 : 0,
             'toleransi_terlambat' => $this->input->post('toleransi_terlambat') ?: null,
+            'require_checkout' => $this->input->post('require_checkout') ? 1 : 0,
+            'enable_lembur' => $this->input->post('enable_lembur') ? 1 : 0,
+            'lembur_require_approval' => $this->input->post('lembur_require_approval') ? 1 : 0,
             'is_active' => $this->input->post('is_active') ? 1 : 0
         ];
         
@@ -1005,5 +1122,42 @@ class Absensi extends CI_Controller
         ];
         
         $this->output_json(['status' => true, 'data' => $data]);
+    }
+
+    public function markAlpha()
+    {
+        $this->requireAdmin();
+        
+        $date = $this->input->post('tanggal') ?: date('Y-m-d');
+        $admin = $this->ion_auth->user()->row();
+        
+        $result = $this->absensi->markAbsentAsAlpha($date, $admin->id);
+        
+        if ($result['success']) {
+            $this->output_json([
+                'status' => true, 
+                'message' => $result['marked'] . ' orang ditandai Alpha',
+                'marked' => $result['marked']
+            ]);
+        } else {
+            $this->output_json([
+                'status' => false, 
+                'message' => 'Gagal menandai Alpha'
+            ]);
+        }
+    }
+
+    public function getUnmarkedCount()
+    {
+        $this->requireAdmin();
+        
+        $date = $this->input->get('tanggal') ?: date('Y-m-d');
+        $count = $this->absensi->getUnmarkedUsersCount($date);
+        
+        $this->output_json([
+            'status' => true,
+            'count' => $count,
+            'date' => $date
+        ]);
     }
 }
