@@ -48,7 +48,7 @@
                                 </tr>
                                 <tr>
                                     <td>Tanggal Upload</td>
-                                    <td><?= date('d M Y H:i', strtotime($transaksi->created_at)) ?></td>
+                                    <td><?= date('d M Y H:i', strtotime($transaksi->waktu_upload ?: $transaksi->created_at)) ?></td>
                                 </tr>
                                 <tr>
                                     <td>Status</td>

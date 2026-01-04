@@ -301,11 +301,24 @@
 
 
       if ($this->ci->input->post('order'))
-        foreach ($this->ci->input->post('order') as $key)
-          if($this->check_cType())
-            $this->ci->db->order_by($Data[$key['column']]['data'], $key['dir']);
-          else
-            $this->ci->db->order_by($this->columns[$key['column']] , $key['dir']);
+        foreach ($this->ci->input->post('order') as $key) {
+          // Security: Validate column index and direction to prevent SQL injection
+          $column_index = isset($key['column']) ? intval($key['column']) : 0;
+          $direction = isset($key['dir']) && strtolower($key['dir']) === 'desc' ? 'desc' : 'asc';
+          
+          if($this->check_cType()) {
+            // Validate column name exists in our defined columns
+            $column_name = isset($Data[$column_index]['data']) ? $Data[$column_index]['data'] : null;
+            if ($column_name !== null && isset($this->select[$column_name])) {
+              $this->ci->db->order_by($this->select[$column_name], $direction);
+            }
+          } else {
+            // Validate column index is within bounds
+            if (isset($this->columns[$column_index])) {
+              $this->ci->db->order_by($this->columns[$column_index], $direction);
+            }
+          }
+        }
 
     }
 

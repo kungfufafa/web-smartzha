@@ -157,10 +157,18 @@ class Absensi extends CI_Controller
         $user = $this->ion_auth->user()->row();
         $today = date('Y-m-d');
         
-        $data['log'] = $this->absensi->getTodayLog($user->id, $today);
-        $data['shift'] = $this->shift->getUserShift($user->id, $today);
-        // Use user-specific config
-        $data['config'] = (array) $this->absensi->getAbsensiConfigForUser($user->id);
+        // Prefer active (not yet checked-out) log to support overnight shifts
+        $data['log'] = $this->absensi->getOpenLog($user->id, $today);
+        if (!$data['log']) {
+            $data['log'] = $this->absensi->getTodayLog($user->id, $today);
+        }
+
+        // If user already has a log, use its shift for consistency; otherwise use today's shift assignment
+        $data['shift'] = $data['log'] && !empty($data['log']->id_shift)
+            ? $this->shift->getShiftById($data['log']->id_shift)
+            : $this->shift->getUserShift($user->id, $today);
+        // Use user-specific config (keep as object for view compatibility)
+        $data['config'] = $this->absensi->getAbsensiConfigForUser($user->id);
         
         $data['locations'] = $this->absensi->getActiveLocations();
         $data['has_bypass'] = $this->absensi->hasApprovedBypass($user->id, $today);
@@ -189,6 +197,16 @@ class Absensi extends CI_Controller
         if (!$gps_enabled && !$qr_enabled) {
             $method = 'Manual';
         }
+
+        // Prevent double check-in when there is still an open (not checked-out) log, including overnight shifts.
+        $openLog = $this->absensi->getOpenLog($user->id, $today);
+        if ($openLog) {
+            $this->output_json([
+                'status' => false,
+                'message' => 'Anda masih memiliki absensi yang belum check-out (tanggal: ' . $openLog->tanggal . '). Silakan check-out terlebih dahulu.'
+            ]);
+            return;
+        }
         
         $shift = $this->shift->getUserShift($user->id, $today);
         if (!$shift) {
@@ -210,7 +228,7 @@ class Absensi extends CI_Controller
             return;
         }
         
-        $validation_result = $this->validateAttendanceMethod($method, $lat, $lng, $qr_token, $id_lokasi, $user->id, $today, 'checkin', $config);
+        $validation_result = $this->absensi->validateAttendanceMethod($method, $lat, $lng, $qr_token, $id_lokasi, $user->id, $today, 'checkin', $config);
         
         if (!$validation_result['valid']) {
             $this->output_json(['status' => false, 'message' => $validation_result['message']]);
@@ -226,35 +244,56 @@ class Absensi extends CI_Controller
         }
         
         $is_overnight = isset($shift->lintas_hari) && $shift->lintas_hari == 1;
-        $terlambat_result = $this->calculateLateStatus($time, $shift->jam_masuk, $toleransi, $is_overnight);
+        $terlambat_result = $this->absensi->calculateLateStatusWithOvernight($time, $shift->jam_masuk, $toleransi, $is_overnight);
         $status = $terlambat_result['status'];
         $terlambat_menit = $terlambat_result['menit'];
         
         $foto_filename = $this->handlePhotoUpload($foto, 'checkin', $user->id);
         
-        $insert_data = [
-            'id_user' => $user->id,
-            'id_shift' => $shift->id_shift,
-            'id_lokasi' => $validation_result['id_lokasi'],
-            'tanggal' => $today,
-            'jam_masuk' => date('Y-m-d H:i:s'),
-            'status_kehadiran' => $status,
-            'metode_masuk' => $method,
-            'lat_masuk' => $lat,
-            'long_masuk' => $lng,
-            'foto_masuk' => $foto_filename,
-            'qr_token_masuk' => $qr_token,
-            'bypass_id' => $validation_result['bypass_id'] ?? null,
-            'device_info' => $this->input->user_agent(),
-            'terlambat_menit' => $terlambat_menit
-        ];
+	        $insert_data = [
+	            'id_user' => $user->id,
+	            'id_shift' => $shift->id_shift,
+	            'id_lokasi' => $validation_result['id_lokasi'],
+	            'tanggal' => $today,
+	            'jam_masuk' => date('Y-m-d H:i:s'),
+	            'status_kehadiran' => $status,
+	            'metode_masuk' => $method,
+	            'lat_masuk' => $lat,
+	            'long_masuk' => $lng,
+	            'foto_masuk' => $foto_filename,
+	            'qr_token_masuk' => $method === 'QR' ? $qr_token : null,
+	            'bypass_id' => $validation_result['bypass_id'] ?? null,
+	            'device_info' => $this->input->user_agent(),
+	            'terlambat_menit' => $terlambat_menit,
+	            'is_overnight' => (isset($shift->lintas_hari) && (int) $shift->lintas_hari === 1) ? 1 : 0
+	        ];
         
-        $this->absensi->clockIn($insert_data);
-        $this->absensi->logAudit(null, $user->id, 'checkin', $user->id, $insert_data);
-        
-        if ($qr_token) {
-            $this->absensi->incrementQrUsage($qr_token);
+        $this->db->trans_start();
+
+        $id_log = $this->absensi->createLog($insert_data);
+        if (!$id_log) {
+            $this->db->trans_rollback();
+            $this->output_json(['status' => false, 'message' => 'Gagal menyimpan check-in. Silakan coba lagi.']);
+            return;
         }
+
+        if (!empty($validation_result['bypass_id'])) {
+            // Atomically claim bypass to prevent double-use race condition
+            $bypass_claimed = $this->absensi->claimBypass($validation_result['bypass_id']);
+            if (!$bypass_claimed) {
+                $this->db->trans_rollback();
+                $this->output_json(['status' => false, 'message' => 'Bypass sudah digunakan atau tidak valid.']);
+                return;
+            }
+        }
+
+	        if ($method === 'QR' && $qr_token) {
+	            // QR token already claimed atomically in validateAttendanceMethod
+	            // No additional increment needed here
+	        }
+
+        $this->absensi->logAudit($id_log, $user->id, 'checkin', $user->id, $insert_data);
+        $this->db->trans_complete();
         
         $this->output_json(['status' => true, 'message' => 'Check-in berhasil! Status: ' . $status]);
     }
@@ -272,14 +311,16 @@ class Absensi extends CI_Controller
         
         $userConfig = $this->absensi->getAbsensiConfigForUser($user->id);
         
-        if (!$userConfig->require_checkout) {
-            $this->output_json(['status' => false, 'message' => 'Checkout tidak diperlukan untuk grup Anda.']);
-            return;
-        }
-        
-        $log = $this->absensi->getTodayLog($user->id, $today);
+        // Prefer open log so checkout works for overnight shifts
+        $log = $this->absensi->getOpenLog($user->id, $today);
         if (!$log) {
-            $this->output_json(['status' => false, 'message' => 'Anda belum check-in hari ini.']);
+            $todayLog = $this->absensi->getTodayLog($user->id, $today);
+            if ($todayLog && $todayLog->jam_pulang) {
+                $this->output_json(['status' => false, 'message' => 'Anda sudah check-out hari ini.']);
+                return;
+            }
+
+            $this->output_json(['status' => false, 'message' => 'Anda belum memiliki check-in yang aktif.']);
             return;
         }
         if ($log->jam_pulang) {
@@ -287,8 +328,12 @@ class Absensi extends CI_Controller
             return;
         }
         
+        // Note: require_checkout config means checkout is REQUIRED, not forbidden
+        // If require_checkout is false, checkout is optional but still allowed
+        // We proceed with checkout if user has an open log (they explicitly want to close it)
+        
         $config = (array) $userConfig;
-        $validation_result = $this->validateAttendanceMethod($method, $lat, $lng, $qr_token, $log->id_lokasi, $user->id, $today, 'checkout', $config);
+        $validation_result = $this->absensi->validateAttendanceMethod($method, $lat, $lng, $qr_token, $log->id_lokasi, $user->id, $today, 'checkout', $config);
         
         if (!$validation_result['valid']) {
             $this->output_json(['status' => false, 'message' => $validation_result['message']]);
@@ -302,7 +347,7 @@ class Absensi extends CI_Controller
         
         if ($shift) {
             $is_overnight = isset($shift->lintas_hari) && $shift->lintas_hari == 1;
-            $early_leave = $this->calculateEarlyLeave($time, $shift->jam_pulang, $is_overnight);
+            $early_leave = $this->absensi->calculateEarlyLeaveWithOvernight($time, $shift->jam_pulang, $is_overnight);
             $pulang_awal_menit = $early_leave['menit'];
             
             if ($early_leave['is_early']) {
@@ -316,7 +361,7 @@ class Absensi extends CI_Controller
                     $actual_overtime = $this->absensi->calculateOvertimeMinutes($time, $shift->jam_pulang);
                     
                     if ($userConfig->lembur_require_approval) {
-                        $approved_lembur = $this->hasApprovedLemburRequest($user->id, $today);
+                        $approved_lembur = $this->absensi->hasApprovedLemburRequest($user->id, $today);
                         $lembur_menit = $approved_lembur ? $actual_overtime : 0;
                     } else {
                         $lembur_menit = $actual_overtime;
@@ -325,176 +370,163 @@ class Absensi extends CI_Controller
             }
         }
         
-        $update_data = [
-            'jam_pulang' => date('Y-m-d H:i:s'),
-            'metode_pulang' => $method,
-            'lat_pulang' => $lat,
-            'long_pulang' => $lng,
-            'qr_token_pulang' => $qr_token,
-            'status_kehadiran' => $status,
-            'pulang_awal_menit' => $pulang_awal_menit,
-            'lembur_menit' => $lembur_menit
-        ];
+	        $update_data = [
+	            'jam_pulang' => date('Y-m-d H:i:s'),
+	            'metode_pulang' => $method,
+	            'lat_pulang' => $lat,
+	            'long_pulang' => $lng,
+	            'qr_token_pulang' => $method === 'QR' ? $qr_token : null,
+	            'status_kehadiran' => $status,
+	            'pulang_awal_menit' => $pulang_awal_menit,
+	            'lembur_menit' => $lembur_menit
+	        ];
+
+        if (!empty($validation_result['bypass_id']) && empty($log->bypass_id)) {
+            $update_data['bypass_id'] = $validation_result['bypass_id'];
+        }
         
-        $this->absensi->clockOut($log->id_log, $update_data);
+        $this->db->trans_start();
+
+        $result = $this->absensi->updateLog($log->id_log, $update_data);
+        if (!$result) {
+            $this->db->trans_rollback();
+            $this->output_json(['status' => false, 'message' => 'Gagal menyimpan check-out. Silakan coba lagi.']);
+            return;
+        }
+
+        if (!empty($validation_result['bypass_id']) && empty($log->bypass_id)) {
+            // Atomically claim bypass to prevent double-use race condition
+            $bypass_claimed = $this->absensi->claimBypass($validation_result['bypass_id']);
+            if (!$bypass_claimed) {
+                $this->db->trans_rollback();
+                $this->output_json(['status' => false, 'message' => 'Bypass sudah digunakan atau tidak valid.']);
+                return;
+            }
+            $update_data['bypass_id'] = $validation_result['bypass_id'];
+        }
+
+	        if ($method === 'QR' && $qr_token) {
+	            // QR token already claimed atomically in validateAttendanceMethod
+	            // No additional increment needed here
+	        }
+
         $this->absensi->logAudit($log->id_log, $user->id, 'checkout', $user->id, $update_data);
+        $this->db->trans_complete();
         
         $this->output_json(['status' => true, 'message' => 'Check-out berhasil!']);
     }
-    
-    private function hasApprovedLemburRequest($id_user, $date)
-    {
-        return $this->db->where('id_user', $id_user)
-            ->where('tanggal_mulai <=', $date)
-            ->where('tanggal_selesai >=', $date)
-            ->where('tipe_pengajuan', 'Lembur')
-            ->where('status', 'Approved')
-            ->get('absensi_pengajuan')
-            ->num_rows() > 0;
-    }
 
+    /**
+     * @deprecated Use Absensi_model::validateAttendanceMethod() instead
+     */
     private function validateAttendanceMethod($method, $lat, $lng, $qr_token, $id_lokasi, $id_user, $date, $type, $config)
     {
-        $result = ['valid' => false, 'message' => '', 'id_lokasi' => $id_lokasi, 'bypass_id' => null];
-        
-        $gps_enabled = !empty($config['enable_gps']);
-        $qr_enabled = !empty($config['enable_qr']);
-        
-        if (!$gps_enabled && !$qr_enabled) {
-            $result['valid'] = true;
-            $result['id_lokasi'] = null;
-            return $result;
-        }
-        
-        if ($method === 'GPS') {
-            if (!$gps_enabled) {
-                $result['message'] = 'Metode GPS tidak diaktifkan.';
-                return $result;
-            }
-            
-            $bypass = $this->absensi->getApprovedBypass($id_user, $date, $type);
-            if ($bypass) {
-                $result['valid'] = true;
-                $result['bypass_id'] = $bypass->id_bypass;
-                $this->absensi->markBypassUsed($bypass->id_bypass);
-                return $result;
-            }
-            
-            $locations = $this->absensi->getActiveLocations();
-            $nearest = null;
-            $min_distance = PHP_INT_MAX;
-            
-            foreach ($locations as $loc) {
-                $distance = calculate_distance($lat, $lng, $loc->latitude, $loc->longitude);
-                if ($distance <= $loc->radius_meter && $distance < $min_distance) {
-                    $min_distance = $distance;
-                    $nearest = $loc;
-                }
-            }
-            
-            if (!$nearest) {
-                $default_loc = $this->absensi->getDefaultLocation();
-                $distance = calculate_distance($lat, $lng, $default_loc->latitude, $default_loc->longitude);
-                $result['message'] = 'Anda berada di luar area (' . round($distance) . 'm). Radius maksimal: ' . $default_loc->radius_meter . 'm.';
-                return $result;
-            }
-            
-            $result['valid'] = true;
-            $result['id_lokasi'] = $nearest->id_lokasi;
-            
-        } elseif ($method === 'QR') {
-            if (!$qr_enabled) {
-                $result['message'] = 'Metode QR tidak diaktifkan.';
-                return $result;
-            }
-            
-            $qr = $this->absensi->validateQrToken($qr_token, $date, $type);
-            if (!$qr['valid']) {
-                $result['message'] = $qr['message'];
-                return $result;
-            }
-            
-            $result['valid'] = true;
-            $result['id_lokasi'] = $qr['id_lokasi'];
-            
-        } elseif ($method === 'Manual' || empty($method)) {
-            if ($gps_enabled || $qr_enabled) {
-                $result['message'] = 'Silakan gunakan GPS atau QR untuk absensi.';
-                return $result;
-            }
-            $result['valid'] = true;
-            
-        } else {
-            $result['message'] = 'Metode absensi tidak valid.';
-        }
-        
-        return $result;
+        // Delegate to model for consistency
+        return $this->absensi->validateAttendanceMethod($method, $lat, $lng, $qr_token, $id_lokasi, $id_user, $date, $type, $config);
     }
 
+    /**
+     * @deprecated Use Absensi_model::calculateLateStatusWithOvernight() instead
+     */
+    /**
+     * @deprecated Use Absensi_model::calculateLateStatusWithOvernight() instead
+     */
     private function calculateLateStatus($current_time, $shift_jam_masuk, $toleransi, $is_overnight = false)
     {
-        $now = strtotime($current_time);
-        $shift_time = strtotime($shift_jam_masuk);
-        $batas = $shift_time + ($toleransi * 60);
-        
-        if ($is_overnight) {
-            if ($now < 43200) {
-                $now += 86400;
-            }
-            if ($shift_time >= 43200) {
-            } else {
-                $shift_time += 86400;
-                $batas = $shift_time + ($toleransi * 60);
-            }
-        }
-        
-        if ($now > $batas) {
-            $late_seconds = $now - $shift_time;
-            return [
-                'status' => 'Terlambat',
-                'menit' => max(0, round($late_seconds / 60))
-            ];
-        }
-        
-        return ['status' => 'Hadir', 'menit' => 0];
+        // Delegate to model for consistency
+        return $this->absensi->calculateLateStatusWithOvernight($current_time, $shift_jam_masuk, $toleransi, $is_overnight);
     }
 
+    /**
+     * @deprecated Use Absensi_model::calculateEarlyLeaveWithOvernight() instead
+     */
     private function calculateEarlyLeave($current_time, $shift_jam_pulang, $is_overnight = false)
     {
-        $now = strtotime($current_time);
-        $shift_time = strtotime($shift_jam_pulang);
-        
-        if ($is_overnight) {
-            if ($shift_time < 43200) {
-                $shift_time += 86400;
-            }
-            if ($now < 43200) {
-                $now += 86400;
-            }
-        }
-        
-        if ($now < $shift_time) {
-            return [
-                'is_early' => true,
-                'menit' => round(($shift_time - $now) / 60)
-            ];
-        }
-        
-        return ['is_early' => false, 'menit' => 0];
+        // Delegate to model for consistency
+        return $this->absensi->calculateEarlyLeaveWithOvernight($current_time, $shift_jam_pulang, $is_overnight);
     }
 
     private function handlePhotoUpload($base64_photo, $type, $user_id)
     {
         if (empty($base64_photo)) return null;
         
+        // Validate base64 format and image type
+        if (!preg_match('#^data:image/(jpeg|jpg|png|gif);base64,#i', $base64_photo, $matches)) {
+            log_message('error', 'Photo upload rejected: Invalid format for user ' . $user_id);
+            return null;
+        }
+        
+        $allowed_types = ['jpeg', 'jpg', 'png', 'gif'];
+        $image_type = strtolower($matches[1]);
+        if (!in_array($image_type, $allowed_types)) {
+            log_message('error', 'Photo upload rejected: Invalid type ' . $image_type . ' for user ' . $user_id);
+            return null;
+        }
+        
+        // Extract and decode base64 data
+        $foto_data = preg_replace('#^data:image/\w+;base64,#i', '', $base64_photo);
+        $decoded_data = base64_decode($foto_data, true);
+        
+        if ($decoded_data === false) {
+            log_message('error', 'Photo upload rejected: Invalid base64 encoding for user ' . $user_id);
+            return null;
+        }
+        
+        // Validate file size (max 5MB)
+        $max_size = 5 * 1024 * 1024; // 5MB
+        if (strlen($decoded_data) > $max_size) {
+            log_message('error', 'Photo upload rejected: File too large (' . strlen($decoded_data) . ' bytes) for user ' . $user_id);
+            return null;
+        }
+        
+        // Validate minimum size (at least 1KB to ensure it's a real image)
+        $min_size = 1024; // 1KB
+        if (strlen($decoded_data) < $min_size) {
+            log_message('error', 'Photo upload rejected: File too small for user ' . $user_id);
+            return null;
+        }
+        
+        // Validate image integrity using getimagesizefromstring
+        $image_info = @getimagesizefromstring($decoded_data);
+        if ($image_info === false) {
+            log_message('error', 'Photo upload rejected: Not a valid image for user ' . $user_id);
+            return null;
+        }
+        
+        // Check image dimensions (reasonable limits)
+        $max_dimension = 4096; // Max 4096x4096
+        $min_dimension = 50;   // Min 50x50
+        if ($image_info[0] > $max_dimension || $image_info[1] > $max_dimension) {
+            log_message('error', 'Photo upload rejected: Dimensions too large for user ' . $user_id);
+            return null;
+        }
+        if ($image_info[0] < $min_dimension || $image_info[1] < $min_dimension) {
+            log_message('error', 'Photo upload rejected: Dimensions too small for user ' . $user_id);
+            return null;
+        }
+        
+        // Validate MIME type matches
+        $valid_mimes = [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF];
+        if (!in_array($image_info[2], $valid_mimes)) {
+            log_message('error', 'Photo upload rejected: Invalid MIME type for user ' . $user_id);
+            return null;
+        }
+        
         $upload_path = FCPATH . 'uploads/absensi/' . date('Y/m/');
         if (!is_dir($upload_path)) {
             mkdir($upload_path, 0755, true);
         }
         
-        $filename = $type . '_' . $user_id . '_' . date('Ymd_His') . '.jpg';
-        $foto_data = preg_replace('#^data:image/\w+;base64,#i', '', $base64_photo);
-        file_put_contents($upload_path . $filename, base64_decode($foto_data));
+        // Determine extension based on actual image type
+        $ext_map = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_GIF => 'gif'];
+        $extension = isset($ext_map[$image_info[2]]) ? $ext_map[$image_info[2]] : 'jpg';
+        
+        $filename = $type . '_' . $user_id . '_' . date('Ymd_His') . '.' . $extension;
+        
+        if (file_put_contents($upload_path . $filename, $decoded_data) === false) {
+            log_message('error', 'Photo upload failed: Could not write file for user ' . $user_id);
+            return null;
+        }
         
         return 'uploads/absensi/' . date('Y/m/') . $filename;
     }
@@ -573,16 +605,9 @@ class Absensi extends CI_Controller
         $data = $this->getCommonData();
         $data['judul'] = 'Konfigurasi Grup Absensi';
         $data['subjudul'] = 'Pengaturan per Tipe Pegawai';
-        
-        $configs = $this->db->select('gc.*, g.name as group_name')
-            ->from('absensi_group_config gc')
-            ->join('groups g', 'gc.id_group = g.id', 'left')
-            ->order_by('g.id', 'ASC')
-            ->order_by('gc.kode_tipe', 'ASC')
-            ->get()->result();
-        
-        $data['group_configs'] = $configs;
-        $data['groups'] = $this->db->get('groups')->result();
+
+        $data['group_configs'] = $this->absensi->getGroupConfigsWithGroupName();
+        $data['groups'] = $this->ion_auth->groups()->result();
         $data['shifts'] = $this->shift->getAllActive();
         
         $this->loadView('absensi/admin/group_config', $data);
@@ -595,12 +620,8 @@ class Absensi extends CI_Controller
         $id_group = $this->input->post('id_group');
         $kode_tipe = $this->input->post('kode_tipe');
         $kode_tipe = $kode_tipe ? strtoupper(trim($kode_tipe)) : null;
-        
-        $existing = $this->db->where('id_group', $id_group)
-            ->where('kode_tipe', $kode_tipe)
-            ->get('absensi_group_config')->row();
-        
-        if ($existing) {
+
+        if ($this->absensi->groupConfigExists($id_group, $kode_tipe)) {
             $this->output_json(['status' => false, 'message' => 'Konfigurasi untuk grup dan tipe ini sudah ada']);
             return;
         }
@@ -622,13 +643,14 @@ class Absensi extends CI_Controller
             'require_photo' => $this->input->post('require_photo') ? 1 : 0,
             'allow_bypass' => $this->input->post('allow_bypass') ? 1 : 0,
             'toleransi_terlambat' => $this->input->post('toleransi_terlambat') ?: null,
+            'id_lokasi_default' => $this->input->post('id_lokasi_default') ?: null,
             'require_checkout' => $this->input->post('require_checkout') ? 1 : 0,
             'enable_lembur' => $this->input->post('enable_lembur') ? 1 : 0,
             'lembur_require_approval' => $this->input->post('lembur_require_approval') ? 1 : 0,
             'is_active' => 1
         ];
-        
-        $result = $this->db->insert('absensi_group_config', $data);
+
+        $result = $this->absensi->createGroupConfig($data);
         $this->output_json(['status' => $result, 'message' => $result ? 'Konfigurasi berhasil disimpan' : 'Gagal menyimpan']);
     }
 
@@ -662,14 +684,19 @@ class Absensi extends CI_Controller
             'require_photo' => $this->input->post('require_photo') ? 1 : 0,
             'allow_bypass' => $this->input->post('allow_bypass') ? 1 : 0,
             'toleransi_terlambat' => $this->input->post('toleransi_terlambat') ?: null,
+            'id_lokasi_default' => $this->input->post('id_lokasi_default') ?: null,
             'require_checkout' => $this->input->post('require_checkout') ? 1 : 0,
             'enable_lembur' => $this->input->post('enable_lembur') ? 1 : 0,
             'lembur_require_approval' => $this->input->post('lembur_require_approval') ? 1 : 0,
             'is_active' => $this->input->post('is_active') ? 1 : 0
         ];
-        
-        $this->db->where('id', $id);
-        $result = $this->db->update('absensi_group_config', $data);
+
+        if ($this->absensi->groupConfigExists($data['id_group'], $kode_tipe, $id)) {
+            $this->output_json(['status' => false, 'message' => 'Konfigurasi untuk grup dan tipe ini sudah ada']);
+            return;
+        }
+
+        $result = $this->absensi->updateGroupConfig($id, $data);
         $this->output_json(['status' => $result, 'message' => $result ? 'Konfigurasi berhasil diperbarui' : 'Gagal memperbarui']);
     }
 
@@ -682,9 +709,8 @@ class Absensi extends CI_Controller
             $this->output_json(['status' => false, 'message' => 'ID tidak valid']);
             return;
         }
-        
-        $this->db->where('id', $id);
-        $result = $this->db->delete('absensi_group_config');
+
+        $result = $this->absensi->deleteGroupConfig($id);
         $this->output_json(['status' => $result, 'message' => $result ? 'Konfigurasi berhasil dihapus' : 'Gagal menghapus']);
     }
 
@@ -836,9 +862,7 @@ class Absensi extends CI_Controller
         
         $validity_minutes = $this->absensi->getConfigValue('qr_validity_minutes', $config) ?: 5;
         
-        $token_code = bin2hex(random_bytes(16));
         $data = [
-            'token_code' => $token_code,
             'token_type' => $this->input->post('token_type') ?: 'both',
             'id_lokasi' => $this->input->post('id_lokasi') ?: null,
             'id_shift' => $this->input->post('id_shift') ?: null,
@@ -849,7 +873,12 @@ class Absensi extends CI_Controller
             'max_usage' => $this->input->post('max_usage') ?: null
         ];
         
-        $this->absensi->createQrToken($data);
+        $token_code = $this->absensi->createQrToken($data);
+        if (!$token_code) {
+            $this->output_json(['status' => false, 'message' => 'Gagal membuat QR token.']);
+            return;
+        }
+
         $this->output_json(['status' => true, 'token' => $token_code, 'valid_until' => $data['valid_until']]);
     }
 
@@ -1159,5 +1188,117 @@ class Absensi extends CI_Controller
             'count' => $count,
             'date' => $date
         ]);
+    }
+
+    // =========================================================================
+    // LOGS MANAGEMENT
+    // =========================================================================
+
+    /**
+     * Display attendance logs page
+     */
+    public function logs()
+    {
+        $this->requireAdmin();
+        $data = $this->getCommonData();
+        $data['judul'] = 'Absensi';
+        $data['subjudul'] = 'Log Absensi';
+        $data['shifts'] = $this->shift->getAllShifts();
+        
+        $this->loadView('absensi/admin/logs', $data);
+    }
+
+    /**
+     * DataTables server-side for logs
+     */
+    public function dataLogs()
+    {
+        $this->requireAdmin();
+        
+        $filters = [
+            'start_date' => $this->input->get('start_date') ?: date('Y-m-01'),
+            'end_date' => $this->input->get('end_date') ?: date('Y-m-d'),
+            'status' => $this->input->get('status'),
+            'id_shift' => $this->input->get('id_shift'),
+        ];
+        
+        echo $this->absensi->datatableLogs($filters);
+    }
+
+    /**
+     * Update log status manually
+     */
+    public function updateLog()
+    {
+        $this->requireAdmin();
+        
+        $id_log = $this->input->post('id_log');
+        $status = $this->input->post('status_kehadiran');
+        $keterangan = $this->input->post('keterangan');
+        
+        if (!$id_log || !$status) {
+            $this->output_json(['status' => false, 'message' => 'Data tidak lengkap']);
+            return;
+        }
+        
+        $admin = $this->ion_auth->user()->row();
+        $data = [
+            'status_kehadiran' => $status,
+            'keterangan' => $keterangan,
+            'is_manual_entry' => 1,
+            'manual_entry_by' => $admin->id,
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        
+        $result = $this->absensi->updateLog($id_log, $data);
+        $this->output_json([
+            'status' => $result, 
+            'message' => $result ? 'Log berhasil diperbarui' : 'Gagal memperbarui log'
+        ]);
+    }
+
+    // =========================================================================
+    // KARYAWAN MANAGEMENT
+    // =========================================================================
+
+    /**
+     * Display karyawan management page
+     */
+    public function karyawan()
+    {
+        $this->requireAdmin();
+        $data = $this->getCommonData();
+        $data['judul'] = 'Absensi';
+        $data['subjudul'] = 'Data Karyawan';
+        $data['shifts'] = $this->shift->getAllShifts();
+        $data['groups'] = $this->ion_auth->groups()->result();
+        
+        $this->loadView('absensi/admin/karyawan', $data);
+    }
+
+    /**
+     * DataTables server-side for karyawan
+     */
+    public function dataKaryawan()
+    {
+        $this->requireAdmin();
+        
+        echo $this->absensi->datatableKaryawan();
+    }
+
+    /**
+     * Get karyawan detail for editing
+     */
+    public function getKaryawan($id)
+    {
+        $this->requireAdmin();
+        
+        $user = $this->absensi->getKaryawanDetail($id);
+        
+        if ($user) {
+            $this->output_json(['status' => true, 'data' => $user]);
+        } else {
+            $this->output_json(['status' => false, 'message' => 'User tidak ditemukan']);
+        }
     }
 }

@@ -49,7 +49,7 @@
                                                 <td class="align-middle"><?= $t->nama_jenis ?></td>
                                                 <td class="align-middle"><?= $t->bulan ? $namaBulan[$t->bulan] . ' ' . $t->tahun : '-' ?></td>
                                                 <td class="align-middle">Rp <?= number_format($t->nominal_bayar, 0, ',', '.') ?></td>
-                                                <td class="align-middle"><?= date('d M Y', strtotime($t->created_at)) ?></td>
+                                                <td class="align-middle"><?= date('d M Y', strtotime($t->waktu_upload ?: $t->created_at)) ?></td>
                                                 <td class="align-middle">
                                                     <?php
                                                     $badges = [

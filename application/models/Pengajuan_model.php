@@ -11,7 +11,11 @@ class Pengajuan_model extends CI_Model
     public function create($data)
     {
         $data['created_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('absensi_pengajuan', $data);
+        $result = $this->db->insert('absensi_pengajuan', $data);
+        if (!$result) {
+            return false;
+        }
+        return $this->db->insert_id();
     }
 
     public function get_by_id($id)
@@ -322,5 +326,22 @@ class Pengajuan_model extends CI_Model
             ->where('tgl_selesai >=', $date)
             ->where_in('tipe_pengajuan', ['Izin', 'Sakit', 'Cuti', 'Dinas'])
             ->count_all_results() > 0;
+    }
+
+    public function get_approved_leaves_batch($user_ids, $date)
+    {
+        if (empty($user_ids)) {
+            return [];
+        }
+        
+        return $this->db->select('id_user')
+            ->from('absensi_pengajuan')
+            ->where_in('id_user', $user_ids)
+            ->where('status', 'Disetujui')
+            ->where('tgl_mulai <=', $date)
+            ->where('tgl_selesai >=', $date)
+            ->where_in('tipe_pengajuan', ['Izin', 'Sakit', 'Cuti', 'Dinas'])
+            ->get()
+            ->result_array();
     }
 }

@@ -10,11 +10,9 @@ class Siswa extends CI_Controller
     public function __construct()
     {
         parent::__construct();
-        if ($this->ion_auth->logged_in()) {
-            goto JcFKy;
+        if (!$this->ion_auth->logged_in()) {
+            redirect("auth");
         }
-        redirect("auth");
-        JcFKy:
         $this->load->library("upload");
         $this->load->library(["datatables", "form_validation"]);
         $this->load->library("user_agent");
@@ -22,11 +20,9 @@ class Siswa extends CI_Controller
     }
     public function output_json($data, $encode = true)
     {
-        if (!$encode) {
-            goto zD36t;
+        if ($encode) {
+            $data = json_encode($data);
         }
-        $data = json_encode($data);
-        zD36t:
         $this->output->set_content_type("application/json")->set_output($data);
     }
     public function index()
@@ -135,29 +131,24 @@ class Siswa extends CI_Controller
         $jadk = $this->kelas->getJadwalKbm($tp->id_tp, $smt->id_smt, $siswa->id_kelas);
         if ($jadk == null) {
             $data["jadwal_kbm"] = json_decode(json_encode(["id_tp" => $tp->tahun, "id_smt" => $smt->smt, "id_kelas" => $siswa->id_kelas, "kbm_jam_pel" => '', "kbm_jam_mulai" => '', "kbm_jml_mapel_hari" => '', "istirahat" => serialize([]), "ada" => false]));
-            goto x0Z7x;
+        } else {
+            $data["jadwal_kbm"] = $jadk;
         }
-        $data["jadwal_kbm"] = $jadk;
-        x0Z7x:
         $data["id_kelas"] = $siswa->id_kelas;
         $jadm = $this->kelas->getJadwalMapelGroupJam($tp->id_tp, $smt->id_smt, $siswa->id_kelas);
         $jml_mapel = $jadk == null ? 1 : $jadk->kbm_jml_mapel_hari;
+        $jadwal_mapel = [];
         if ($jadm == null) {
-            $i = 0;
-            dUfOc:
-            if (!($i < $jml_mapel)) {
-                $data["method"] = "add";
-                goto NZQHy;
+            for ($i = 0; $i < $jml_mapel; $i++) {
+                $jadwal_mapel[] = ["jadwal" => $this->kelas->getDummyJadwalMapel($tp->id_tp, $smt->id_smt, $i + 1, $siswa->id_kelas)];
             }
-            $jadwal_mapel[] = ["jadwal" => $this->kelas->getDummyJadwalMapel($tp->id_tp, $smt->id_smt, $i + 1, $siswa->id_kelas)];
-            $i++;
-            goto dUfOc;
+            $data["method"] = "add";
+        } else {
+            foreach ($jadm as $j) {
+                $jadwal_mapel[] = ["jadwal" => $this->kelas->getJadwalMapelByHari($tp->id_tp, $smt->id_smt, $j->jam_ke, $siswa->id_kelas)];
+            }
+            $data["method"] = "edit";
         }
-        foreach ($jadm as $j) {
-            $jadwal_mapel[] = ["jadwal" => $this->kelas->getJadwalMapelByHari($tp->id_tp, $smt->id_smt, $j->jam_ke, $siswa->id_kelas)];
-        }
-        $data["method"] = "edit";
-        NZQHy:
         $data["jadwal_mapel"] = $jadwal_mapel;
         $data["mapels"] = $this->master->getAllMapel();
         $data["running_text"] = $this->dashboard->getRunningText();
@@ -194,21 +185,16 @@ class Siswa extends CI_Controller
             $tahun = date("Y");
             $tgl = cal_days_in_month(CAL_GREGORIAN, $bulan, $tahun);
             $materi_sebulan = [];
-            $i = 0;
-            eVobf:
-            if (!($i < $tgl)) {
-                $kbm->istirahat = unserialize($kbm->istirahat);
-                $logs = $this->kelas->getRekapBulananSiswa(null, $siswa->id_kelas, $tahun, $bulan);
-                $data["sebulan"] = ["log" => isset($logs[$siswa->id_siswa]) ? $logs[$siswa->id_siswa] : [], "materis" => $materi_sebulan];
-                goto VJ3Gv;
+            for ($i = 0; $i < $tgl; $i++) {
+                $t = $i + 1 < 10 ? "0" . ($i + 1) : $i + 1;
+                $materi_sebulan[$t] = $this->kelas->getAllMateriByTgl($siswa->id_kelas, $tahun . "-" . $bulan . "-" . $t, $arrIdMapel);
             }
-            $t = $i + 1 < 10 ? "0" . ($i + 1) : $i + 1;
-            $materi_sebulan[$t] = $this->kelas->getAllMateriByTgl($siswa->id_kelas, $tahun . "-" . $bulan . "-" . $t, $arrIdMapel);
-            $i++;
-            goto eVobf;
+            $kbm->istirahat = unserialize($kbm->istirahat);
+            $logs = $this->kelas->getRekapBulananSiswa(null, $siswa->id_kelas, $tahun, $bulan);
+            $data["sebulan"] = ["log" => isset($logs[$siswa->id_siswa]) ? $logs[$siswa->id_siswa] : [], "materis" => $materi_sebulan];
+        } else {
+            $data["sebulan"] = ["log" => [], "materis" => []];
         }
-        $data["sebulan"] = ["log" => [], "materis" => []];
-        VJ3Gv:
         $data["kbm"] = $kbm;
         $data["mapels"] = $mapels;
         $data["jadwals"] = $jadwals;
@@ -254,7 +240,7 @@ class Siswa extends CI_Controller
             $idhari = date("N", strtotime($day));
             $materis[$day] = [];
             if (!isset($jadwal_seminggu[$idhari])) {
-                goto ec1Yf;
+                continue;
             }
             foreach ($jadwal_seminggu[$idhari] as $kjam => $val) {
                 $dummy = new stdClass();
@@ -265,20 +251,15 @@ class Siswa extends CI_Controller
             }
             $arrIdKjms = [];
             foreach ($materis[$day] as $mtr) {
-                if (!isset($mtr->id_kjm)) {
-                    goto rObFf;
+                if (isset($mtr->id_kjm)) {
+                    array_push($arrIdKjms, $mtr->id_kjm);
                 }
-                array_push($arrIdKjms, $mtr->id_kjm);
-                rObFf:
             }
             $log = [];
-            if (!(count($arrIdKjms) > 0)) {
-                goto Qy_uu;
+            if (count($arrIdKjms) > 0) {
+                $log = $this->kelas->getStatusMateriSiswaByJadwal($siswa->id_siswa, $arrIdKjms);
             }
-            $log = $this->kelas->getStatusMateriSiswaByJadwal($siswa->id_siswa, $arrIdKjms);
-            Qy_uu:
             $logs[$day] = $log;
-            ec1Yf:
         }
         $data["week"] = $last_week;
         $data["jadwals"] = $jadwal_seminggu;
@@ -320,17 +301,13 @@ class Siswa extends CI_Controller
         }
         $arrIdKjm = [];
         foreach ($materi["materi"] as $mtr) {
-            if (!isset($mtr->id_kjm)) {
-                goto UEMM6;
+            if (isset($mtr->id_kjm)) {
+                array_push($arrIdKjm, $mtr->id_kjm);
             }
-            array_push($arrIdKjm, $mtr->id_kjm);
-            UEMM6:
         }
-        if (!(count($arrIdKjm) > 0)) {
-            goto nzvxV;
+        if (count($arrIdKjm) > 0) {
+            $materi["logs"] = (array) $this->kelas->getStatusMateriSiswaByJadwal($id_siswa, $arrIdKjm);
         }
-        $materi["logs"] = (array) $this->kelas->getStatusMateriSiswaByJadwal($id_siswa, $arrIdKjm);
-        nzvxV:
         $materi["jadwal"] = $jadwal;
         $jadk = $this->kelas->getJadwalKbm($tp->id_tp, $smt->id_smt, $id_kelas);
         $jadk->istirahat = unserialize($jadk->istirahat);
@@ -363,11 +340,9 @@ class Siswa extends CI_Controller
         $data["jamke"] = $jamke;
         $data["materi"] = $this->kelas->getMateriKelasSiswa($id_kjm, $jenis);
         $logs = $this->kelas->getStatusMateriSiswa($id_kjm);
-        if (!isset($logs[$siswa->id_siswa])) {
-            goto iETlu;
+        if (isset($logs[$siswa->id_siswa])) {
+            $logs[$siswa->id_siswa]->file = unserialize($logs[$siswa->id_siswa]->file);
         }
-        $logs[$siswa->id_siswa]->file = unserialize($logs[$siswa->id_siswa]->file);
-        iETlu:
         $data["kjm"] = $id_kjm;
         $data["logs"] = isset($logs[$siswa->id_siswa]) ? $logs[$siswa->id_siswa] : null;
         $data["running_text"] = $this->dashboard->getRunningText();
@@ -402,11 +377,9 @@ class Siswa extends CI_Controller
         $attach = json_decode($this->input->post("attach", true));
         $src_file = [];
         foreach ($attach as $at) {
-            if (!($at->name != null)) {
-                goto nhowy;
+            if ($at->name != null) {
+                $src_file[] = ["src" => $at->src, "size" => $at->size, "type" => $at->type, "name" => $at->name];
             }
-            $src_file[] = ["src" => $at->src, "size" => $at->size, "type" => $at->type, "name" => $at->name];
-            nhowy:
         }
         $id_log = $id_siswa . $id_kjm;
         $insert = ["id_siswa" => $id_siswa, "id_materi" => $id_kjm, "finish_time" => date("Y-m-d H:i:s"), "jam_ke" => $jamke, "log_desc" => "Menyelesaikan materi", "text" => $isi_materi, "file" => serialize($src_file)];
@@ -415,11 +388,10 @@ class Siswa extends CI_Controller
         if ($q->num_rows() > 0) {
             $this->db->where("id_log", $id_log);
             $update = $this->db->update("log_materi", $insert);
-            goto hzO3M;
+        } else {
+            $this->db->set("id_log", $id_log);
+            $update = $this->db->insert("log_materi", $insert);
         }
-        $this->db->set("id_log", $id_log);
-        $update = $this->db->insert("log_materi", $insert);
-        hzO3M:
         $data["status"] = $update;
         $this->output_json($data);
     }
@@ -432,11 +404,9 @@ class Siswa extends CI_Controller
         $attach = json_decode($this->input->post("attach", true));
         $src_file = [];
         foreach ($attach as $at) {
-            if (!($at->name != null)) {
-                goto lAV83;
+            if ($at->name != null) {
+                $src_file[] = ["src" => $at->src, "size" => $at->size, "type" => $at->type, "name" => $at->name];
             }
-            $src_file[] = ["src" => $at->src, "size" => $at->size, "type" => $at->type, "name" => $at->name];
-            lAV83:
         }
         $id_log = $id_siswa . $id_kjm;
         $insert = ["id_siswa" => $id_siswa, "id_materi" => $id_kjm, "jam_ke" => $jamke, "log_desc" => "Menyelesaikan tugas", "text" => $isi_tugas, "file" => serialize($src_file)];
@@ -445,11 +415,10 @@ class Siswa extends CI_Controller
         if ($q->num_rows() > 0) {
             $this->db->where("id_log", $id_log);
             $update = $this->db->update("log_tugas", $insert);
-            goto a0V2f;
+        } else {
+            $this->db->set("id_log", $id_log);
+            $update = $this->db->insert("log_tugas", $insert);
         }
-        $this->db->set("id_log", $id_log);
-        $update = $this->db->insert("log_tugas", $insert);
-        a0V2f:
         $data["status"] = $update;
         $this->output_json($data);
     }
@@ -457,7 +426,8 @@ class Siswa extends CI_Controller
     {
         $max_size = $this->input->post("max-size", true);
         if (!isset($_FILES["file_uploads"]["name"])) {
-            goto PAGSE;
+            $this->output_json(null);
+            return;
         }
         $config["upload_path"] = "./uploads/file_siswa/";
         $config["allowed_types"] = "jpg|jpeg|png|gif|mpeg|mpg|mpeg3|mp3|wav|wave|mp4|avi|doc|docx|xls|xlsx|ppt|pptx|csv|pdf|rtf|txt";
@@ -467,26 +437,22 @@ class Siswa extends CI_Controller
         if (!$this->upload->do_upload("file_uploads")) {
             $data["status"] = false;
             $data["src"] = $this->upload->display_errors();
-            goto kb0yT;
+        } else {
+            $result = $this->upload->data();
+            $data["src"] = "uploads/file_siswa/" . $result["file_name"];
+            $data["filename"] = pathinfo($result["file_name"], PATHINFO_FILENAME);
+            $data["status"] = true;
         }
-        $result = $this->upload->data();
-        $data["src"] = "uploads/file_siswa/" . $result["file_name"];
-        $data["filename"] = pathinfo($result["file_name"], PATHINFO_FILENAME);
-        $data["status"] = true;
-        kb0yT:
         $data["type"] = $_FILES["file_uploads"]["type"];
         $data["size"] = $_FILES["file_uploads"]["size"];
-        PAGSE:
         $this->output_json($data);
     }
     function deleteFile()
     {
         $src = $this->input->post("src");
-        if (!unlink($src)) {
-            goto ssLJi;
+        if (unlink($src)) {
+            echo "File Delete Successfully";
         }
-        echo "File Delete Successfully";
-        ssLJi:
     }
     public function leavecbt($id_jadwal, $id_siswa)
     {
@@ -519,27 +485,19 @@ class Siswa extends CI_Controller
             foreach ($kk as $k) {
                 array_push($arrKelasCbt, $k["kelas_id"]);
             }
-            if (!($cbt_info != null && in_array($cbt_info->id_kelas, $arrKelasCbt) && $jadwal->status === "1")) {
-                goto rE5Sw;
+            $eligible = $cbt_info != null && in_array($cbt_info->id_kelas, $arrKelasCbt) && $jadwal->status === "1";
+            if ($eligible) {
+                $mulai = strtotime($jadwal->tgl_mulai);
+                $selesai = strtotime($jadwal->tgl_selesai);
+                $in_date_range = $today >= $mulai && $today <= $selesai;
+                $agama_ok = $jadwal->soal_agama == "-" || $jadwal->soal_agama == "0" || $jadwal->soal_agama == $siswa->agama;
+                if ($in_date_range && $agama_ok) {
+                    if (!isset($jadwal_ujian_aktif[$jadwal->tgl_mulai])) {
+                        $jadwal_ujian_aktif[$jadwal->tgl_mulai] = [];
+                    }
+                    array_push($jadwal_ujian_aktif[$jadwal->tgl_mulai], $jadwal);
+                }
             }
-            $mulai = strtotime($jadwal->tgl_mulai);
-            $selesai = strtotime($jadwal->tgl_selesai);
-            if (!($today >= $mulai && $today <= $selesai)) {
-                goto DrO9X;
-            }
-            if (!($jadwal->soal_agama == "-" || $jadwal->soal_agama == "0" || $jadwal->soal_agama == $siswa->agama)) {
-                goto m5A3P;
-            }
-            if (isset($jadwal_ujian_aktif[$jadwal->tgl_mulai])) {
-                array_push($jadwal_ujian_aktif[$jadwal->tgl_mulai], $jadwal);
-                goto Uz5WQ;
-            }
-            $jadwal_ujian_aktif[$jadwal->tgl_mulai] = [];
-            array_push($jadwal_ujian_aktif[$jadwal->tgl_mulai], $jadwal);
-            Uz5WQ:
-            m5A3P:
-            DrO9X:
-            rE5Sw:
             $timer[$jadwal->id_jadwal] = $this->cbt->getElapsed($siswa->id_siswa . "0" . $jadwal->id_jadwal);
         }
         $data["cbt_info"] = $cbt_info;
@@ -574,63 +532,46 @@ class Siswa extends CI_Controller
         $curr_address = $this->input->ip_address();
         if ($this->agent->is_browser()) {
             $curr_agent = $this->agent->browser() . " " . $this->agent->version();
-            goto E6w9m;
-        }
-        if ($this->agent->is_mobile()) {
+        } elseif ($this->agent->is_mobile()) {
             $curr_agent = $this->agent->mobile();
-            goto l2kph;
+        } else {
+            $curr_agent = "unknown";
         }
-        $curr_agent = "unknown";
-        l2kph:
-        E6w9m:
         $curr_device = $this->agent->platform();
         $data["support"] = $curr_agent != "unknown";
         $info = $this->cbt->getJadwalById($id_jadwal);
+        $valid = true;
         if ($info->reset_login == "1") {
             $log = $this->db->where("id_log", $siswa->id_siswa . "0" . $id_jadwal . "1")->get("log_ujian")->row();
             if ($log != null) {
-                if (!($log->reset == 1)) {
-                    goto E7RZj;
+                if ($log->reset == 1) {
+                    $this->db->set("address", $curr_address);
+                    $this->db->set("agent", $curr_agent);
+                    $this->db->set("device", $curr_device);
+                    $this->db->set("reset", 0);
+                    $this->db->where("id_log", $siswa->id_siswa . "0" . $id_jadwal . "1");
+                    if ($this->db->update("log_ujian")) {
+                        $log = $this->db->where("id_log", $siswa->id_siswa . "0" . $id_jadwal . "1")->get("log_ujian")->row();
+                    }
                 }
-                $this->db->set("address", $curr_address);
-                $this->db->set("agent", $curr_agent);
-                $this->db->set("device", $curr_device);
-                $this->db->set("reset", 0);
-                $this->db->where("id_log", $siswa->id_siswa . "0" . $id_jadwal . "1");
-                if (!$this->db->update("log_ujian")) {
-                    goto jIJP9;
-                }
-                $log = $this->db->where("id_log", $siswa->id_siswa . "0" . $id_jadwal . "1")->get("log_ujian")->row();
-                jIJP9:
-                E7RZj:
                 $valid = $log->address == $curr_address && $log->agent == $curr_agent && $log->device == $curr_device;
-                goto PV3GT;
             }
-            $valid = true;
-            PV3GT:
-            goto kqONc;
         }
-        $valid = true;
-        kqONc:
         $data["valid"] = $valid;
-        if (!$valid) {
-            goto vVTO8;
+        if ($valid) {
+            $bank = $this->cbt->getCbt($id_jadwal);
+            $data["kelas"] = $this->cbt->getKelas($tp->id_tp, $smt->id_smt);
+            $guru = $this->cbt->getDataGuru();
+            $cbt_info = $this->cbt->getSiswaCbtInfo($siswa->id_siswa, $tp->id_tp, $smt->id_smt);
+            $pengawass = $this->cbt->getPengawas($tp->id_tp . $smt->id_smt . $id_jadwal . $cbt_info->id_ruang . $cbt_info->id_sesi);
+            $pengawas = [];
+            if ($pengawass != null && count(explode(",", $pengawass->id_guru)) > 0) {
+                $pengawas = $this->master->getGuruByArrId(explode(",", $pengawass->id_guru));
+            }
+            $data["bank"] = $bank;
+            $data["guru"] = $guru;
+            $data["pengawas"] = $pengawas;
         }
-        $bank = $this->cbt->getCbt($id_jadwal);
-        $data["kelas"] = $this->cbt->getKelas($tp->id_tp, $smt->id_smt);
-        $guru = $this->cbt->getDataGuru();
-        $cbt_info = $this->cbt->getSiswaCbtInfo($siswa->id_siswa, $tp->id_tp, $smt->id_smt);
-        $pengawass = $this->cbt->getPengawas($tp->id_tp . $smt->id_smt . $id_jadwal . $cbt_info->id_ruang . $cbt_info->id_sesi);
-        $pengawas = [];
-        if (!($pengawass != null && count(explode(",", $pengawass->id_guru)) > 0)) {
-            goto QmeT5;
-        }
-        $pengawas = $this->master->getGuruByArrId(explode(",", $pengawass->id_guru));
-        QmeT5:
-        $data["bank"] = $bank;
-        $data["guru"] = $guru;
-        $data["pengawas"] = $pengawas;
-        vVTO8:
         $this->load->view("members/siswa/templates/header", $data);
         $this->load->view("members/siswa/cbt/konfirmasi");
         $this->load->view("members/siswa/templates/footer");
@@ -642,43 +583,41 @@ class Siswa extends CI_Controller
         $id_bank = $this->input->post("bank");
         $token_siswa = $this->input->post("token");
         $this->load->model("Cbt_model", "cbt");
+        $data = [];
         $this->db->trans_start();
         $info = $this->cbt->getJadwalById($id_jadwal);
         $token_valid = true;
-        if (!($info->token == "1")) {
-            goto NgCYy;
+        if ($info->token == "1") {
+            $token = $this->cbt->getToken();
+            if ($token == null) {
+                $token_valid = false;
+                $data["token_msg"] = "Token tidak ada";
+            } else {
+                $token_valid = $token->token == $token_siswa ? true : false;
+                $data["token_msg"] = $token_valid ? '' : "Token salah";
+            }
         }
-        $token = $this->cbt->getToken();
-        if ($token == null) {
-            $token_valid = false;
-            $data["token_msg"] = "Token tidak ada";
-            goto ey6nz;
-        }
-        $token_valid = $token->token == $token_siswa ? true : false;
-        $data["token_msg"] = $token_valid ? '' : "Token salah";
-        ey6nz:
-        NgCYy:
         $data["token"] = $token_valid;
         if (!$token_valid) {
-            goto rNbYW;
+            $this->db->trans_complete();
+            $this->output_json($data);
+            return;
         }
         $curr_address = $this->input->ip_address();
         if ($this->agent->is_browser()) {
             $curr_agent = $this->agent->browser() . " " . $this->agent->version();
-            goto LcNgP;
-        }
-        if ($this->agent->is_mobile()) {
+        } elseif ($this->agent->is_mobile()) {
             $curr_agent = $this->agent->mobile();
-            goto fbgnP;
+        } else {
+            $curr_agent = "unknown";
         }
-        $curr_agent = "unknown";
-        fbgnP:
-        LcNgP:
         $curr_device = $this->agent->platform();
         $support = $curr_agent != "unknown";
         $data["support"] = $support;
         if (!$support) {
-            goto BEWOH;
+            $this->db->trans_complete();
+            $this->output_json($data);
+            return;
         }
         $mulai_baru = false;
         $cek_reset_waktu = false;
@@ -689,132 +628,101 @@ class Siswa extends CI_Controller
                 $log = $this->db->where("id_log", $id_siswa . "0" . $id_jadwal . "1")->get("log_ujian")->row();
                 $izinkan = true;
                 $mulai_baru = true;
-                goto StQSm;
+            } else {
+                $izinkan = false;
+                $mulai_baru = false;
             }
-            $izinkan = false;
-            $mulai_baru = false;
-            StQSm:
-            goto eAoP5;
-        }
-        if ($info->reset_login == "1") {
+        } elseif ($info->reset_login == "1") {
             if ($log->address == $curr_address && $log->agent == $curr_agent && $log->device == $curr_device) {
                 $izinkan = true;
                 $mulai_baru = false;
-                goto k8rYb;
-            }
-            if ($log->reset == "0") {
+            } elseif ($log->reset == "0") {
                 $izinkan = false;
-                goto tUjCq;
-            }
-            $this->db->set("address", $curr_address);
-            $this->db->set("agent", $curr_agent);
-            $this->db->set("device", $curr_device);
-            $this->db->set("reset", 0);
-            $this->db->where("id_log", $id_siswa . "0" . $id_jadwal . "1");
-            if ($this->db->update("log_ujian")) {
-                $log = $this->db->where("id_log", $id_siswa . "0" . $id_jadwal . "1")->get("log_ujian")->row();
-                $izinkan = true;
+            } else {
+                $this->db->set("address", $curr_address);
+                $this->db->set("agent", $curr_agent);
+                $this->db->set("device", $curr_device);
+                $this->db->set("reset", 0);
+                $this->db->where("id_log", $id_siswa . "0" . $id_jadwal . "1");
+                if ($this->db->update("log_ujian")) {
+                    $log = $this->db->where("id_log", $id_siswa . "0" . $id_jadwal . "1")->get("log_ujian")->row();
+                    $izinkan = true;
+                } else {
+                    $izinkan = false;
+                }
                 $mulai_baru = false;
-                goto jV5DE;
+                $cek_reset_waktu = true;
             }
-            $izinkan = false;
+        } else {
+            $izinkan = true;
             $mulai_baru = false;
-            jV5DE:
-            $cek_reset_waktu = true;
-            tUjCq:
-            k8rYb:
-            goto kSh5H;
         }
-        $izinkan = true;
-        $mulai_baru = false;
-        kSh5H:
-        eAoP5:
         $data["izinkan"] = $izinkan;
         $data["log"] = $log;
         $mulai_baru_d = false;
         $ada_waktu = false;
-        if (!($izinkan || $cek_reset_waktu)) {
-            goto Q3bQ0;
+        if ($izinkan || $cek_reset_waktu) {
+            $elapsed = $this->cbt->getElapsed($id_siswa . "0" . $id_jadwal);
+            if ($elapsed == null) {
+                $ada_waktu = true;
+                $mulai_baru_d = true;
+                $insert = ["id_durasi" => $id_siswa . "0" . $id_jadwal, "id_siswa" => $id_siswa, "id_jadwal" => $id_jadwal, "status" => 1, "mulai" => date("Y-m-d H:i:s"), "lama_ujian" => "00:00:00", "reset" => 0];
+                $this->db->insert("cbt_durasi_siswa", $insert);
+            } else {
+                $mulai_baru_d = $elapsed->reset == "3";
+                if ($elapsed->reset == "1") {
+                    $ada_waktu = true;
+                    $this->db->set("lama_ujian", "00:00:00");
+                    $this->db->set("mulai", date("Y-m-d H:i:s"));
+                    $this->db->set("reset", 0);
+                    $this->db->where("id_durasi", $id_siswa . "0" . $id_jadwal);
+                    $data["update_reset"] = $this->db->update("cbt_durasi_siswa");
+                } elseif ($elapsed->reset == "2") {
+                    $ada_waktu = true;
+                    $dt = explode(":", $elapsed->lama_ujian);
+                    $time = new DateTime();
+                    $time->sub(new DateInterval("PT" . $dt[0] . "H" . $dt[1] . "M" . $dt[2] . "S"));
+                    $this->db->set("mulai", $time->format("Y-m-d H:i:s"));
+                    $this->db->set("reset", 0);
+                    $this->db->where("id_durasi", $id_siswa . "0" . $id_jadwal);
+                    $data["update_reset"] = $this->db->update("cbt_durasi_siswa");
+                } elseif ($elapsed->reset == "3") {
+                    $ada_waktu = true;
+                    $this->db->set("lama_ujian", "00:00:00");
+                    $this->db->set("mulai", date("Y-m-d H:i:s"));
+                    $this->db->set("reset", 0);
+                    $this->db->where("id_durasi", $id_siswa . "0" . $id_jadwal);
+                    $data["update_reset"] = $this->db->update("cbt_durasi_siswa");
+                } else {
+                    $mulai = new DateTime($elapsed->mulai);
+                    $interval = $mulai->diff(new DateTime());
+                    $minutes = $interval->days * 24 * 60 + $interval->h * 60 + $interval->i;
+                    $data["interval"] = ["days" => $interval->days, "hari" => $interval->d, "jam" => $interval->h, "menit" => $interval->i, "detik" => $interval->s, "total" => $minutes];
+                    $ada_waktu = $minutes < $info->durasi_ujian;
+                    $data["warn"] = ["durasi_ujian" => $info->durasi_ujian, "siswa_mulai" => $elapsed->mulai, "durasi_siswa" => $elapsed->lama_ujian, "timer_elapsed" => $minutes, "terlampaui" => $minutes - $info->durasi_ujian, "status" => $ada_waktu ? 0 : 1, "msg" => $ada_waktu ? '' : "Waktu ujian sudah habis"];
+                }
+            }
         }
-        $elapsed = $this->cbt->getElapsed($id_siswa . "0" . $id_jadwal);
-        if ($elapsed == null) {
-            $ada_waktu = true;
-            $mulai_baru_d = true;
-            $insert = ["id_durasi" => $id_siswa . "0" . $id_jadwal, "id_siswa" => $id_siswa, "id_jadwal" => $id_jadwal, "status" => 1, "mulai" => date("Y-m-d H:i:s"), "lama_ujian" => "00:00:00", "reset" => 0];
-            $this->db->insert("cbt_durasi_siswa", $insert);
-            goto jvPEM;
-        }
-        $mulai_baru_d = $elapsed->reset == "3";
-        if ($elapsed->reset == "1") {
-            $ada_waktu = true;
-            $this->db->set("lama_ujian", "00:00:00");
-            $this->db->set("mulai", date("Y-m-d H:i:s"));
-            $this->db->set("reset", 0);
-            $this->db->where("id_durasi", $id_siswa . "0" . $id_jadwal);
-            $data["update_reset"] = $this->db->update("cbt_durasi_siswa");
-            goto CVi_M;
-        }
-        if ($elapsed->reset == "2") {
-            $ada_waktu = true;
-            $dt = explode(":", $elapsed->lama_ujian);
-            $time = new DateTime();
-            $time->sub(new DateInterval("PT" . $dt[0] . "H" . $dt[1] . "M" . $dt[2] . "S"));
-            $this->db->set("mulai", $time->format("Y-m-d H:i:s"));
-            $this->db->set("reset", 0);
-            $this->db->where("id_durasi", $id_siswa . "0" . $id_jadwal);
-            $data["update_reset"] = $this->db->update("cbt_durasi_siswa");
-            goto CVi_M;
-        }
-        if ($elapsed->reset == "3") {
-            $ada_waktu = true;
-            $this->db->set("lama_ujian", "00:00:00");
-            $this->db->set("mulai", date("Y-m-d H:i:s"));
-            $this->db->set("reset", 0);
-            $this->db->where("id_durasi", $id_siswa . "0" . $id_jadwal);
-            $data["update_reset"] = $this->db->update("cbt_durasi_siswa");
-            goto vGeUO;
-        }
-        $mulai = new DateTime($elapsed->mulai);
-        $interval = $mulai->diff(new DateTime());
-        $minutes = $interval->days * 24 * 60 + $interval->h * 60 + $interval->i;
-        $data["interval"] = ["days" => $interval->days, "hari" => $interval->d, "jam" => $interval->h, "menit" => $interval->i, "detik" => $interval->s, "total" => $minutes];
-        $ada_waktu = $minutes < $info->durasi_ujian;
-        $data["warn"] = ["durasi_ujian" => $info->durasi_ujian, "siswa_mulai" => $elapsed->mulai, "durasi_siswa" => $elapsed->lama_ujian, "timer_elapsed" => $minutes, "terlampaui" => $minutes - $info->durasi_ujian, "status" => $ada_waktu ? 0 : 1, "msg" => $ada_waktu ? '' : "Waktu ujian sudah habis"];
-        vGeUO:
-        CVi_M:
-        jvPEM:
-        Q3bQ0:
         $data["ada_waktu"] = $ada_waktu;
         $data["elapsed"] = $this->cbt->getElapsed($id_siswa . "0" . $id_jadwal);
-        if (!$ada_waktu) {
-            goto jzhRQ;
-        }
-        $soal = $this->cbt->getJumlahSoalSiswa($id_bank, $id_siswa);
-        if ($soal > 0) {
-            if (!($mulai_baru && $mulai_baru_d)) {
-                goto kJuqh;
+        if ($ada_waktu) {
+            $soal = $this->cbt->getJumlahSoalSiswa($id_bank, $id_siswa);
+            if ($soal > 0) {
+                if ($mulai_baru && $mulai_baru_d) {
+                    $this->db->delete("cbt_soal_siswa", array("id_jadwal" => $id_jadwal, "id_siswa" => $id_siswa, "id_bank" => $id_bank));
+                    $nomor_soal = $this->createQueueNumber($id_siswa, $id_bank, $id_jadwal);
+                    if (count($nomor_soal) > 0) {
+                        $this->db->insert_batch("cbt_soal_siswa", $nomor_soal);
+                    }
+                }
+            } else {
+                $nomor_soal = $this->createQueueNumber($id_siswa, $id_bank, $id_jadwal);
+                if (count($nomor_soal) > 0) {
+                    $this->db->insert_batch("cbt_soal_siswa", $nomor_soal);
+                }
             }
-            $this->db->delete("cbt_soal_siswa", array("id_jadwal" => $id_jadwal, "id_siswa" => $id_siswa, "id_bank" => $id_bank));
-            $nomor_soal = $this->createQueueNumber($id_siswa, $id_bank, $id_jadwal);
-            if (!(count($nomor_soal) > 0)) {
-                goto Ao7Sa;
-            }
-            $this->db->insert_batch("cbt_soal_siswa", $nomor_soal);
-            Ao7Sa:
-            kJuqh:
-            goto ic9l9;
+            $data["jml_soal"] = $this->cbt->getJumlahSoalSiswa($id_bank, $id_siswa);
         }
-        $nomor_soal = $this->createQueueNumber($id_siswa, $id_bank, $id_jadwal);
-        if (!(count($nomor_soal) > 0)) {
-            goto sdrOb;
-        }
-        $this->db->insert_batch("cbt_soal_siswa", $nomor_soal);
-        sdrOb:
-        ic9l9:
-        $data["jml_soal"] = $this->cbt->getJumlahSoalSiswa($id_bank, $id_siswa);
-        jzhRQ:
-        BEWOH:
-        rNbYW:
         $this->db->trans_complete();
         $this->output_json($data);
     }
@@ -838,38 +746,25 @@ class Siswa extends CI_Controller
             $opsis = $jadwal->opsi;
             if ($opsis == "2") {
                 $arrOpsi = ["A", "B"];
-                goto jrp8X;
-            }
-            if ($opsis == "3") {
+            } elseif ($opsis == "3") {
                 $arrOpsi = ["A", "B", "C"];
-                goto jrp8X;
-            }
-            if ($opsis == "4") {
+            } elseif ($opsis == "4") {
                 $arrOpsi = ["A", "B", "C", "D"];
-                goto nmSYC;
+            } else {
+                $arrOpsi = ["A", "B", "C", "D", "E"];
             }
-            $arrOpsi = ["A", "B", "C", "D", "E"];
-            nmSYC:
-            jrp8X:
             $arrNum = range(1, $total);
-            if (!($jadwal->acak_soal == "1")) {
-                goto ZrDeL;
+            if ($jadwal->acak_soal == "1") {
+                shuffle($arrNum);
             }
-            shuffle($arrNum);
-            ZrDeL:
             $items = [];
             $j = 0;
             foreach ($cek_soal as $jenis => $soals) {
                 foreach ($soals as $soal) {
-                    if (!($jenis == "1")) {
-                        goto DElNv;
+                    if ($jenis == "1" && $jadwal->acak_opsi == "1") {
+                        shuffle($arrOpsi);
                     }
-                    if (!($jadwal->acak_opsi == "1")) {
-                        goto zFSwT;
-                    }
-                    shuffle($arrOpsi);
-                    zFSwT:
-                    DElNv:
+                    $item_soal = [];
                     $item_soal["id_soal_siswa"] = $id_siswa . "0" . $id_jadwal . $id_bank . $arrNum[$j];
                     $item_soal["id_bank"] = $id_bank;
                     $item_soal["id_jadwal"] = $id_jadwal;
@@ -884,31 +779,20 @@ class Siswa extends CI_Controller
                         $item_soal["opsi_alias_d"] = isset($arrOpsi[3]) ? $arrOpsi[3] : '';
                         $item_soal["opsi_alias_e"] = isset($arrOpsi[4]) ? $arrOpsi[4] : '';
                         $item_soal["point_soal"] = $jadwal->bobot_pg > 0 ? round($jadwal->bobot_pg / $jadwal->tampil_pg, 2) : 0;
-                        goto r82Qb;
-                    }
-                    if ($jenis == "2") {
+                    } elseif ($jenis == "2") {
                         $item_soal["opsi_alias_a"] = "A";
                         $item_soal["opsi_alias_b"] = '';
                         $item_soal["opsi_alias_c"] = '';
                         $item_soal["opsi_alias_d"] = '';
                         $item_soal["opsi_alias_e"] = '';
                         $item_soal["point_soal"] = $jadwal->bobot_kompleks > 0 ? round($jadwal->bobot_kompleks / $jadwal->tampil_kompleks, 2) : 0;
-                        goto r82Qb;
-                    }
-                    if ($jenis == "3") {
+                    } elseif ($jenis == "3") {
                         $item_soal["point_soal"] = $jadwal->bobot_jodohkan > 0 ? round($jadwal->bobot_jodohkan / $jadwal->tampil_jodohkan, 2) : 0;
-                        goto r82Qb;
-                    }
-                    if ($jenis == "4") {
+                    } elseif ($jenis == "4") {
                         $item_soal["point_soal"] = $jadwal->bobot_isian > 0 ? round($jadwal->bobot_isian / $jadwal->tampil_isian, 2) : 0;
-                        goto r82Qb;
-                    }
-                    if ($jenis == "5") {
+                    } elseif ($jenis == "5") {
                         $item_soal["point_soal"] = $jadwal->bobot_esai > 0 ? round($jadwal->bobot_esai / $jadwal->tampil_esai, 2) : 0;
-                        goto iVj6Z;
                     }
-                    iVj6Z:
-                    r82Qb:
                     $item_soal["jawaban_benar"] = $soal->jawaban;
                     $item_soal["soal_end"] = $j + 1 === count($arrNum) ? "1" : "0";
                     array_push($items, $item_soal);
@@ -942,11 +826,9 @@ class Siswa extends CI_Controller
         $mulai = new DateTime($durasi->mulai);
         $diff = $mulai->diff(new DateTime());
         $durasi->diff = ["days" => $diff->days, "hari" => $diff->d, "jam" => $diff->h, "menit" => $diff->i, "detik" => $diff->s, "format" => $diff->format("%H:%I:%S")];
-        if (!($durasi == null || $durasi->selesai != null)) {
-            goto GV3tY;
+        if ($durasi == null || $durasi->selesai != null) {
+            redirect("siswa/cbt");
         }
-        redirect("siswa/cbt");
-        GV3tY:
         $data["elapsed"] = $durasi;
         $this->load->view("members/siswa/templates/header", $data);
         $this->load->view("members/siswa/cbt/ujian");
@@ -957,41 +839,30 @@ class Siswa extends CI_Controller
         $this->load->model("Cbt_model", "cbt");
         $id_durasi = $id_siswa . "0" . $id_jadwal;
         $durasi = $this->cbt->getElapsed($id_durasi);
-        if ($durasi != null) {
-            $mulai = new DateTime($durasi->mulai);
-            $diff = $mulai->diff(new DateTime());
-            $elapsed = $diff->format("%H:%I:%S");
-            if ($durasi->reset == "0") {
-                $this->db->set("lama_ujian", $elapsed);
-                $this->db->where("id_durasi", $id_durasi);
-                $this->db->update("cbt_durasi_siswa");
-                $durasi = $this->cbt->getElapsed($id_durasi);
-                goto ZNWIO;
-            }
-            if ($durasi->reset == "1") {
-                $this->db->set("lama_ujian", "00:00:00");
-                $this->db->set("reset", 0);
-                $this->db->where("id_durasi", $id_durasi);
-                $this->db->update("cbt_durasi_siswa");
-                $durasi = $this->cbt->getElapsed($id_durasi);
-                goto ZNWIO;
-            }
-            if ($durasi->reset == "3") {
-                $durasi = false;
-                goto y_Kt5;
-            }
+        if ($durasi == null) {
+            return false;
+        }
+
+        $mulai = new DateTime($durasi->mulai);
+        $diff = $mulai->diff(new DateTime());
+        $elapsed = $diff->format("%H:%I:%S");
+
+        if ($durasi->reset == "3") {
+            return false;
+        }
+
+        if ($durasi->reset == "0") {
+            $this->db->set("lama_ujian", $elapsed);
+        } elseif ($durasi->reset == "1") {
+            $this->db->set("lama_ujian", "00:00:00");
+            $this->db->set("reset", 0);
+        } else {
             $this->db->set("lama_ujian", $elapsed);
             $this->db->set("reset", 0);
-            $this->db->where("id_durasi", $id_durasi);
-            $this->db->update("cbt_durasi_siswa");
-            $durasi = $this->cbt->getElapsed($id_durasi);
-            y_Kt5:
-            ZNWIO:
-            goto SLorp;
         }
-        $durasi = false;
-        SLorp:
-        return $durasi;
+        $this->db->where("id_durasi", $id_durasi);
+        $this->db->update("cbt_durasi_siswa");
+        return $this->cbt->getElapsed($id_durasi);
     }
     public function loadNomorSoal()
     {
@@ -1007,211 +878,164 @@ class Siswa extends CI_Controller
         $smt = $this->dashboard->getSemesterActive();
         $siswa = $this->cbt->getDataSiswaById($tp->id_tp, $smt->id_smt, $id_siswa);
         $soals = $this->cbt->getALLSoalSiswa($id_bank, $siswa->id_siswa);
-        $s = 0;
-        kCZEj:
-        if (!($s < count($soals))) {
-            $id_soal_siswa = $siswa->id_siswa . "0" . $id_jadwal . $id_bank . $nomor;
-            $ind_soal = array_search($id_soal_siswa, array_column($soals, "id_soal_siswa"));
-            $item_soal = $soals[$ind_soal];
-            $max_jawaban = [];
-            if ($item_soal->jenis_soal == "1") {
-                $jwbSiswa = $item_soal->jawaban_siswa != null ? strtoupper($item_soal->jawaban_siswa) : '';
-                $opsis = [["valAlias" => $item_soal->opsi_alias_a, "opsi" => $item_soal->opsi_a, "value" => "A", "checked" => "A" === $jwbSiswa ? "checked" : ''], ["valAlias" => $item_soal->opsi_alias_b, "opsi" => $item_soal->opsi_b, "value" => "B", "checked" => "B" === $jwbSiswa ? "checked" : ''], ["valAlias" => $item_soal->opsi_alias_c, "opsi" => $item_soal->opsi_c, "value" => "C", "checked" => "C" === $jwbSiswa ? "checked" : ''], ["valAlias" => $item_soal->opsi_alias_d, "opsi" => $item_soal->opsi_d, "value" => "D", "checked" => "D" === $jwbSiswa ? "checked" : ''], ["valAlias" => $item_soal->opsi_alias_e, "opsi" => $item_soal->opsi_e, "value" => "E", "checked" => "E" === $jwbSiswa ? "checked" : '']];
-                usort($opsis, function ($a, $b) {
-                    return $a["valAlias"] <=> $b["valAlias"];
-                });
-                goto eB8LR;
-            }
-            if ($item_soal->jenis_soal == "2") {
-                $max_jawaban = [count(array_filter(unserialize($item_soal->jawaban)))];
-                $item_soal->opsi_a = unserialize($item_soal->opsi_a);
-                $item_soal->jawaban_siswa = unserialize($item_soal->jawaban_siswa);
-                $jwbSiswa = $item_soal->jawaban_siswa != null ? $item_soal->jawaban_siswa : [];
-                $opsis = [];
-                foreach ($item_soal->opsi_a as $key => $opsi) {
-                    $item = ["opsi" => $opsi, "value" => $key, "checked" => in_array(strtoupper($key), $jwbSiswa) ? "checked=\"true\"" : ''];
-                    array_push($opsis, $item);
+        foreach ($soals as $idx => $soal) {
+            if ($soal->jenis_soal == "3") {
+                $soals[$idx]->jawaban = unserialize($soal->jawaban);
+                $ada_jawab = $soal->jawaban_siswa != null;
+                if ($ada_jawab) {
+                    $soals[$idx]->jawaban_siswa = unserialize($soal->jawaban_siswa);
                 }
-                usort($opsis, function ($a, $b) {
-                    return $a["value"] <=> $b["value"];
-                });
-                goto eB8LR;
             }
-            if ($item_soal->jenis_soal == "3") {
-                $jwbs = $item_soal->jawaban;
-                if (!isset($jwbs["jawaban"])) {
-                    goto FkGcn;
-                }
+        }
+
+        $id_soal_siswa = $siswa->id_siswa . "0" . $id_jadwal . $id_bank . $nomor;
+        $ind_soal = array_search($id_soal_siswa, array_column($soals, "id_soal_siswa"));
+        $item_soal = $soals[$ind_soal];
+        $max_jawaban = [];
+        $opsis = [];
+
+        if ($item_soal->jenis_soal == "1") {
+            $jwbSiswa = $item_soal->jawaban_siswa != null ? strtoupper($item_soal->jawaban_siswa) : '';
+            $opsis = [["valAlias" => $item_soal->opsi_alias_a, "opsi" => $item_soal->opsi_a, "value" => "A", "checked" => "A" === $jwbSiswa ? "checked" : ''], ["valAlias" => $item_soal->opsi_alias_b, "opsi" => $item_soal->opsi_b, "value" => "B", "checked" => "B" === $jwbSiswa ? "checked" : ''], ["valAlias" => $item_soal->opsi_alias_c, "opsi" => $item_soal->opsi_c, "value" => "C", "checked" => "C" === $jwbSiswa ? "checked" : ''], ["valAlias" => $item_soal->opsi_alias_d, "opsi" => $item_soal->opsi_d, "value" => "D", "checked" => "D" === $jwbSiswa ? "checked" : ''], ["valAlias" => $item_soal->opsi_alias_e, "opsi" => $item_soal->opsi_e, "value" => "E", "checked" => "E" === $jwbSiswa ? "checked" : '']];
+            usort($opsis, function ($a, $b) {
+                return $a["valAlias"] <=> $b["valAlias"];
+            });
+        } elseif ($item_soal->jenis_soal == "2") {
+            $max_jawaban = [count(array_filter(unserialize($item_soal->jawaban)))];
+            $item_soal->opsi_a = unserialize($item_soal->opsi_a);
+            $item_soal->jawaban_siswa = unserialize($item_soal->jawaban_siswa);
+            $jwbSiswa = $item_soal->jawaban_siswa != null ? $item_soal->jawaban_siswa : [];
+            $opsis = [];
+            foreach ($item_soal->opsi_a as $key => $opsi) {
+                $item = ["opsi" => $opsi, "value" => $key, "checked" => in_array(strtoupper($key), $jwbSiswa) ? "checked=\"true\"" : ''];
+                array_push($opsis, $item);
+            }
+            usort($opsis, function ($a, $b) {
+                return $a["value"] <=> $b["value"];
+            });
+        } elseif ($item_soal->jenis_soal == "3") {
+            $jwbs = $item_soal->jawaban;
+            if (isset($jwbs["jawaban"])) {
                 foreach ($jwbs["jawaban"] as $jwb) {
                     $max_jawaban[$jwb[0]] = 0;
-                    $i = 1;
-                    m7Dl_:
-                    if (!($i < count($jwb))) {
+                    for ($i = 1; $i < count($jwb); $i++) {
+                        if ($jwb[$i] == "1") {
+                            $max_jawaban[$jwb[0]] += 1;
+                        }
                     }
-                    if (!($jwb[$i] == "1")) {
-                        goto E7FGO;
-                    }
-                    $max_jawaban[$jwb[0]] += 1;
-                    E7FGO:
-                    $i++;
-                    goto m7Dl_;
                 }
-                FkGcn:
-                $ada_jawab = $item_soal->jawaban_siswa != null;
-                $jawaban_siswa = $ada_jawab ? $item_soal->jawaban_siswa : json_decode(json_encode($item_soal->jawaban));
-                $theader = [];
-                $tbody = [];
-                if (!isset($jawaban_siswa->jawaban)) {
-                    goto CXWMI;
-                }
+            }
+            $ada_jawab = $item_soal->jawaban_siswa != null;
+            $jawaban_siswa = $ada_jawab ? $item_soal->jawaban_siswa : json_decode(json_encode($item_soal->jawaban));
+            $theader = [];
+            $tbody = [];
+            if (isset($jawaban_siswa->jawaban)) {
                 foreach ($jawaban_siswa->jawaban as $key => $jawaban) {
                     if ($key === 0) {
                         $theader = $jawaban;
-                        goto jBIqF;
+                        continue;
                     }
                     if ($ada_jawab) {
                         array_push($tbody, $jawaban);
-                        goto jjNDV;
+                        continue;
                     }
                     $tbody[$key] = [];
                     foreach ($jawaban as $index => $nbaris) {
                         if ($index === 0) {
                             array_push($tbody[$key], $nbaris);
-                            goto t6wE_;
+                            continue;
                         }
                         array_push($tbody[$key], '');
-                        t6wE_:
                     }
-                    jjNDV:
-                    jBIqF:
                 }
-                CXWMI:
-                $opsis = ["tabel" => isset($jwbs["jawaban"]) ? $jwbs["jawaban"] : [], "thead" => $theader, "tbody" => $tbody, "model" => isset($item_soal->jawaban["model"]) ? $item_soal->jawaban["model"] : "2", "type" => $item_soal->jawaban["type"]];
-                goto Bz4Zl;
             }
-            $opsis = [];
-            Bz4Zl:
-            eB8LR:
-            $data["durasi"] = $durasi;
-            $data["timer"] = $timer;
-            $data["soal_id"] = $item_soal->id_soal;
-            $data["soal_siswa_id"] = $item_soal->id_soal_siswa;
-            $data["soal_nomor"] = $item_soal->no_soal_alias;
-            $data["soal_nomor_asli"] = $item_soal->nomor_soal;
-            $data["soal_jenis"] = $item_soal->jenis_soal;
-            $data["soal_soal"] = $item_soal->soal;
-            $data["soal_opsi"] = json_decode(json_encode($opsis));
-            $data["soal_jawaban_siswa"] = $item_soal->jawaban_siswa;
-            $data["max_jawaban"] = $max_jawaban;
-            $arrJawaban = [];
-            $modal = "<div class=\"d-flex flex-wrap justify-content-center grid-nomor-pg\">";
-            $test_loop = [];
-            foreach ($soals as $key => $soal) {
-                if ($soal->jawaban_siswa != null) {
-                    if ($soal->jenis_soal === "3") {
-                        $ada_jawaban3 = [];
-                        $tes_jawaban = [];
-                        if (isset($soal->jawaban_siswa->jawaban)) {
-                            foreach ($soal->jawaban_siswa->jawaban as $keyi => $jwbn_siswa) {
-                                if (!($keyi > 0)) {
-                                    goto oyBSn;
-                                }
-                                $test_loop[$key + 1][$keyi] = "call foreach 1";
-                                $tes_jawaban[$jwbn_siswa[0]] = 0;
-                                foreach ($jwbn_siswa as $keyj => $jwbn) {
-                                    if (!($keyj > 0)) {
-                                        goto P0iSV;
-                                    }
-                                    if (!($jwbn !== "0")) {
-                                        goto rrG95;
-                                    }
-                                    $tes_jawaban[$jwbn_siswa[0]] += 1;
-                                    rrG95:
-                                    P0iSV:
-                                }
-                                oyBSn:
+            $opsis = ["tabel" => isset($jwbs["jawaban"]) ? $jwbs["jawaban"] : [], "thead" => $theader, "tbody" => $tbody, "model" => isset($item_soal->jawaban["model"]) ? $item_soal->jawaban["model"] : "2", "type" => $item_soal->jawaban["type"]];
+        }
+
+        $data["durasi"] = $durasi;
+        $data["timer"] = $timer;
+        $data["soal_id"] = $item_soal->id_soal;
+        $data["soal_siswa_id"] = $item_soal->id_soal_siswa;
+        $data["soal_nomor"] = $item_soal->no_soal_alias;
+        $data["soal_nomor_asli"] = $item_soal->nomor_soal;
+        $data["soal_jenis"] = $item_soal->jenis_soal;
+        $data["soal_soal"] = $item_soal->soal;
+        $data["soal_opsi"] = json_decode(json_encode($opsis));
+        $data["soal_jawaban_siswa"] = $item_soal->jawaban_siswa;
+        $data["max_jawaban"] = $max_jawaban;
+
+        $arrJawaban = [];
+        $modal = "<div class=\"d-flex flex-wrap justify-content-center grid-nomor-pg\">";
+        $test_loop = [];
+        foreach ($soals as $key => $soal) {
+            $terjawab = false;
+            if ($soal->jawaban_siswa != null) {
+                if ($soal->jenis_soal === "3") {
+                    $ada_jawaban3 = [];
+                    $tes_jawaban = [];
+                    if (isset($soal->jawaban_siswa->jawaban)) {
+                        foreach ($soal->jawaban_siswa->jawaban as $keyi => $jwbn_siswa) {
+                            if ($keyi <= 0) {
+                                continue;
                             }
-                            $max_jawaban = [];
-                            $jwbs = $soal->jawaban;
-                            if (!isset($jwbs["jawaban"])) {
-                                goto m7lBC;
+                            $test_loop[$key + 1][$keyi] = "call foreach 1";
+                            $tes_jawaban[$jwbn_siswa[0]] = 0;
+                            foreach ($jwbn_siswa as $keyj => $jwbn) {
+                                if ($keyj <= 0) {
+                                    continue;
+                                }
+                                if ($jwbn === "0") {
+                                    continue;
+                                }
+                                $tes_jawaban[$jwbn_siswa[0]] += 1;
                             }
+                        }
+                        $max_jawaban = [];
+                        $jwbs = $soal->jawaban;
+                        if (isset($jwbs["jawaban"])) {
                             foreach ($jwbs["jawaban"] as $jwb) {
                                 $max_jawaban[$jwb[0]] = 0;
-                                $i = 1;
-                                bweWf:
-                                if (!($i < count($jwb))) {
+                                for ($i = 1; $i < count($jwb); $i++) {
+                                    if ($jwb[$i] == "1") {
+                                        $max_jawaban[$jwb[0]] += 1;
+                                    }
                                 }
-                                if (!($jwb[$i] == "1")) {
-                                    goto kcUbN;
-                                }
-                                $max_jawaban[$jwb[0]] += 1;
-                                kcUbN:
-                                $i++;
-                                goto bweWf;
                             }
-                            m7lBC:
-                            $arrKeys = array_keys($max_jawaban);
-                            foreach ($arrKeys as $kkey => $akey) {
-                                if (!($kkey > 0)) {
-                                    goto lFUCV;
-                                }
-                                $test_loop[$key + 1][$kkey] = "call foreach 2";
-                                if (isset($max_jawaban[$akey]) && isset($tes_jawaban[$akey])) {
-                                    $ada_jawaban3[] = $max_jawaban[$akey] > 0 && $tes_jawaban[$akey] > 0 ? "1" : "0";
-                                    goto dCQHV;
-                                }
-                                $ada_jawaban3[] = "0";
-                                dCQHV:
-                                lFUCV:
-                            }
-                            $terjawab = in_array("1", $ada_jawaban3);
-                            goto t9wM6;
                         }
-                        $terjawab = false;
-                        t9wM6:
-                        goto J1WTg;
+                        $arrKeys = array_keys($max_jawaban);
+                        foreach ($arrKeys as $kkey => $akey) {
+                            if ($kkey <= 0) {
+                                continue;
+                            }
+                            $test_loop[$key + 1][$kkey] = "call foreach 2";
+                            if (isset($max_jawaban[$akey]) && isset($tes_jawaban[$akey])) {
+                                $ada_jawaban3[] = $max_jawaban[$akey] > 0 && $tes_jawaban[$akey] > 0 ? "1" : "0";
+                            } else {
+                                $ada_jawaban3[] = "0";
+                            }
+                        }
+                        $terjawab = in_array("1", $ada_jawaban3);
                     }
+                } else {
                     $terjawab = $soal->jawaban_siswa != '';
-                    J1WTg:
-                    goto UZb2i;
                 }
-                $terjawab = false;
-                UZb2i:
-                $color = !$terjawab ? "outline-secondary" : "primary";
-                $selected = $nomor == $soal->no_soal_alias ? "active" : '';
-                $modal .= "<div class=\"mb-4\"><div id=\"box" . $soal->no_soal_alias . "\" class=\"d-flex flex-column\" style=\"width: 70px; height: 60px;\">" . "<button id=\"btn" . $soal->no_soal_alias . "\" class=\"btn btn-" . $color . " border border-dark " . $selected . "\" " . "data-pos=\"" . $key . "\" data-nomorsoal=\"" . $soal->no_soal_alias . "\" " . "data-idsoal=\"" . $soal->id_soal . "\" data-jenis=\"" . $soal->jenis_soal . "\" " . "onclick=\"loadSoal(this)\" " . "style=\"width: 50px; height: 50px;\">" . "<span style=\"font-size: 14pt\"><b>" . $soal->no_soal_alias . "</b></span>" . "</button>";
-                if (!$terjawab) {
-                    goto iNvjK;
-                }
+            }
+            $color = !$terjawab ? "outline-secondary" : "primary";
+            $selected = $nomor == $soal->no_soal_alias ? "active" : '';
+            $modal .= "<div class=\"mb-4\"><div id=\"box" . $soal->no_soal_alias . "\" class=\"d-flex flex-column\" style=\"width: 70px; height: 60px;\">" . "<button id=\"btn" . $soal->no_soal_alias . "\" class=\"btn btn-" . $color . " border border-dark " . $selected . "\" " . "data-pos=\"" . $key . "\" data-nomorsoal=\"" . $soal->no_soal_alias . "\" " . "data-idsoal=\"" . $soal->id_soal . "\" data-jenis=\"" . $soal->jenis_soal . "\" " . "onclick=\"loadSoal(this)\" " . "style=\"width: 50px; height: 50px;\">" . "<span style=\"font-size: 14pt\"><b>" . $soal->no_soal_alias . "</b></span>" . "</button>";
+            if ($terjawab) {
                 $txt_badge = $soal->jenis_soal == "1" ? $soal->jawaban_alias : "&check;";
                 array_push($arrJawaban, $soal->jawaban_alias);
                 $modal .= "<div id=\"badge" . $soal->no_soal_alias . "\" class=\"badge badge-pill badge-success border border-dark\"" . " style=\"font-size:12pt; width: 30px; height: 30px; margin-top: -60px; margin-left: 30px;\">" . $txt_badge . "</div>";
-                iNvjK:
-                $modal .= "</div></div>";
             }
-            $modal .= "</div>";
-            $data["soal_modal"] = $modal;
-            $data["soal_total"] = count($soals);
-            $data["soal_terjawab"] = count($arrJawaban);
-            $data["soal_akhir"] = $modal;
-            $this->output_json($data);
-            // [PHPDeobfuscator] Implied return
-            return;
+            $modal .= "</div></div>";
         }
-        if (!($soals[$s]->jenis_soal == "3")) {
-            goto qsMpA;
-        }
-        $soals[$s]->jawaban = unserialize($soals[$s]->jawaban);
-        $ada_jawab = $soals[$s]->jawaban_siswa != null;
-        if (!$ada_jawab) {
-            goto J3M9K;
-        }
-        $soals[$s]->jawaban_siswa = unserialize($soals[$s]->jawaban_siswa);
-        J3M9K:
-        qsMpA:
-        $s++;
-        goto kCZEj;
+        $modal .= "</div>";
+        $data["soal_modal"] = $modal;
+        $data["soal_total"] = count($soals);
+        $data["soal_terjawab"] = count($arrJawaban);
+        $data["soal_akhir"] = $modal;
+        $this->output_json($data);
     }
     public function saveSoalSiswa()
     {
@@ -1231,11 +1055,10 @@ class Siswa extends CI_Controller
             if ($jml > 0) {
                 $insert = ["id_bank" => $id_bank, "id_jadwal" => $id_jadwal, "id_soal" => $id_soal, "id_siswa" => $id_siswa, "jenis_soal" => $jenis, "no_soal_alias" => $s->no_soal_alias, "opsi_alias_a" => isset($s->opsi_alias_a) ? $s->opsi_alias_a : null, "opsi_alias_b" => isset($s->opsi_alias_b) ? $s->opsi_alias_b : null, "opsi_alias_c" => isset($s->opsi_alias_c) ? $s->opsi_alias_c : null, "opsi_alias_d" => isset($s->opsi_alias_d) ? $s->opsi_alias_d : null, "opsi_alias_e" => isset($s->opsi_alias_e) ? $s->opsi_alias_e : null, "jawaban_benar" => $soal->jawaban, "soal_end" => $s->soal_end];
                 $this->master->update("cbt_soal_siswa", $insert, "id_soal_siswa", $id_siswa . "0" . $id_jadwal . $id_bank . $jenis . $nomor);
-                goto ux2bQ;
+            } else {
+                $insert = ["id_soal_siswa" => $id_siswa . "0" . $id_jadwal . $id_bank . $jenis . $nomor, "id_bank" => $id_bank, "id_jadwal" => $id_jadwal, "id_soal" => $id_soal, "id_siswa" => $id_siswa, "jenis_soal" => $jenis, "no_soal_alias" => $s->no_soal_alias, "opsi_alias_a" => isset($s->opsi_alias_a) ? $s->opsi_alias_a : null, "opsi_alias_b" => isset($s->opsi_alias_b) ? $s->opsi_alias_b : null, "opsi_alias_c" => isset($s->opsi_alias_c) ? $s->opsi_alias_c : null, "opsi_alias_d" => isset($s->opsi_alias_d) ? $s->opsi_alias_d : null, "opsi_alias_e" => isset($s->opsi_alias_e) ? $s->opsi_alias_e : null, "jawaban_benar" => $soal->jawaban, "soal_end" => $s->soal_end];
+                $this->master->create("cbt_soal_siswa", $insert, false);
             }
-            $insert = ["id_soal_siswa" => $id_siswa . "0" . $id_jadwal . $id_bank . $jenis . $nomor, "id_bank" => $id_bank, "id_jadwal" => $id_jadwal, "id_soal" => $id_soal, "id_siswa" => $id_siswa, "jenis_soal" => $jenis, "no_soal_alias" => $s->no_soal_alias, "opsi_alias_a" => isset($s->opsi_alias_a) ? $s->opsi_alias_a : null, "opsi_alias_b" => isset($s->opsi_alias_b) ? $s->opsi_alias_b : null, "opsi_alias_c" => isset($s->opsi_alias_c) ? $s->opsi_alias_c : null, "opsi_alias_d" => isset($s->opsi_alias_d) ? $s->opsi_alias_d : null, "opsi_alias_e" => isset($s->opsi_alias_e) ? $s->opsi_alias_e : null, "jawaban_benar" => $soal->jawaban, "soal_end" => $s->soal_end];
-            $this->master->create("cbt_soal_siswa", $insert, false);
-            ux2bQ:
         }
         $id_siswa = $shuffle[0]->id_siswa;
         $id_bank = $shuffle[0]->id_bank;
@@ -1256,61 +1079,45 @@ class Siswa extends CI_Controller
         $id_jadwal = $this->input->post("jadwal", true);
         $elapsed = $this->input->post("elapsed", true);
         $id_durasi = $id_siswa . "0" . $id_jadwal;
-        if (!($elapsed != "0")) {
-            goto DOkgj;
+        if ($elapsed != "0") {
+            $this->db->set("lama_ujian", $elapsed);
+            $this->db->where("id_durasi", $id_durasi);
+            $this->db->update("cbt_durasi_siswa");
         }
-        $this->db->set("lama_ujian", $elapsed);
-        $this->db->where("id_durasi", $id_durasi);
-        $this->db->update("cbt_durasi_siswa");
-        DOkgj:
         $update = true;
         $jawab = json_decode($this->input->post("data", false));
-        if (!($jawab != null && isset($jawab->jenis))) {
-            goto IiVBv;
-        }
-        if ($jawab->jenis == 1) {
-            $this->db->set("jawaban_alias", $jawab->jawaban_alias);
-            $this->db->set("jawaban_siswa", $jawab->jawaban_siswa);
-            goto o66MW;
-        }
-        if ($jawab->jenis == 2) {
-            $this->db->set("jawaban_alias", '');
-            $this->db->set("jawaban_siswa", serialize($jawab->jawaban_siswa));
-            goto o66MW;
-        }
-        if ($jawab->jenis == 3) {
-            $this->db->set("jawaban_alias", '');
-            $this->db->set("jawaban_siswa", serialize($jawab->jawaban_siswa));
-            goto A3C5D;
-        }
-        $jawab_essai = $this->input->post("jawaban", false);
-        $this->db->set("jawaban_alias", '');
-        $this->db->set("jawaban_siswa", $jawab_essai);
-        A3C5D:
-        o66MW:
-        $this->db->where("id_soal_siswa", $jawab->id_soal_siswa);
-        $update = $this->db->update("cbt_soal_siswa");
-        IiVBv:
-        $data["status"] = $update;
-        if (!($update && $id_bank != null)) {
-            goto raNb_;
-        }
-        $arrJawaban = [];
-        $terjawab = $this->cbt->getJumlahJawaban($id_bank, $id_siswa);
-        foreach ($terjawab as $jawab) {
-            if (!($jawab->jawaban_siswa != null && $jawab->jawaban_siswa != '')) {
-                goto GqYVF;
+        if ($jawab != null && isset($jawab->jenis)) {
+            if ($jawab->jenis == 1) {
+                $this->db->set("jawaban_alias", $jawab->jawaban_alias);
+                $this->db->set("jawaban_siswa", $jawab->jawaban_siswa);
+            } elseif ($jawab->jenis == 2) {
+                $this->db->set("jawaban_alias", '');
+                $this->db->set("jawaban_siswa", serialize($jawab->jawaban_siswa));
+            } elseif ($jawab->jenis == 3) {
+                $this->db->set("jawaban_alias", '');
+                $this->db->set("jawaban_siswa", serialize($jawab->jawaban_siswa));
+            } else {
+                $jawab_essai = $this->input->post("jawaban", false);
+                $this->db->set("jawaban_alias", '');
+                $this->db->set("jawaban_siswa", $jawab_essai);
             }
-            array_push($arrJawaban, $jawab);
-            GqYVF:
+            $this->db->where("id_soal_siswa", $jawab->id_soal_siswa);
+            $update = $this->db->update("cbt_soal_siswa");
         }
-        $data["soal_terjawab"] = count($arrJawaban);
-        raNb_:
-        if (!($update && $timer != null)) {
-            goto tXd1X;
+        $data["status"] = $update;
+        if ($update && $id_bank != null) {
+            $arrJawaban = [];
+            $terjawab = $this->cbt->getJumlahJawaban($id_bank, $id_siswa);
+            foreach ($terjawab as $jawab) {
+                if ($jawab->jawaban_siswa != null && $jawab->jawaban_siswa != '') {
+                    array_push($arrJawaban, $jawab);
+                }
+            }
+            $data["soal_terjawab"] = count($arrJawaban);
         }
-        $this->selesaiUjian();
-        tXd1X:
+        if ($update && $timer != null) {
+            $this->selesaiUjian();
+        }
         $this->output_json($data);
     }
     public function selesaiUjian()
@@ -1331,11 +1138,9 @@ class Siswa extends CI_Controller
     {
         $id_durasi = $this->input->post("id_durasi", true);
         $reset = $this->input->post("reset", true);
-        if (!($reset == "1")) {
-            goto Jeheo;
+        if ($reset == "1") {
+            $this->db->set("lama_ujian", "00:00:00");
         }
-        $this->db->set("lama_ujian", "00:00:00");
-        Jeheo:
         $this->db->set("reset", $reset);
         $this->db->where("id_durasi", $id_durasi);
         $update = $this->db->update("cbt_durasi_siswa");
@@ -1348,21 +1153,16 @@ class Siswa extends CI_Controller
         $this->load->model("Cbt_model", "cbt");
         $soals = $this->cbt->getAllSoalByBank($id_bank);
         if ($this->master->delete("cbt_durasi_siswa", $id_durasi, "id_durasi")) {
-            $i = 0;
-            AeAa7:
-            if (!($i < 2)) {
-                $data["status"] = true;
-                goto BDtHn;
+            for ($i = 0; $i < 2; $i++) {
+                foreach ($soals as $soal) {
+                    $this->db->where("id_soal_siswa", $id_durasi . $id_bank . ($i + 1) . $soal->nomor_soal);
+                    $this->db->delete("cbt_soal_siswa");
+                }
             }
-            foreach ($soals as $soal) {
-                $this->db->where("id_soal_siswa", $id_durasi . $id_bank . ($i + 1) . $soal->nomor_soal);
-                $this->db->delete("cbt_soal_siswa");
-            }
-            $i++;
-            goto AeAa7;
+            $data["status"] = true;
+        } else {
+            $data["status"] = false;
         }
-        $data["status"] = false;
-        BDtHn:
         $this->output_json($data);
     }
     public function applyAction()
@@ -1372,49 +1172,39 @@ class Siswa extends CI_Controller
         $id_jadwal = $this->input->post("jadwal", true);
         $this->db->trans_start();
         $data["update_reset"] = true;
-        if (!(count($json->reset) > 0)) {
-            goto x6UR5;
+        if (count($json->reset) > 0) {
+            $data["reset"] = true;
+            $this->db->set("reset", 1);
+            $this->db->where_in("id_log", $json->reset);
+            $this->db->update("log_ujian");
         }
-        $data["reset"] = true;
-        $this->db->set("reset", 1);
-        $this->db->where_in("id_log", $json->reset);
-        $this->db->update("log_ujian");
-        x6UR5:
         $data["update_selesai"] = true;
-        if (!(count($json->force) > 0)) {
-            goto Ny0gs;
+        if (count($json->force) > 0) {
+            $data["selesai"] = true;
+            foreach ($json->log as $ids) {
+                $data["status_nilai"] = $this->olahNilai($ids, $id_jadwal);
+                $this->cbt->saveLog($ids, $id_jadwal, 2, "Menyelesaikan Ujian");
+            }
+            $this->db->set("selesai", date("Y-m-d H:i:s"));
+            $this->db->set("status", 2);
+            $this->db->set("reset", 3);
+            $this->db->where_in("id_durasi", $json->force);
+            $data["update_selesai"] = $this->db->update("cbt_durasi_siswa");
         }
-        $data["selesai"] = true;
-        foreach ($json->log as $ids) {
-            $data["status_nilai"] = $this->olahNilai($ids, $id_jadwal);
-            $this->cbt->saveLog($ids, $id_jadwal, 2, "Menyelesaikan Ujian");
-        }
-        $this->db->set("selesai", date("Y-m-d H:i:s"));
-        $this->db->set("status", 2);
-        $this->db->set("reset", 3);
-        $this->db->where_in("id_durasi", $json->force);
-        $data["update_selesai"] = $this->db->update("cbt_durasi_siswa");
-        Ny0gs:
         $data["update_ulangi"] = true;
-        if (!(count($json->ulang) > 0)) {
-            goto bgKZj;
+        if (count($json->ulang) > 0) {
+            $data["ulangi"] = true;
+            $this->db->where_in("id_durasi", $json->hapus);
+            if ($this->db->delete("cbt_durasi_siswa")) {
+                $this->db->where("id_jadwal", $id_jadwal);
+                $this->db->where_in("id_siswa", $json->ulang);
+                if ($this->db->delete("log_ujian")) {
+                    $this->db->where("id_jadwal", $id_jadwal);
+                    $this->db->where_in("id_siswa", $json->ulang);
+                    $data["update_ulangi"] = $this->db->delete("cbt_soal_siswa");
+                }
+            }
         }
-        $data["ulangi"] = true;
-        $this->db->where_in("id_durasi", $json->hapus);
-        if (!$this->db->delete("cbt_durasi_siswa")) {
-            goto m7rtJ;
-        }
-        $this->db->where("id_jadwal", $id_jadwal);
-        $this->db->where_in("id_siswa", $json->ulang);
-        if (!$this->db->delete("log_ujian")) {
-            goto JKjij;
-        }
-        $this->db->where("id_jadwal", $id_jadwal);
-        $this->db->where_in("id_siswa", $json->ulang);
-        $data["update_ulangi"] = $this->db->delete("cbt_soal_siswa");
-        JKjij:
-        m7rtJ:
-        bgKZj:
         $this->db->trans_complete();
         $this->output_json($data);
     }
@@ -1425,23 +1215,19 @@ class Siswa extends CI_Controller
         $jawabans = $this->cbt->getJawabanByBank($info->id_bank, $id_siswa);
         $jawabans_siswa = [];
         foreach ($jawabans as $jawaban_siswa) {
-            if (!($jawaban_siswa->jenis_soal == "2")) {
-                goto QtaHx;
+            if ($jawaban_siswa->jenis_soal == "2") {
+                $jawaban_siswa->opsi_a = @unserialize($jawaban_siswa->opsi_a);
+                $jawaban_siswa->jawaban_siswa = @unserialize($jawaban_siswa->jawaban_siswa);
+                $jawaban_siswa->jawaban_benar = @unserialize($jawaban_siswa->jawaban_benar);
+                $jawaban_siswa->jawaban_benar = array_map("strtoupper", $jawaban_siswa->jawaban_benar);
+                $jawaban_siswa->jawaban_benar = array_filter($jawaban_siswa->jawaban_benar, "strlen");
             }
-            $jawaban_siswa->opsi_a = @unserialize($jawaban_siswa->opsi_a);
-            $jawaban_siswa->jawaban_siswa = @unserialize($jawaban_siswa->jawaban_siswa);
-            $jawaban_siswa->jawaban_benar = @unserialize($jawaban_siswa->jawaban_benar);
-            $jawaban_siswa->jawaban_benar = array_map("strtoupper", $jawaban_siswa->jawaban_benar);
-            $jawaban_siswa->jawaban_benar = array_filter($jawaban_siswa->jawaban_benar, "strlen");
-            QtaHx:
-            if (!($jawaban_siswa->jenis_soal == "3")) {
-                goto sQA1F;
+            if ($jawaban_siswa->jenis_soal == "3") {
+                $jawaban_siswa->jawaban_siswa = @unserialize($jawaban_siswa->jawaban_siswa);
+                $jawaban_siswa->jawaban_benar = @unserialize($jawaban_siswa->jawaban_benar);
+                $jawaban_siswa->jawaban_siswa = json_decode(json_encode($jawaban_siswa->jawaban_siswa));
+                $jawaban_siswa->jawaban_benar = json_decode(json_encode($jawaban_siswa->jawaban_benar));
             }
-            $jawaban_siswa->jawaban_siswa = @unserialize($jawaban_siswa->jawaban_siswa);
-            $jawaban_siswa->jawaban_benar = @unserialize($jawaban_siswa->jawaban_benar);
-            $jawaban_siswa->jawaban_siswa = json_decode(json_encode($jawaban_siswa->jawaban_siswa));
-            $jawaban_siswa->jawaban_benar = json_decode(json_encode($jawaban_siswa->jawaban_benar));
-            sQA1F:
             $jawabans_siswa[$jawaban_siswa->jenis_soal][] = $jawaban_siswa;
         }
         $ada_jawaban_isian = isset($jawabans_siswa["4"]);
@@ -1459,175 +1245,126 @@ class Siswa extends CI_Controller
         $jawaban_pg = isset($jawabans_siswa["1"]) ? $jawabans_siswa["1"] : [];
         $benar_pg = 0;
         $salah_pg = 0;
-        if (!($info->tampil_pg > 0)) {
-            goto cvvOi;
-        }
-        if (!(count($jawaban_pg) > 0)) {
-            goto FjNMf;
-        }
-        foreach ($jawaban_pg as $jwb_pg) {
-            if (!($jwb_pg != null && $jwb_pg->jawaban_siswa != null)) {
-                goto cHX__;
+        if ($info->tampil_pg > 0 && count($jawaban_pg) > 0) {
+            foreach ($jawaban_pg as $jwb_pg) {
+                if ($jwb_pg != null && $jwb_pg->jawaban_siswa != null) {
+                    if (strtoupper($jwb_pg->jawaban_siswa) == strtoupper($jwb_pg->jawaban_benar)) {
+                        $benar_pg += 1;
+                    } else {
+                        $salah_pg += 1;
+                    }
+                }
             }
-            if (strtoupper($jwb_pg->jawaban_siswa) == strtoupper($jwb_pg->jawaban_benar)) {
-                $benar_pg += 1;
-                goto x2YqW;
-            }
-            $salah_pg += 1;
-            x2YqW:
-            cHX__:
         }
-        FjNMf:
-        cvvOi:
         $skor_pg = $bagi_pg == 0 ? 0 : $benar_pg / $bagi_pg * $bobot_pg;
         $jawaban_pg2 = isset($jawabans_siswa["2"]) ? $jawabans_siswa["2"] : [];
         $benar_pg2 = 0;
         $skor_koreksi_pg2 = 0.0;
         $otomatis_pg2 = 0;
-        if (!($info->tampil_kompleks > 0)) {
-            goto QNOjy;
-        }
-        if (!(count($jawaban_pg2) > 0)) {
-            goto NUPAO;
-        }
-        foreach ($jawaban_pg2 as $num => $jawab_pg2) {
-            $otomatis_pg2 = $jawab_pg2->nilai_otomatis;
-            $skor_koreksi_pg2 += $jawab_pg2->nilai_koreksi;
-            $arr_benar = [];
-            if (!is_array($jawab_pg2->jawaban_siswa)) {
-                goto wO6oI;
-            }
-            foreach ($jawab_pg2->jawaban_siswa as $js) {
-                if (!in_array($js, $jawab_pg2->jawaban_benar)) {
-                    goto smoEA;
+        if ($info->tampil_kompleks > 0 && count($jawaban_pg2) > 0) {
+            foreach ($jawaban_pg2 as $num => $jawab_pg2) {
+                $otomatis_pg2 = $jawab_pg2->nilai_otomatis;
+                $skor_koreksi_pg2 += $jawab_pg2->nilai_koreksi;
+                $arr_benar = [];
+                if (is_array($jawab_pg2->jawaban_siswa)) {
+                    foreach ($jawab_pg2->jawaban_siswa as $js) {
+                        if (in_array($js, $jawab_pg2->jawaban_benar)) {
+                            array_push($arr_benar, true);
+                        }
+                    }
                 }
-                array_push($arr_benar, true);
-                smoEA:
+                if (count($jawab_pg2->jawaban_benar) > 0) {
+                    $benar_pg2 += 1 / count($jawab_pg2->jawaban_benar) * count($arr_benar);
+                }
             }
-            wO6oI:
-            if (!(count($jawab_pg2->jawaban_benar) > 0)) {
-                goto VICX_;
-            }
-            $benar_pg2 += 1 / count($jawab_pg2->jawaban_benar) * count($arr_benar);
-            VICX_:
         }
-        NUPAO:
-        QNOjy:
         $s_pg2 = $bagi_pg2 == 0 ? 0 : $benar_pg2 / $bagi_pg2 * $bobot_pg2;
         $skor_pg2 = $otomatis_pg2 == 0 ? $s_pg2 : $skor_koreksi_pg2;
         $jawaban_jodoh = isset($jawabans_siswa["3"]) ? $jawabans_siswa["3"] : [];
         $benar_jod = 0;
         $skor_koreksi_jod = 0.0;
         $otomatis_jod = 0;
-        if (!($info->tampil_jodohkan > 0)) {
-            goto sYUU1;
-        }
-        if (!(count($jawaban_jodoh) > 0)) {
-            goto ihFvN;
-        }
-        foreach ($jawaban_jodoh as $num => $jawab_jod) {
-            $skor_koreksi_jod += $jawab_jod->nilai_koreksi;
-            $arrSoal = $jawab_jod->jawaban_benar->jawaban ?? [];
-            $headSoal = array_shift($arrSoal);
-            $arrJwbSoal = [];
-            $items = 0;
-            foreach ($arrSoal as $kolSoal) {
-                $jwb = new stdClass();
-                foreach ($kolSoal as $pos => $kol) {
-                    if (!($kol == "1")) {
-                        goto Ei2xG;
+        if ($info->tampil_jodohkan > 0 && count($jawaban_jodoh) > 0) {
+            foreach ($jawaban_jodoh as $num => $jawab_jod) {
+                $skor_koreksi_jod += $jawab_jod->nilai_koreksi;
+                $arrSoal = $jawab_jod->jawaban_benar->jawaban ?? [];
+                $headSoal = array_shift($arrSoal);
+                $arrJwbSoal = [];
+                $items = 0;
+                foreach ($arrSoal as $kolSoal) {
+                    $jwb = new stdClass();
+                    foreach ($kolSoal as $pos => $kol) {
+                        if ($kol == "1") {
+                            $jwb->subtitle[] = $headSoal[$pos];
+                            $items++;
+                        }
                     }
-                    $jwb->subtitle[] = $headSoal[$pos];
-                    $items++;
-                    Ei2xG:
+                    $jwb->title = array_shift($kolSoal);
+                    array_push($arrJwbSoal, $jwb);
                 }
-                $jwb->title = array_shift($kolSoal);
-                array_push($arrJwbSoal, $jwb);
-            }
-            $arrJawab = $jawab_jod->jawaban_siswa->jawaban ?? [];
-            $headJawab = array_shift($arrJawab);
-            $arrJwbJawab = [];
-            foreach ($arrJawab as $kolJawab) {
-                $jwbs = new stdClass();
-                foreach ($kolJawab as $po => $kol) {
-                    if (!($kol == "1")) {
-                        goto azmgs;
+                $arrJawab = $jawab_jod->jawaban_siswa->jawaban ?? [];
+                $headJawab = array_shift($arrJawab);
+                $arrJwbJawab = [];
+                foreach ($arrJawab as $kolJawab) {
+                    $jwbs = new stdClass();
+                    foreach ($kolJawab as $po => $kol) {
+                        if ($kol == "1") {
+                            $sub = $headJawab[$po];
+                            $jwbs->subtitle[] = $sub;
+                        }
                     }
-                    $sub = $headJawab[$po];
-                    $jwbs->subtitle[] = $sub;
-                    azmgs:
+                    array_push($arrJwbJawab, $jwbs);
                 }
-                array_push($arrJwbJawab, $jwbs);
-            }
-            $item_benar = 0;
-            $item_salah = 0;
-            foreach ($arrJwbJawab as $p => $ajjs) {
-                if (!isset($ajjs->subtitle)) {
-                    goto LTFty;
-                }
-                foreach ($ajjs->subtitle as $pp => $ajs) {
-                    if (isset($arrJwbSoal[$p]) && in_array($ajs, $arrJwbSoal[$p]->subtitle)) {
-                        $item_benar++;
-                        goto ATdzv;
+                $item_benar = 0;
+                $item_salah = 0;
+                foreach ($arrJwbJawab as $p => $ajjs) {
+                    if (!isset($ajjs->subtitle)) {
+                        continue;
                     }
-                    $item_salah++;
-                    ATdzv:
+                    foreach ($ajjs->subtitle as $pp => $ajs) {
+                        if (isset($arrJwbSoal[$p]) && in_array($ajs, $arrJwbSoal[$p]->subtitle)) {
+                            $item_benar++;
+                        } else {
+                            $item_salah++;
+                        }
+                    }
                 }
-                LTFty:
+                $benar_jod += $items == 0 ? 0 : 1 / $items * $item_benar;
+                $otomatis_jod = $jawab_jod->nilai_otomatis;
             }
-            $benar_jod += $items == 0 ? 0 : 1 / $items * $item_benar;
-            $otomatis_jod = $jawab_jod->nilai_otomatis;
         }
-        ihFvN:
-        sYUU1:
         $s_jod = $bagi_jodoh == 0 ? 0 : $benar_jod / $bagi_jodoh * $bobot_jodoh;
         $skor_jod = $otomatis_jod == 0 ? $s_jod : $skor_koreksi_jod;
         $jawaban_is = $ada_jawaban_isian ? $jawabans_siswa["4"] : [];
         $benar_is = 0;
         $skor_koreksi_is = 0.0;
         $otomatis_is = 0;
-        if (!($info->tampil_isian > 0)) {
-            goto ZkROx;
-        }
-        if (!(count($jawaban_is) > 0)) {
-            goto ordWt;
-        }
-        foreach ($jawaban_is as $num => $jawab_is) {
-            $skor_koreksi_is += $jawab_is->nilai_koreksi;
-            $benar = $jawab_is != null && strtolower($jawab_is->jawaban_siswa) == strtolower($jawab_is->jawaban_benar);
-            if (!$benar) {
-                goto LhW0e;
+        if ($info->tampil_isian > 0 && count($jawaban_is) > 0) {
+            foreach ($jawaban_is as $num => $jawab_is) {
+                $skor_koreksi_is += $jawab_is->nilai_koreksi;
+                $benar = $jawab_is != null && strtolower($jawab_is->jawaban_siswa) == strtolower($jawab_is->jawaban_benar);
+                if ($benar) {
+                    $benar_is++;
+                }
+                $otomatis_is = $jawab_is->nilai_otomatis;
             }
-            $benar_is++;
-            LhW0e:
-            $otomatis_is = $jawab_is->nilai_otomatis;
         }
-        ordWt:
-        ZkROx:
         $s_is = $bagi_isian == 0 ? 0 : $benar_is / $bagi_isian * $bobot_isian;
         $skor_is = $otomatis_is == 0 ? $s_is : $skor_koreksi_is;
         $jawaban_es = $ada_jawaban_essai ? $jawabans_siswa["5"] : [];
         $benar_es = 0;
         $skor_koreksi_es = 0.0;
         $otomatis_es = 0;
-        if (!($info->tampil_esai > 0)) {
-            goto hp3eJ;
-        }
-        if (!(count($jawaban_es) > 0)) {
-            goto a7UUe;
-        }
-        foreach ($jawaban_es as $num => $jawab_es) {
-            $skor_koreksi_es += $jawab_es->nilai_koreksi;
-            $benar = $jawab_es != null && strtolower($jawab_es->jawaban_siswa) == strtolower($jawab_es->jawaban_benar);
-            if (!$benar) {
-                goto jxTAi;
+        if ($info->tampil_esai > 0 && count($jawaban_es) > 0) {
+            foreach ($jawaban_es as $num => $jawab_es) {
+                $skor_koreksi_es += $jawab_es->nilai_koreksi;
+                $benar = $jawab_es != null && strtolower($jawab_es->jawaban_siswa) == strtolower($jawab_es->jawaban_benar);
+                if ($benar) {
+                    $benar_es++;
+                }
+                $otomatis_es = $jawab_es->nilai_otomatis;
             }
-            $benar_es++;
-            jxTAi:
-            $otomatis_es = $jawab_es->nilai_otomatis;
         }
-        a7UUe:
-        hp3eJ:
         $s_es = $bagi_essai == 0 ? 0 : $benar_es / $bagi_essai * $bobot_essai;
         $skor_es = $otomatis_es == 0 ? $s_es : $skor_koreksi_es;
         $total = $skor_pg + $skor_pg2 + $skor_jod + $skor_is + $skor_es;
@@ -1658,17 +1395,15 @@ class Siswa extends CI_Controller
             $arr_kls_jadwal = [];
             foreach ($kelass as $kll) {
                 foreach ($kll as $kl) {
-                    if (!($kl != null)) {
-                        goto XSkWi;
+                    if ($kl != null) {
+                        $arr_kls_jadwal[] = $kl;
                     }
-                    $arr_kls_jadwal[] = $kl;
-                    XSkWi:
                 }
             }
             if (!in_array($siswa->id_kelas, $arr_kls_jadwal)) {
                 unset($jadwals[$kj]);
                 $kelass_unset[] = $kj;
-                goto fYnhR;
+                continue;
             }
             $jadwal->bank_kelas = unserialize($jadwal->bank_kelas);
             $info = $jadwal;
@@ -1685,28 +1420,24 @@ class Siswa extends CI_Controller
             $jawabans = $this->cbt->getJawabanSiswaByJadwal($jadwal->id_jadwal, $siswa->id_siswa);
             $jawabans_siswa = [];
             foreach ($jawabans as $jawaban_siswa) {
-                if (!($jawaban_siswa->jenis_soal == "2")) {
-                    goto FTR48;
+                if ($jawaban_siswa->jenis_soal == "2") {
+                    $jawaban_siswa->opsi_a = @unserialize($jawaban_siswa->opsi_a);
+                    $jawaban_siswa->jawaban_siswa = @unserialize($jawaban_siswa->jawaban_siswa);
+                    $jawaban_siswa->jawaban_benar = @unserialize($jawaban_siswa->jawaban_benar);
+                    $jawaban_siswa->jawaban = @unserialize($jawaban_siswa->jawaban);
+                    $jawaban_siswa->jawaban_benar = array_map("strtoupper", $jawaban_siswa->jawaban_benar);
+                    $jawaban_siswa->jawaban_benar = array_filter($jawaban_siswa->jawaban_benar, "strlen");
+                    $jawaban_siswa->jawaban = array_map("strtoupper", $jawaban_siswa->jawaban);
+                    $jawaban_siswa->jawaban = array_filter($jawaban_siswa->jawaban, "strlen");
                 }
-                $jawaban_siswa->opsi_a = @unserialize($jawaban_siswa->opsi_a);
-                $jawaban_siswa->jawaban_siswa = @unserialize($jawaban_siswa->jawaban_siswa);
-                $jawaban_siswa->jawaban_benar = @unserialize($jawaban_siswa->jawaban_benar);
-                $jawaban_siswa->jawaban = @unserialize($jawaban_siswa->jawaban);
-                $jawaban_siswa->jawaban_benar = array_map("strtoupper", $jawaban_siswa->jawaban_benar);
-                $jawaban_siswa->jawaban_benar = array_filter($jawaban_siswa->jawaban_benar, "strlen");
-                $jawaban_siswa->jawaban = array_map("strtoupper", $jawaban_siswa->jawaban);
-                $jawaban_siswa->jawaban = array_filter($jawaban_siswa->jawaban, "strlen");
-                FTR48:
-                if (!($jawaban_siswa->jenis_soal == "3")) {
-                    goto kNGWg;
+                if ($jawaban_siswa->jenis_soal == "3") {
+                    $jawaban_siswa->jawaban_siswa = @unserialize($jawaban_siswa->jawaban_siswa);
+                    $jawaban_siswa->jawaban_benar = @unserialize($jawaban_siswa->jawaban_benar);
+                    $jawaban_siswa->jawaban = @unserialize($jawaban_siswa->jawaban);
+                    $jawaban_siswa->jawaban_siswa = json_decode(json_encode($jawaban_siswa->jawaban_siswa));
+                    $jawaban_siswa->jawaban_benar = json_decode(json_encode($jawaban_siswa->jawaban_benar));
+                    $jawaban_siswa->jawaban = json_decode(json_encode($jawaban_siswa->jawaban));
                 }
-                $jawaban_siswa->jawaban_siswa = @unserialize($jawaban_siswa->jawaban_siswa);
-                $jawaban_siswa->jawaban_benar = @unserialize($jawaban_siswa->jawaban_benar);
-                $jawaban_siswa->jawaban = @unserialize($jawaban_siswa->jawaban);
-                $jawaban_siswa->jawaban_siswa = json_decode(json_encode($jawaban_siswa->jawaban_siswa));
-                $jawaban_siswa->jawaban_benar = json_decode(json_encode($jawaban_siswa->jawaban_benar));
-                $jawaban_siswa->jawaban = json_decode(json_encode($jawaban_siswa->jawaban));
-                kNGWg:
                 $jawabans_siswa[$jawaban_siswa->id_siswa][$jawaban_siswa->jenis_soal][] = $jawaban_siswa;
             }
             $ada_jawaban = isset($jawabans_siswa[$siswa->id_siswa]);
@@ -1717,83 +1448,58 @@ class Siswa extends CI_Controller
             $ada_jawaban_essai = $ada_jawaban && isset($jawabans_siswa[$siswa->id_siswa]["5"]);
             $skor = new stdClass();
             $nilai_input = $this->cbt->getNilaiSiswaByJadwal($jadwal->id_jadwal, $siswa->id_siswa);
-            if (!($nilai_input != null)) {
-                goto U3eCz;
+            if ($nilai_input != null) {
+                $skor->dikoreksi = $nilai_input->dikoreksi;
             }
-            $skor->dikoreksi = $nilai_input->dikoreksi;
-            U3eCz:
             $jawaban_pg = $ada_jawaban_pg ? $jawabans_siswa[$siswa->id_siswa]["1"] : [];
             $benar_pg = 0;
             $salah_pg = 0;
-            if (!($info->tampil_pg > 0)) {
-                goto ju9Up;
-            }
-            if (!(count($jawaban_pg) > 0)) {
-                goto tFpHc;
-            }
-            foreach ($jawaban_pg as $num => $jwb_pg) {
-                $benar = false;
-                if (!($jwb_pg != null && $jwb_pg->jawaban_siswa != null)) {
-                    goto pPUk3;
+            if ($info->tampil_pg > 0 && count($jawaban_pg) > 0) {
+                foreach ($jawaban_pg as $num => $jwb_pg) {
+                    $benar = false;
+                    if ($jwb_pg != null && $jwb_pg->jawaban_siswa != null) {
+                        if (strtoupper($jwb_pg->jawaban_siswa) == strtoupper($jwb_pg->jawaban)) {
+                            $benar_pg += 1;
+                            $benar = true;
+                        } else {
+                            $salah_pg += 1;
+                            $benar = false;
+                        }
+                    }
                 }
-                if (strtoupper($jwb_pg->jawaban_siswa) == strtoupper($jwb_pg->jawaban)) {
-                    $benar_pg += 1;
-                    $benar = true;
-                    goto N0RsM;
-                }
-                $salah_pg += 1;
-                $benar = false;
-                N0RsM:
-                pPUk3:
             }
-            tFpHc:
-            ju9Up:
             $skor->skor_pg = $skor_pg = $bagi_pg == 0 ? 0 : round($benar_pg / $bagi_pg * $bobot_pg, 2);
             $skor->benar_pg = $benar_pg;
             $jawaban_pg2 = $ada_jawaban_pg2 ? $jawabans_siswa[$siswa->id_siswa]["2"] : [];
             $benar_pg2 = 0;
             $skor_koreksi_pg2 = 0.0;
             $otomatis_pg2 = 0;
-            if (!($info->tampil_kompleks > 0)) {
-                goto Fxj8i;
-            }
-            if (!(count($jawaban_pg2) > 0)) {
-                goto lmeN6;
-            }
-            foreach ($jawaban_pg2 as $num => $jawab_pg2) {
-                $skor_koreksi_pg2 += $jawab_pg2->nilai_koreksi;
-                $arr_benar = [];
-                if (!$jawab_pg2->jawaban_siswa) {
-                    goto w_Pmk;
-                }
-                foreach ($jawab_pg2->jawaban_siswa as $js) {
-                    if (!in_array($js, $jawab_pg2->jawaban)) {
-                        goto QuWuR;
+            if ($info->tampil_kompleks > 0 && count($jawaban_pg2) > 0) {
+                foreach ($jawaban_pg2 as $num => $jawab_pg2) {
+                    $skor_koreksi_pg2 += $jawab_pg2->nilai_koreksi;
+                    $arr_benar = [];
+                    if ($jawab_pg2->jawaban_siswa) {
+                        foreach ($jawab_pg2->jawaban_siswa as $js) {
+                            if (in_array($js, $jawab_pg2->jawaban)) {
+                                array_push($arr_benar, true);
+                            }
+                        }
                     }
-                    array_push($arr_benar, true);
-                    QuWuR:
+                    if (count($jawab_pg2->jawaban) > 0) {
+                        $benar_pg2 += 1 / count($jawab_pg2->jawaban) * count($arr_benar);
+                    }
+                    $point_benar = $info->bobot_kompleks > 0 ? round($info->bobot_kompleks / $info->tampil_kompleks, 2) : 0;
+                    $point_item = count($jawab_pg2->jawaban) > 0 ? $point_benar / count($jawab_pg2->jawaban) : 0;
+                    $pk = $point_item * count($arr_benar);
+                    $jml_benar = count($arr_benar);
+                    $otomatis_pg2 = $jawab_pg2->nilai_otomatis;
                 }
-                w_Pmk:
-                if (!(count($jawab_pg2->jawaban) > 0)) {
-                    goto LmKNB;
-                }
-                $benar_pg2 += 1 / count($jawab_pg2->jawaban) * count($arr_benar);
-                LmKNB:
-                $point_benar = $info->bobot_kompleks > 0 ? round($info->bobot_kompleks / $info->tampil_kompleks, 2) : 0;
-                $point_item = count($jawab_pg2->jawaban) > 0 ? $point_benar / count($jawab_pg2->jawaban) : 0;
-                $pk = $point_item * count($arr_benar);
-                $jml_benar = count($arr_benar);
-                $otomatis_pg2 = $jawab_pg2->nilai_otomatis;
             }
-            lmeN6:
-            Fxj8i:
             $s_pg2 = $bagi_pg2 == 0 ? 0 : $benar_pg2 / $bagi_pg2 * $bobot_pg2;
             $input_pg2 = 0;
-            if (!($nilai_input != null && $nilai_input->kompleks_nilai != null)) {
-                goto QmoV3;
+            if ($nilai_input != null && $nilai_input->kompleks_nilai != null) {
+                $input_pg2 = $nilai_input->kompleks_nilai;
             }
-            $input_pg2 = $nilai_input->kompleks_nilai;
-            QmoV3:
             $skor_pg2 = $input_pg2 != 0 ? $input_pg2 : ($otomatis_pg2 == 0 ? $s_pg2 : $skor_koreksi_pg2);
             $skor->skor_kompleks = round($skor_pg2, 2);
             $skor->benar_kompleks = round($benar_pg2, 2);
@@ -1801,128 +1507,104 @@ class Siswa extends CI_Controller
             $benar_jod = 0;
             $skor_koreksi_jod = 0.0;
             $otomatis_jod = 0;
-            if (!($info->tampil_jodohkan > 0)) {
-                goto oKHxw;
+            if ($info->tampil_jodohkan > 0 && count($jawaban_jodoh) > 0) {
+                foreach ($jawaban_jodoh as $num => $jawab_jod) {
+                    $skor_koreksi_jod += $jawab_jod->nilai_koreksi;
+                    $typeSoal = $jawab_jod->jawaban->type;
+                    $arrSoal = $jawab_jod->jawaban->jawaban;
+                    $headSoal = array_shift($arrSoal);
+                    $arrJwbSoal = [];
+                    $items = 0;
+                    foreach ($arrSoal as $kolSoal) {
+                        $jwb = new stdClass();
+                        foreach ($kolSoal as $pos => $kol) {
+                            if ($kol == "1") {
+                                $jwb->subtitle[] = $headSoal[$pos];
+                                $items++;
+                            }
+                        }
+                        $jwb->title = array_shift($kolSoal);
+                        array_push($arrJwbSoal, $jwb);
+                    }
+                    $arrJawab = [];
+                    $headJawab = null;
+                    if (isset($jawab_jod->jawaban_siswa->jawaban)) {
+                        $arrJawab = $jawab_jod->jawaban_siswa->jawaban;
+                        $headJawab = array_shift($arrJawab);
+                    }
+                    $arrJwbJawab = [];
+                    foreach ($arrJawab as $kolJawab) {
+                        $jwbs = new stdClass();
+                        foreach ($kolJawab as $po => $kol) {
+                            if ($kol == "1") {
+                                $sub = $headJawab[$po];
+                                $jwbs->subtitle[] = $sub;
+                            }
+                        }
+                        $jwbs->title = array_shift($kolJawab);
+                        array_push($arrJwbJawab, $jwbs);
+                    }
+                    $arrBenar = [];
+                    $item_benar = 0;
+                    $item_salah = 0;
+                    $item_lebih = 0;
+                    foreach ($arrJwbJawab as $p => $ajjs) {
+                        $ll = 0;
+                        $bb = 0;
+                        $ss = 0;
+                        $arrBenar[$p] = new stdClass();
+                        if (!isset($ajjs->subtitle)) {
+                            continue;
+                        }
+                        foreach ($ajjs->subtitle as $pp => $ajs) {
+                            if (isset($arrJwbSoal[$p]) && !isset($arrJwbSoal[$p]->subtitle[$pp])) {
+                                $ll++;
+                                $arrBenar[$p]->lebih = $ll;
+                                $item_lebih++;
+                            }
+                            if (isset($arrJwbSoal[$p]) && isset($arrJwbSoal[$p]->subtitle)) {
+                                if (in_array($ajs, $arrJwbSoal[$p]->subtitle)) {
+                                    $bb++;
+                                    $arrBenar[$p]->benar = $bb;
+                                    $item_benar++;
+                                } else {
+                                    $ss++;
+                                    $arrBenar[$p]->salah = $ss;
+                                    $item_salah++;
+                                }
+                            }
+                        }
+                    }
+                    $benar_jod += 1 / $items * $item_benar;
+                    $point_benar = $info->bobot_jodohkan > 0 ? round($info->bobot_jodohkan / $info->tampil_jodohkan, 2) : 0;
+                    $point_item = $point_benar / count($arrSoal);
+                    $item_kurang = 0;
+                    $point_soal = 0;
+                    foreach ($arrJwbSoal as $ps => $ajj) {
+                        if (!isset($ajj->subtitle)) {
+                            continue;
+                        }
+                        $point_subitem = $point_item / count((array) $ajj->subtitle);
+                        if (isset($arrBenar[$ps]->benar)) {
+                            $point_soal += $point_subitem * $arrBenar[$ps]->benar;
+                        }
+                        $kk = 0;
+                        foreach ($ajj->subtitle as $pps => $aj) {
+                            if (isset($arrJwbJawab[$ps]) && !isset($arrJwbJawab[$ps]->subtitle[$pps])) {
+                                $kk++;
+                                $arrBenar[$ps]->kurang = $kk;
+                                $item_kurang++;
+                            }
+                        }
+                    }
+                    $otomatis_jod = $jawab_jod->nilai_otomatis;
+                }
             }
-            if (!(count($jawaban_jodoh) > 0)) {
-                goto b3zWg;
-            }
-            foreach ($jawaban_jodoh as $num => $jawab_jod) {
-                $skor_koreksi_jod += $jawab_jod->nilai_koreksi;
-                $typeSoal = $jawab_jod->jawaban->type;
-                $arrSoal = $jawab_jod->jawaban->jawaban;
-                $headSoal = array_shift($arrSoal);
-                $arrJwbSoal = [];
-                $items = 0;
-                foreach ($arrSoal as $kolSoal) {
-                    $jwb = new stdClass();
-                    foreach ($kolSoal as $pos => $kol) {
-                        if (!($kol == "1")) {
-                            goto aVfmo;
-                        }
-                        $jwb->subtitle[] = $headSoal[$pos];
-                        $items++;
-                        aVfmo:
-                    }
-                    $jwb->title = array_shift($kolSoal);
-                    array_push($arrJwbSoal, $jwb);
-                }
-                $arrJawab = [];
-                if (!isset($jawab_jod->jawaban_siswa->jawaban)) {
-                    goto wfKJ2;
-                }
-                $arrJawab = $jawab_jod->jawaban_siswa->jawaban;
-                $headJawab = array_shift($arrJawab);
-                wfKJ2:
-                $arrJwbJawab = [];
-                foreach ($arrJawab as $kolJawab) {
-                    $jwbs = new stdClass();
-                    foreach ($kolJawab as $po => $kol) {
-                        if (!($kol == "1")) {
-                            goto wHhCX;
-                        }
-                        $sub = $headJawab[$po];
-                        $jwbs->subtitle[] = $sub;
-                        wHhCX:
-                    }
-                    $jwbs->title = array_shift($kolJawab);
-                    array_push($arrJwbJawab, $jwbs);
-                }
-                $arrBenar = [];
-                $item_benar = 0;
-                $item_salah = 0;
-                $item_lebih = 0;
-                foreach ($arrJwbJawab as $p => $ajjs) {
-                    $ll = 0;
-                    $bb = 0;
-                    $ss = 0;
-                    $arrBenar[$p] = new stdClass();
-                    if (!isset($ajjs->subtitle)) {
-                        goto w134c;
-                    }
-                    foreach ($ajjs->subtitle as $pp => $ajs) {
-                        if (!(isset($arrJwbSoal[$p]) && !isset($arrJwbSoal[$p]->subtitle[$pp]))) {
-                            goto ovQYA;
-                        }
-                        $ll++;
-                        $arrBenar[$p]->lebih = $ll;
-                        $item_lebih++;
-                        ovQYA:
-                        if (!(isset($arrJwbSoal[$p]) && isset($arrJwbSoal[$p]->subtitle))) {
-                            goto wuAZS;
-                        }
-                        if (in_array($ajs, $arrJwbSoal[$p]->subtitle)) {
-                            $bb++;
-                            $arrBenar[$p]->benar = $bb;
-                            $item_benar++;
-                            goto rWpMQ;
-                        }
-                        $ss++;
-                        $arrBenar[$p]->salah = $ss;
-                        $item_salah++;
-                        rWpMQ:
-                        wuAZS:
-                    }
-                    w134c:
-                }
-                $benar_jod += 1 / $items * $item_benar;
-                $point_benar = $info->bobot_jodohkan > 0 ? round($info->bobot_jodohkan / $info->tampil_jodohkan, 2) : 0;
-                $point_item = $point_benar / count($arrSoal);
-                $item_kurang = 0;
-                $point_soal = 0;
-                foreach ($arrJwbSoal as $ps => $ajj) {
-                    if (!isset($ajj->subtitle)) {
-                        goto ryNGH;
-                    }
-                    $point_subitem = $point_item / count((array) $ajj->subtitle);
-                    if (!isset($arrBenar[$ps]->benar)) {
-                        goto Et8PK;
-                    }
-                    $point_soal += $point_subitem * $arrBenar[$ps]->benar;
-                    Et8PK:
-                    $kk = 0;
-                    foreach ($ajj->subtitle as $pps => $aj) {
-                        if (!(isset($arrJwbJawab[$ps]) && !isset($arrJwbJawab[$ps]->subtitle[$pps]))) {
-                            goto xRMA2;
-                        }
-                        $kk++;
-                        $arrBenar[$ps]->kurang = $kk;
-                        $item_kurang++;
-                        xRMA2:
-                    }
-                    ryNGH:
-                }
-                $otomatis_jod = $jawab_jod->nilai_otomatis;
-            }
-            b3zWg:
-            oKHxw:
             $s_jod = $bagi_jodoh == 0 ? 0 : $benar_jod / $bagi_jodoh * $bobot_jodoh;
             $input_jod = 0;
-            if (!($nilai_input != null && $nilai_input->jodohkan_nilai != null)) {
-                goto xW9yZ;
+            if ($nilai_input != null && $nilai_input->jodohkan_nilai != null) {
+                $input_jod = $nilai_input->jodohkan_nilai;
             }
-            $input_jod = $nilai_input->jodohkan_nilai;
-            xW9yZ:
             $skor_jod = $input_jod != 0 ? $input_jod : ($otomatis_jod == 0 ? $s_jod : $skor_koreksi_jod);
             $skor->skor_jodohkan = round($skor_jod, 2);
             $skor->benar_jodohkan = round($benar_jod, 2);
@@ -1930,31 +1612,21 @@ class Siswa extends CI_Controller
             $benar_is = 0;
             $skor_koreksi_is = 0.0;
             $otomatis_is = 0;
-            if (!($info->tampil_isian > 0)) {
-                goto H8ylY;
-            }
-            if (!(count($jawaban_is) > 0)) {
-                goto IQNAt;
-            }
-            foreach ($jawaban_is as $num => $jawab_is) {
-                $skor_koreksi_is += $jawab_is->nilai_koreksi;
-                $benar = $jawab_is != null && strtolower($jawab_is->jawaban_siswa) == strtolower($jawab_is->jawaban);
-                if (!$benar) {
-                    goto X1pYP;
+            if ($info->tampil_isian > 0 && count($jawaban_is) > 0) {
+                foreach ($jawaban_is as $num => $jawab_is) {
+                    $skor_koreksi_is += $jawab_is->nilai_koreksi;
+                    $benar = $jawab_is != null && strtolower($jawab_is->jawaban_siswa) == strtolower($jawab_is->jawaban);
+                    if ($benar) {
+                        $benar_is++;
+                    }
+                    $otomatis_is = $jawab_is->nilai_otomatis;
                 }
-                $benar_is++;
-                X1pYP:
-                $otomatis_is = $jawab_is->nilai_otomatis;
             }
-            IQNAt:
-            H8ylY:
             $s_is = $bagi_isian == 0 ? 0 : $benar_is / $bagi_isian * $bobot_isian;
             $input_is = 0;
-            if (!($nilai_input != null && $nilai_input->isian_nilai != null)) {
-                goto XuD3a;
+            if ($nilai_input != null && $nilai_input->isian_nilai != null) {
+                $input_is = $nilai_input->isian_nilai;
             }
-            $input_is = $nilai_input->isian_nilai;
-            XuD3a:
             $skor_is = $input_is != 0 ? $input_is : ($otomatis_is == 0 ? $s_is : $skor_koreksi_is);
             $skor->skor_isian = round($skor_is, 2);
             $skor->benar_isian = $benar_is;
@@ -1962,31 +1634,21 @@ class Siswa extends CI_Controller
             $benar_es = 0;
             $skor_koreksi_es = 0.0;
             $otomatis_es = 0;
-            if (!($info->tampil_esai > 0)) {
-                goto THYIN;
-            }
-            if (!(count($jawaban_es) > 0)) {
-                goto UEZii;
-            }
-            foreach ($jawaban_es as $num => $jawab_es) {
-                $skor_koreksi_es += $jawab_es->nilai_koreksi;
-                $benar = $jawab_es != null && strtolower($jawab_es->jawaban_siswa) == strtolower($jawab_es->jawaban);
-                if (!$benar) {
-                    goto YQvUv;
+            if ($info->tampil_esai > 0 && count($jawaban_es) > 0) {
+                foreach ($jawaban_es as $num => $jawab_es) {
+                    $skor_koreksi_es += $jawab_es->nilai_koreksi;
+                    $benar = $jawab_es != null && strtolower($jawab_es->jawaban_siswa) == strtolower($jawab_es->jawaban);
+                    if ($benar) {
+                        $benar_es++;
+                    }
+                    $otomatis_es = $jawab_es->nilai_otomatis;
                 }
-                $benar_es++;
-                YQvUv:
-                $otomatis_es = $jawab_es->nilai_otomatis;
             }
-            UEZii:
-            THYIN:
             $s_es = $bagi_essai == 0 ? 0 : $benar_es / $bagi_essai * $bobot_essai;
             $input_es = 0;
-            if (!($nilai_input != null && $nilai_input->isian_nilai != null)) {
-                goto YHhtC;
+            if ($nilai_input != null && $nilai_input->isian_nilai != null) {
+                $input_es = $nilai_input->essai_nilai;
             }
-            $input_es = $nilai_input->essai_nilai;
-            YHhtC:
             $skor_es = $input_es != 0 ? $input_es : ($otomatis_es == 0 ? $s_es : $skor_koreksi_es);
             $skor->skor_essai = round($skor_es, 2);
             $skor->benar_esai = $benar_es;
@@ -1994,7 +1656,6 @@ class Siswa extends CI_Controller
             $skor->skor_total = round($total, 2);
             $skors[$jadwal->id_jadwal] = $skor;
             $durasies[$jadwal->id_jadwal] = $this->cbt->getDurasiSiswaByJadwal($jadwal->id_jadwal, $siswa->id_siswa);
-            fYnhR:
         }
         $this->db->trans_complete();
         $data["skor"] = $skors;
@@ -2024,19 +1685,15 @@ class Siswa extends CI_Controller
         $catatan_mapel = $this->kelas->getCatatanMapelBySiswa($siswa->id_kelas, $tp->id_tp, $smt->id_smt);
         $catatan = [];
         foreach ($catatan_mapel as $cat) {
-            if (!($cat->type === "2" && $cat->id_siswa === $siswa->id_siswa || $cat->type === "1" && $cat->id_kelas === $siswa->id_kelas)) {
-                goto vqKhJ;
+            if ($cat->type === "2" && $cat->id_siswa === $siswa->id_siswa || $cat->type === "1" && $cat->id_kelas === $siswa->id_kelas) {
+                $catatan[] = ["id_catatan" => $cat->id_catatan, "nama_guru" => $cat->nama_guru, "foto_guru" => $cat->foto && file_exists($cat->foto) ? $cat->foto : "uploads/profiles/" . $cat->nip . (file_exists("uploads/profiles/" . $cat->nip . ".jpg") ? ".jpg" : ".png"), "id_siswa" => $siswa->id_siswa, "tgl" => $cat->tgl, "table" => "mapel", "level" => $cat->level, "type" => $cat->type, "readed" => $cat->readed, "reading" => unserialize($cat->reading)];
             }
-            $catatan[] = ["id_catatan" => $cat->id_catatan, "nama_guru" => $cat->nama_guru, "foto_guru" => $cat->foto && file_exists($cat->foto) ? $cat->foto : "uploads/profiles/" . $cat->nip . (file_exists("uploads/profiles/" . $cat->nip . ".jpg") ? ".jpg" : ".png"), "id_siswa" => $siswa->id_siswa, "tgl" => $cat->tgl, "table" => "mapel", "level" => $cat->level, "type" => $cat->type, "readed" => $cat->readed, "reading" => unserialize($cat->reading)];
-            vqKhJ:
         }
         $catatan_siswa = $this->kelas->getCatatanSiswaBySiswa($siswa->id_kelas, $tp->id_tp, $smt->id_smt);
         foreach ($catatan_siswa as $cat) {
-            if (!($cat->type === "2" && $cat->id_siswa === $siswa->id_siswa || $cat->type === "1" && $cat->id_kelas === $siswa->id_kelas)) {
-                goto XsDnj;
+            if ($cat->type === "2" && $cat->id_siswa === $siswa->id_siswa || $cat->type === "1" && $cat->id_kelas === $siswa->id_kelas) {
+                $catatan[] = ["id_catatan" => $cat->id_catatan, "nama_guru" => $cat->nama_guru, "foto_guru" => $cat->foto && file_exists($cat->foto) ? $cat->foto : "uploads/profiles/" . $cat->nip . (file_exists("uploads/profiles/" . $cat->nip . ".jpg") ? ".jpg" : ".png"), "id_siswa" => $siswa->id_siswa, "tgl" => $cat->tgl, "table" => "wali", "level" => $cat->level, "readed" => $cat->readed, "type" => $cat->type, "reading" => unserialize($cat->reading)];
             }
-            $catatan[] = ["id_catatan" => $cat->id_catatan, "nama_guru" => $cat->nama_guru, "foto_guru" => $cat->foto && file_exists($cat->foto) ? $cat->foto : "uploads/profiles/" . $cat->nip . (file_exists("uploads/profiles/" . $cat->nip . ".jpg") ? ".jpg" : ".png"), "id_siswa" => $siswa->id_siswa, "tgl" => $cat->tgl, "table" => "wali", "level" => $cat->level, "readed" => $cat->readed, "type" => $cat->type, "reading" => unserialize($cat->reading)];
-            XsDnj:
         }
         rsort($catatan);
         $data["catatan"] = (array) json_decode(json_encode($catatan));
@@ -2060,17 +1717,14 @@ class Siswa extends CI_Controller
         $siswa = $this->cbt->getDataSiswa($user->username, $tp->id_tp, $smt->id_smt);
         if ($siswa && $table == "mapel") {
             $detail = $this->kelas->getCatatanMapelSiswaDetail($id_catatan);
-            goto hyvjZ;
+        } else {
+            $detail = $this->kelas->getCatatanKelasSiswaDetail($id_catatan);
         }
-        $detail = $this->kelas->getCatatanKelasSiswaDetail($id_catatan);
-        hyvjZ:
         $reading = [];
-        if (!$detail) {
-            goto d5cWk;
+        if ($detail) {
+            $detail->id_siswa = $siswa->id_siswa;
+            $reading = $detail->reading != null ? unserialize($detail->reading) : [];
         }
-        $detail->id_siswa = $siswa->id_siswa;
-        $reading = $detail->reading != null ? unserialize($detail->reading) : [];
-        d5cWk:
         $this->output_json(["reading" => $reading, "detail" => $detail]);
     }
     public function readed($table, $id_catatan)
@@ -2082,26 +1736,18 @@ class Siswa extends CI_Controller
         $smt = $this->dashboard->getSemesterActive();
         $user = $this->ion_auth->user()->row();
         $siswa = $this->cbt->getDataSiswa($user->username, $tp->id_tp, $smt->id_smt);
-        if ($table == "mapel") {
-            $tbl = "kelas_catatan_mapel";
-            goto P_RHq;
-        }
-        $tbl = "kelas_catatan_wali";
-        P_RHq:
+        $tbl = $table == "mapel" ? "kelas_catatan_mapel" : "kelas_catatan_wali";
         $cat = $this->kelas->getReading($tbl, $id_catatan);
         $readed = $cat->readed == "0" ? date("Y-m-d H:i:s") : "0";
         if ($cat->type == "1") {
             $reading = unserialize($cat->reading);
-            if (in_array($siswa->id_siswa, $reading)) {
-                goto RsyzL;
+            if (!in_array($siswa->id_siswa, $reading)) {
+                array_push($reading, $siswa->id_siswa);
             }
-            array_push($reading, $siswa->id_siswa);
-            RsyzL:
             $this->db->set("reading", serialize($reading));
-            goto g85At;
+        } else {
+            $this->db->set("readed", $readed);
         }
-        $this->db->set("readed", $readed);
-        g85At:
         $this->db->where("id_catatan", $id_catatan);
         $update = $this->db->update($tbl);
         $this->output_json($update);
@@ -2118,18 +1764,12 @@ class Siswa extends CI_Controller
         $dates = [];
         $total_days = cal_days_in_month(CAL_GREGORIAN, $bulan, $taun);
         $idday = $id_day == "7" ? 0 : $id_day;
-        $i = 1;
-        blivW:
-        if (!($i < $total_days)) {
-            return $dates;
+        for ($i = 1; $i < $total_days; $i++) {
+            if (date("N", strtotime($taun . "-" . $bulan . "-" . $i)) == $idday) {
+                $days++;
+                array_push($dates, date("Y-m-d", strtotime($taun . "-" . $bulan . "-" . $i)));
+            }
         }
-        if (!(date("N", strtotime($taun . "-" . $bulan . "-" . $i)) == $idday)) {
-            goto wPfYq;
-        }
-        $days++;
-        array_push($dates, date("Y-m-d", strtotime($taun . "-" . $bulan . "-" . $i)));
-        wPfYq:
-        $i++;
-        goto blivW;
+        return $dates;
     }
 }

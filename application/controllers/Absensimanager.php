@@ -1,6 +1,21 @@
 <?php
 defined('BASEPATH') or exit('No direct script access allowed');
 
+/**
+ * Absensimanager Controller
+ * 
+ * DEPRECATION NOTICE:
+ * This controller handles legacy admin absensi management routes.
+ * New features should be added to Absensi.php controller instead.
+ * 
+ * Overlapping functionality:
+ * - shift management -> use Absensi::shift(), Absensi::saveShift(), Absensi::deleteShift()
+ * - assign shift -> use Absensi::assignShift(), Absensi::saveAssignment()
+ * 
+ * This controller is kept for backward compatibility with existing menu links/routes.
+ * 
+ * @deprecated Consider migrating to Absensi.php controller
+ */
 class Absensimanager extends CI_Controller
 {
     public function __construct()
@@ -42,7 +57,7 @@ class Absensimanager extends CI_Controller
         ];
 
         $data['total_karyawan'] = count($this->karyawan->get_all());
-        $data['shift_active'] = count($this->shift->get_all_shifts());
+        $data['shift_active'] = count($this->shift->getAllShifts());
         $data['hadir_hari_ini'] = $this->absensi->count_today_attendance($today);
         $data['terlambat_hari_ini'] = $this->absensi->count_late_today($today);
         $data['logs_hari_ini'] = $this->absensi->get_today_logs($today);
@@ -63,7 +78,7 @@ class Absensimanager extends CI_Controller
             'subjudul' => 'Data Shift Kerja',
             'setting' => $setting,
             'profile' => $this->dashboard->getProfileAdmin($user->id),
-            'shifts' => $this->shift->get_all_shifts()
+            'shifts' => $this->shift->getAllShifts()
         ];
         
         $this->load->view('_templates/dashboard/_header', $data);
@@ -85,14 +100,11 @@ class Absensimanager extends CI_Controller
             'is_active' => 1
         ];
 
-        if ($id) {
-            $this->db->where('id_shift', $id);
-            $this->db->update('master_shift', $data);
-        } else {
-            $this->db->insert('master_shift', $data);
-        }
-        
-        $this->output_json(['status' => true]);
+        $result = $id
+            ? $this->shift->updateShift($id, $data)
+            : (bool) $this->shift->createShift($data);
+
+        $this->output_json(['status' => (bool) $result]);
     }
 
     public function delete_shift()
@@ -102,9 +114,8 @@ class Absensimanager extends CI_Controller
             $this->output_json(['status' => false, 'message' => 'ID tidak valid']);
             return;
         }
-        $this->db->where('id_shift', $id);
-        $this->db->update('master_shift', ['is_active' => 0]);
-        $this->output_json(['status' => true]);
+        $result = $this->shift->deactivateShift($id);
+        $this->output_json(['status' => (bool) $result]);
     }
 
     // KARYAWAN MANAGEMENT
@@ -119,7 +130,7 @@ class Absensimanager extends CI_Controller
             'setting' => $setting,
             'profile' => $this->dashboard->getProfileAdmin($user->id),
             'karyawan' => $this->karyawan->get_all(),
-            'shifts' => $this->shift->get_all_shifts()
+            'shifts' => $this->shift->getAllShifts()
         ];
         
         $this->load->view('_templates/dashboard/_header', $data);
@@ -154,7 +165,7 @@ class Absensimanager extends CI_Controller
         $tgl_efektif = $this->input->post('tgl_efektif');
 
         if ($id_user && $id_shift && $tgl_efektif) {
-            $this->shift->assign_fixed_shift($id_user, $id_shift, $tgl_efektif);
+            $this->shift->assignFixedShift($id_user, $id_shift, $tgl_efektif);
             $this->output_json(['status' => true, 'message' => 'Shift berhasil diatur']);
         } else {
             $this->output_json(['status' => false, 'message' => 'Data tidak lengkap']);
@@ -169,7 +180,7 @@ class Absensimanager extends CI_Controller
         
         // Get all guru with their current shift assignment
         $this->load->model('Master_model', 'master');
-        $guru_list = $this->shift->get_all_guru_with_shift();
+        $guru_list = $this->shift->getAllGuruWithShift();
         
         $data = [
             'user' => $user,
@@ -178,7 +189,7 @@ class Absensimanager extends CI_Controller
             'setting' => $setting,
             'profile' => $this->dashboard->getProfileAdmin($user->id),
             'guru_list' => $guru_list,
-            'shifts' => $this->shift->get_all_shifts()
+            'shifts' => $this->shift->getAllShifts()
         ];
         
         $this->load->view('_templates/dashboard/_header', $data);
@@ -204,7 +215,7 @@ class Absensimanager extends CI_Controller
         $id_shift = $this->input->post('id_shift');
         $tgl_efektif = $this->input->post('tgl_efektif');
 
-        $this->shift->assign_fixed_shift($id_user, $id_shift, $tgl_efektif);
+        $this->shift->assignFixedShift($id_user, $id_shift, $tgl_efektif);
         $this->output_json(['status' => true, 'message' => 'Shift guru berhasil diatur']);
     }
 
@@ -216,13 +227,13 @@ class Absensimanager extends CI_Controller
             return;
         }
         
-        $this->shift->remove_user_shift($id_user);
+        $this->shift->removeUserShift($id_user);
         $this->output_json(['status' => true, 'message' => 'Shift guru berhasil dihapus']);
     }
 
     public function get_guru_shift_data()
     {
-        $guru_list = $this->shift->get_all_guru_with_shift();
+        $guru_list = $this->shift->getAllGuruWithShift();
         $this->output_json(['status' => true, 'data' => $guru_list]);
     }
 }

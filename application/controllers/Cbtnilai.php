@@ -412,14 +412,13 @@ class Cbtnilai extends CI_Controller
                             $xb = $total;
                         }
                         $siswa->skor_katrol = round(($ya - $yb) / 100 * $total + $yb, 2);
-                    } else {
-                        $siswa->skor_katrol = '';
-                    }
-                }
-                $arrJawabanPg[$n + 1] = ["jawaban" => '', "benar" => false];
-                $n++;
-            }
-            $data["info"] = $info;
+	                    } else {
+	                        $siswa->skor_katrol = '';
+	                    }
+	                $arrJawabanPg[$n + 1] = ["jawaban" => '', "benar" => false];
+	                $n++;
+	            }
+	            $data["info"] = $info;
             $data["siswas"] = $siswas;
             if ($ya != null) {
                 $convert = ["ya" => $ya, "yb" => $yb, "xa" => $xa, "xb" => $xb];

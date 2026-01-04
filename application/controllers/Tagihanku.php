@@ -95,30 +95,13 @@ class Tagihanku extends CI_Controller
 
     public function uploadBukti()
     {
-        $id_tagihan = $this->input->post('id_tagihan');
-        $tagihan = $this->pembayaran->getTagihanById($id_tagihan);
-
-        if (!$tagihan || $tagihan->id_siswa != $this->siswa->id_siswa) {
-            $this->output_json(['status' => false, 'message' => 'Tagihan tidak ditemukan']);
-            return;
-        }
-
-        if (!in_array($tagihan->status, ['belum_bayar', 'ditolak'])) {
-            $this->output_json(['status' => false, 'message' => 'Tagihan tidak dapat dibayar']);
-            return;
-        }
-
-        $last_transaksi = $this->pembayaran->getLatestTransaksiByTagihan($id_tagihan);
-        if ($last_transaksi && $last_transaksi->reject_count >= 3) {
-            $this->output_json(['status' => false, 'message' => 'Pembayaran sudah ditolak 3 kali. Silakan hubungi admin.']);
-            return;
-        }
-
+        // Check if file is uploaded
         if (!isset($_FILES['bukti']) || $_FILES['bukti']['error'] != 0) {
             $this->output_json(['status' => false, 'message' => 'File bukti pembayaran wajib diupload']);
             return;
         }
 
+        // Setup upload config
         $upload_path = './uploads/pembayaran/bukti/' . date('Y/m/');
         if (!is_dir($upload_path)) {
             mkdir($upload_path, 0755, true);
@@ -126,14 +109,15 @@ class Tagihanku extends CI_Controller
 
         $config_upload = [
             'upload_path' => $upload_path,
-            'allowed_types' => 'jpg|jpeg|png|pdf',
-            'max_size' => 2048,
+            'allowed_types' => Pembayaran_model::ALLOWED_UPLOAD_TYPES,
+            'max_size' => Pembayaran_model::MAX_UPLOAD_SIZE_KB,
             'encrypt_name' => true,
             'file_ext_tolower' => true
         ];
 
         $this->upload->initialize($config_upload);
 
+        // Upload file
         if (!$this->upload->do_upload('bukti')) {
             $this->output_json(['status' => false, 'message' => strip_tags($this->upload->display_errors())]);
             return;
@@ -143,63 +127,44 @@ class Tagihanku extends CI_Controller
         $file_path = $upload_path . $upload_data['file_name'];
         $file_hash = hash_file('sha256', $file_path);
 
-        if ($this->pembayaran->isDuplicateBukti($file_hash)) {
-            unlink($file_path);
-            $this->output_json(['status' => false, 'message' => 'Bukti pembayaran ini sudah pernah digunakan untuk transaksi lain']);
-            return;
-        }
+        // Get input data
+        $id_tagihan = $this->input->post('id_tagihan');
+        $metode_bayar = $this->input->post('metode_bayar');
+        $tanggal_bayar = $this->input->post('tanggal_bayar');
+        $catatan_siswa = $this->input->post('catatan_siswa', true);
+        
+        // Get last transaction for reject count
+        $last_transaksi = $this->pembayaran->getLatestTransaksiByTagihan($id_tagihan);
 
-        $reject_count = 0;
-        if ($last_transaksi && $last_transaksi->status == 'rejected') {
-            $reject_count = $last_transaksi->reject_count;
-        }
+        // Call shared Model method to process upload
+        $result = $this->pembayaran->processUploadBukti(
+            $id_tagihan,
+            $this->siswa->id_siswa,
+            $file_path,
+            $file_hash,
+            $metode_bayar,
+            $tanggal_bayar,
+            $catatan_siswa,
+            $last_transaksi
+        );
 
-        $transaksi_data = [
-            'id_tagihan' => $id_tagihan,
-            'id_siswa' => $this->siswa->id_siswa,
-            'metode_bayar' => $this->input->post('metode_bayar') ?: 'qris',
-            'nominal_bayar' => $tagihan->total,
-            'bukti_bayar' => str_replace('./', '', $file_path),
-            'bukti_bayar_hash' => $file_hash,
-            'tanggal_bayar' => $this->input->post('tanggal_bayar'),
-            'catatan_siswa' => $this->input->post('catatan_siswa', true),
-            'reject_count' => $reject_count,
-            'ip_address' => $this->input->ip_address(),
-            'user_agent' => substr($this->input->user_agent(), 0, 500)
-        ];
-
-        $this->db->trans_start();
-
-        $id_transaksi = $this->pembayaran->createTransaksi($transaksi_data);
-
-        $this->pembayaran->updateTagihan($id_tagihan, [
-            'status' => 'menunggu_verifikasi'
-        ]);
-
-        $this->pembayaran->createLog([
-            'id_transaksi' => $id_transaksi,
-            'id_tagihan' => $id_tagihan,
-            'action' => 'upload_bukti',
-            'status_before' => $tagihan->status,
-            'status_after' => 'menunggu_verifikasi',
-            'data_snapshot' => json_encode(['nominal' => $tagihan->total, 'metode' => $transaksi_data['metode_bayar']]),
-            'actor_id' => $this->siswa->id_siswa,
-            'actor_type' => 'siswa',
-            'actor_name' => $this->siswa->nama
-        ]);
-
-        $this->db->trans_complete();
-
-        if ($this->db->trans_status()) {
-            $this->output_json([
-                'status' => true,
-                'message' => 'Bukti pembayaran berhasil diupload. Mohon tunggu verifikasi dari admin.'
-            ]);
-        } else {
+        // Cleanup and return response
+        if (!$result['success']) {
             if (file_exists($file_path)) {
                 unlink($file_path);
             }
-            $this->output_json(['status' => false, 'message' => 'Gagal menyimpan data. Silakan coba lagi.']);
+            
+            $http_code = $result['code'] ?? 400;
+            $this->output_json([
+                'status' => false,
+                'message' => $result['message']
+            ], $http_code);
+        } else {
+            $this->output_json([
+                'status' => true,
+                'message' => $result['message'],
+                'id_transaksi' => $result['id_transaksi']
+            ]);
         }
     }
 
@@ -209,13 +174,7 @@ class Tagihanku extends CI_Controller
         $data['judul'] = 'Tagihan Saya';
         $data['subjudul'] = 'Riwayat Pembayaran';
 
-        $this->db->select('tr.*, t.kode_tagihan, j.nama_jenis, t.bulan, t.tahun');
-        $this->db->from('pembayaran_transaksi tr');
-        $this->db->join('pembayaran_tagihan t', 'tr.id_tagihan = t.id_tagihan');
-        $this->db->join('pembayaran_jenis j', 't.id_jenis = j.id_jenis');
-        $this->db->where('tr.id_siswa', $this->siswa->id_siswa);
-        $this->db->order_by('tr.created_at', 'DESC');
-        $data['transaksi'] = $this->db->get()->result();
+        $data['transaksi'] = $this->pembayaran->getRiwayatTransaksiBySiswa($this->siswa->id_siswa);
 
         $this->load->view('members/siswa/templates/header', $data);
         $this->load->view('pembayaran/siswa/riwayat', $data);

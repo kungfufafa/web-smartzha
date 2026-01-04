@@ -359,6 +359,67 @@
                         <p>Alumni</p>
                     </a>
                 </li>
+                <li class="nav-header">ABSENSI</li>
+                <li class="nav-item has-treeview <?= in_array($page, $absensi) ? "menu-open" : "" ?>">
+                    <a href="#" class="nav-link <?= in_array($page, $absensi) ? "active" : "" ?>">
+                        <i class="nav-icon fas fa-fingerprint"></i>
+                        <p>
+                            Absensi
+                            <i class="right fas fa-angle-left"></i>
+                        </p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi') ?>"
+                               class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) == '' ? "active" : "" ?>">
+                                <i class="fas fa-tachometer-alt nav-icon"></i>
+                                <p>Dashboard</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/lokasi') ?>"
+                               class="nav-link <?= $this->uri->segment(2) === 'lokasi' ? "active" : "" ?>">
+                                <i class="fas fa-map-marker-alt nav-icon"></i>
+                                <p>Lokasi</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/shift') ?>"
+                               class="nav-link <?= $this->uri->segment(2) === 'shift' ? "active" : "" ?>">
+                                <i class="fas fa-clock nav-icon"></i>
+                                <p>Shift</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/karyawan') ?>"
+                               class="nav-link <?= $this->uri->segment(2) === 'karyawan' ? "active" : "" ?>">
+                                <i class="fas fa-user-tie nav-icon"></i>
+                                <p>Data Karyawan</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/logs') ?>"
+                               class="nav-link <?= $this->uri->segment(2) === 'logs' ? "active" : "" ?>">
+                                <i class="fas fa-list-alt nav-icon"></i>
+                                <p>Log Absensi</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/laporan') ?>"
+                               class="nav-link <?= $this->uri->segment(2) === 'laporan' ? "active" : "" ?>">
+                                <i class="fas fa-chart-bar nav-icon"></i>
+                                <p>Laporan</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('absensi/config') ?>"
+                               class="nav-link <?= $this->uri->segment(2) === 'config' ? "active" : "" ?>">
+                                <i class="fas fa-cog nav-icon"></i>
+                                <p>Konfigurasi</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
                 <li class="nav-header">PEMBAYARAN</li>
                 <li class="nav-item has-treeview <?= in_array($page, $pembayaran) ? "menu-open" : "" ?>">
                     <a href="#" class="nav-link <?= in_array($page, $pembayaran) ? "active" : "" ?>">

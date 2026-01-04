@@ -16,6 +16,7 @@ class Pengajuan extends CI_Controller
         }
         $this->load->model('Dashboard_model', 'dashboard');
         $this->load->model('Pengajuan_model', 'pengajuan');
+        $this->load->model('Absensi_model', 'absensi');
         $this->load->library('form_validation');
 
         $this->is_guru = $this->ion_auth->in_group('guru');
@@ -189,11 +190,7 @@ class Pengajuan extends CI_Controller
         $tanggal = date('Y-m-d');
         $user = $this->ion_auth->user()->row();
 
-        $this->load->model('Absensi_model', 'absensi');
-        $existing = $this->db->where('id_user', $id_siswa)
-            ->where('tanggal', $tanggal)
-            ->get('absensi_logs')
-            ->row();
+        $existing = $this->absensi->getTodayLog($id_siswa, $tanggal);
 
         if (!$existing || !$existing->jam_masuk) {
             $this->output_json(['status' => false, 'message' => 'Siswa belum check-in hari ini']);
@@ -224,8 +221,11 @@ class Pengajuan extends CI_Controller
             $data['keterangan'] .= ' [' . $status_ortu . ']';
         }
 
-        $this->pengajuan->create($data);
-        $id_pengajuan = $this->db->insert_id();
+        $id_pengajuan = $this->pengajuan->create($data);
+        if (!$id_pengajuan) {
+            $this->output_json(['status' => false, 'message' => 'Gagal menyimpan pengajuan izin keluar']);
+            return;
+        }
 
         $this->pengajuan->syncIzinKeluarToAbsensiLog($id_pengajuan);
 
@@ -242,15 +242,7 @@ class Pengajuan extends CI_Controller
         $setting = $this->dashboard->getSetting();
         
         $today = date('Y-m-d');
-        $siswa_hadir = $this->db->select('al.id_log, al.id_user, al.jam_masuk, u.first_name, u.last_name')
-            ->from('absensi_logs al')
-            ->join('users u', 'al.id_user = u.id')
-            ->where('al.tanggal', $today)
-            ->where('al.jam_masuk IS NOT NULL', null, false)
-            ->where('al.jam_pulang IS NULL', null, false)
-            ->where_in('al.status_kehadiran', ['Hadir', 'Terlambat'])
-            ->get()
-            ->result();
+        $siswa_hadir = $this->absensi->getOpenAttendanceUsers($today, ['siswa']);
 
         $data = [
             'user' => $user,

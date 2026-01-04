@@ -137,12 +137,21 @@ class Pembayaran extends CI_Controller
         $tp = $this->dashboard->getTahunActive();
         $smt = $this->dashboard->getSemesterActive();
 
+        if (empty($id_jenis)) {
+            $this->output_json(['status' => false, 'message' => 'Jenis tagihan wajib dipilih']);
+            return;
+        }
+
         if (empty($id_siswas)) {
             $this->output_json(['status' => false, 'message' => 'Pilih minimal satu siswa']);
             return;
         }
 
         $jenis = $this->pembayaran->getJenisTagihanById($id_jenis);
+        if (!$jenis) {
+            $this->output_json(['status' => false, 'message' => 'Jenis tagihan tidak valid']);
+            return;
+        }
         if ($jenis->is_recurring == 1 && (empty($bulan) || empty($tahun))) {
             $this->output_json(['status' => false, 'message' => 'Bulan dan Tahun wajib diisi untuk tagihan bulanan']);
             return;
@@ -172,7 +181,6 @@ class Pembayaran extends CI_Controller
                 'id_jenis' => $id_jenis,
                 'nominal' => $nominal,
                 'diskon' => $diskon,
-                // 'total' => $nominal - $diskon, // Total is generated column
                 'jatuh_tempo' => $jatuh_tempo,
                 'keterangan' => $keterangan,
                 'bulan' => $jenis->is_recurring == 1 ? $bulan : null,
@@ -205,14 +213,15 @@ class Pembayaran extends CI_Controller
     {
         $tp = $this->dashboard->getTahunActive();
         $smt = $this->dashboard->getSemesterActive();
-        $this->db->select('s.id_siswa, s.nama, s.nis');
-        $this->db->from('master_siswa s');
-        $this->db->join('kelas_siswa ks', 's.id_siswa = ks.id_siswa');
-        $this->db->where('ks.id_kelas', $id_kelas);
-        $this->db->where('ks.id_tp', $tp->id_tp);
-        $this->db->where('ks.id_smt', $smt->id_smt);
-        $this->db->order_by('s.nama', 'ASC');
-        $data = $this->db->get()->result();
+        $rows = $this->master->getSiswaByKelas($tp->id_tp, $smt->id_smt, $id_kelas);
+        $data = [];
+        foreach ($rows as $row) {
+            $data[] = (object) [
+                'id_siswa' => $row->id_siswa,
+                'nama' => $row->nama,
+                'nis' => $row->nis
+            ];
+        }
         $this->output_json(['status' => true, 'data' => $data]);
     }
 
@@ -271,8 +280,6 @@ class Pembayaran extends CI_Controller
             'jatuh_tempo' => $this->input->post('jatuh_tempo'),
             'keterangan' => $this->input->post('keterangan')
         ];
-        // Total is generated column, do not update manually
-        // $data['total'] = $data['nominal'] - $data['diskon'] + $data['denda'];
 
         $result = $this->pembayaran->updateTagihan($id, $data);
         $this->output_json(['status' => $result, 'message' => $result ? 'Data berhasil diupdate' : 'Gagal update data']);
@@ -373,6 +380,9 @@ class Pembayaran extends CI_Controller
         $id = $this->input->post('id_transaksi');
         $catatan = $this->input->post('catatan', true);
 
+        // Lock the transaction row to prevent race conditions
+        $this->db->query("SELECT * FROM pembayaran_transaksi WHERE id_transaksi = ? FOR UPDATE", [$id]);
+        
         $transaksi = $this->pembayaran->getTransaksiById($id);
         if (!$transaksi || $transaksi->status != 'pending') {
             $this->output_json(['status' => false, 'message' => 'Transaksi tidak valid atau sudah diproses']);
@@ -424,6 +434,9 @@ class Pembayaran extends CI_Controller
             return;
         }
 
+        // Lock the transaction row to prevent race conditions
+        $this->db->query("SELECT * FROM pembayaran_transaksi WHERE id_transaksi = ? FOR UPDATE", [$id]);
+        
         $transaksi = $this->pembayaran->getTransaksiById($id);
         if (!$transaksi || $transaksi->status != 'pending') {
             $this->output_json(['status' => false, 'message' => 'Transaksi tidak valid atau sudah diproses']);
@@ -433,7 +446,7 @@ class Pembayaran extends CI_Controller
         $user = $this->ion_auth->user()->row();
         $new_reject_count = $transaksi->reject_count + 1;
         $transaksi_status = $new_reject_count >= 3 ? 'cancelled' : 'rejected';
-        $tagihan_status = $new_reject_count >= 3 ? 'belum_bayar' : 'ditolak';
+        $tagihan_status = 'ditolak';
 
         $this->db->trans_start();
 
