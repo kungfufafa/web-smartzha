@@ -36,7 +36,15 @@ class Dataorangtua extends CI_Controller
     public function index()
     {
         $user = $this->ion_auth->user()->row();
-        $data = ["user" => $user, "judul" => "Orang Tua", "subjudul" => "Data Orang Tua", "profile" => $this->dashboard->getProfileAdmin($user->id), "setting" => $this->dashboard->getSetting()];
+        $data = [
+            "user" => $user,
+            "judul" => "Orang Tua",
+            "subjudul" => "Data Orang Tua",
+            "profile" => $this->dashboard->getProfileAdmin($user->id),
+            "setting" => $this->dashboard->getSetting(),
+            "tp_active" => $this->dashboard->getTahunActive(),
+            "smt_active" => $this->dashboard->getSemesterActive()
+        ];
         $this->load->view("_templates/dashboard/_header", $data);
         $this->load->view("master/orangtua/data");
         $this->load->view("_templates/dashboard/_footer");
@@ -44,7 +52,7 @@ class Dataorangtua extends CI_Controller
 
     public function data()
     {
-        $this->output_json($this->orangtua->get_all(), true);
+        $this->output_json($this->orangtua->getDataMasterOrangtua(), false);
     }
 
     public function add()
@@ -78,8 +86,8 @@ class Dataorangtua extends CI_Controller
         $no_hp = $this->input->post("no_hp", true);
 
         $this->form_validation->set_rules("nama_lengkap", "Nama Lengkap", "required|trim|min_length[3]");
-        $this->form_validation->set_rules("no_hp", "No. HP", "required|trim|min_length[10]|is_unique[master_orangtua.no_hp]");
-        $this->form_validation->set_rules("nik", "NIK", "trim|is_unique[master_orangtua.nik]");
+        $this->form_validation->set_rules("no_hp", "No. HP", "required|trim|min_length[10]|max_length[15]|regex_match[/^[0-9]+$/]|is_unique[master_orangtua.no_hp]");
+        $this->form_validation->set_rules("nik", "NIK", "trim|exact_length[16]|regex_match[/^[0-9]+$/]|is_unique[master_orangtua.nik]");
 
         if ($this->form_validation->run() == FALSE) {
             $data = ["status" => false, "errors" => ["nama_lengkap" => form_error("nama_lengkap"), "no_hp" => form_error("no_hp"), "nik" => form_error("nik")]];
@@ -128,8 +136,8 @@ class Dataorangtua extends CI_Controller
         $u_no_hp = $orangtua->no_hp === $no_hp ? '' : '|is_unique[master_orangtua.no_hp]';
 
         $this->form_validation->set_rules("nama_lengkap", "Nama Lengkap", "required|trim|min_length[3]");
-        $this->form_validation->set_rules("no_hp", "No. HP", "required|trim|min_length[10]" . $u_no_hp);
-        $this->form_validation->set_rules("nik", "NIK", "trim" . $u_nik);
+        $this->form_validation->set_rules("no_hp", "No. HP", "required|trim|min_length[10]|max_length[15]|regex_match[/^[0-9]+$/]" . $u_no_hp);
+        $this->form_validation->set_rules("nik", "NIK", "trim|exact_length[16]|regex_match[/^[0-9]+$/]" . $u_nik);
 
         if ($this->form_validation->run() == FALSE) {
             $data = ["status" => false, "errors" => ["nama_lengkap" => form_error("nama_lengkap"), "no_hp" => form_error("no_hp"), "nik" => form_error("nik")]];
@@ -161,13 +169,58 @@ class Dataorangtua extends CI_Controller
 
     public function delete()
     {
-        $id = $this->input->post("checked", true);
-        if (!$id) {
+        $ids = $this->input->post("checked", true);
+        if (!$ids) {
             $this->output_json(["status" => false]);
-        } else {
-            $this->db->where_in("id_orangtua", $id);
-            $this->db->update("master_orangtua", ["is_active" => 0]);
-            $this->output_json(["status" => true, "total" => count($id)]);
+            return;
         }
+
+        $ids = array_values(array_filter(array_map('intval', (array) $ids)));
+        if (count($ids) === 0) {
+            $this->output_json(["status" => false]);
+            return;
+        }
+
+        $rows = $this->db
+            ->select('id_orangtua, id_user, no_hp, nik')
+            ->from('master_orangtua')
+            ->where_in('id_orangtua', $ids)
+            ->get()
+            ->result();
+
+        $now = time();
+        $deleted = 0;
+
+        $this->db->trans_start();
+        foreach ($rows as $row) {
+            $id_orangtua = (int) $row->id_orangtua;
+            $id_user = (int) ($row->id_user ?? 0);
+
+            if ($id_user > 0) {
+                $this->db->where('id_user', $id_user)->delete('parent_siswa');
+                $this->ion_auth->delete_user($id_user);
+            }
+
+            $deleted_phone = '99' . str_pad((string) $id_orangtua, 5, '0', STR_PAD_LEFT) . substr((string) $now, -8);
+            $deleted_nik = '88' . str_pad((string) $id_orangtua, 6, '0', STR_PAD_LEFT) . substr((string) $now, -8);
+
+            $this->db->where('id_orangtua', $id_orangtua);
+            $this->db->update('master_orangtua', [
+                'is_active' => 0,
+                'id_user' => NULL,
+                'no_hp' => $deleted_phone,
+                'nik' => $deleted_nik,
+            ]);
+
+            $deleted += 1;
+        }
+        $this->db->trans_complete();
+
+        if ($this->db->trans_status() === FALSE) {
+            $this->output_json(["status" => false, "msg" => "Gagal menghapus data orang tua"]);
+            return;
+        }
+
+        $this->output_json(["status" => true, "total" => $deleted]);
     }
 }

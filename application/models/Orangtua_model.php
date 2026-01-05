@@ -82,6 +82,33 @@ class Orangtua_model extends CI_Model
         return $this->datatables->generate();
     }
 
+    public function getUserOrangtua()
+    {
+        $this->db->query("SET SQL_BIG_SELECTS=1");
+        $this->datatables->select("mo.id_orangtua, mo.nama_lengkap, COALESCE(u.username, mo.no_hp) AS username, u.id, (SELECT COUNT(id) FROM users WHERE users.id = mo.id_user) AS aktif, (SELECT COUNT(login) FROM login_attempts WHERE login_attempts.login = COALESCE(u.username, mo.no_hp)) AS reset, (SELECT GROUP_CONCAT(DISTINCT ms.nama ORDER BY ms.nama SEPARATOR ', ') FROM parent_siswa ps JOIN master_siswa ms ON ms.id_siswa = ps.id_siswa WHERE ps.id_user = mo.id_user) AS anak, (SELECT GROUP_CONCAT(DISTINCT ps.relasi ORDER BY ps.relasi SEPARATOR ', ') FROM parent_siswa ps WHERE ps.id_user = mo.id_user) AS peran");
+        $this->datatables->from('master_orangtua mo');
+        $this->datatables->join('users u', 'mo.id_user=u.id', 'left');
+        $this->datatables->where('mo.is_active', 1);
+        return $this->datatables->generate();
+    }
+
+    public function getDataMasterOrangtua()
+    {
+        $this->db->query("SET SQL_BIG_SELECTS=1");
+        $this->datatables->select("
+            mo.id_orangtua,
+            mo.nama_lengkap,
+            mo.no_hp,
+            mo.email,
+            mo.jenis_kelamin,
+            mo.is_active,
+            (SELECT COUNT(*) FROM parent_siswa ps WHERE ps.id_user = mo.id_user) AS jml_anak
+        ");
+        $this->datatables->from("master_orangtua mo");
+        $this->datatables->where("mo.is_active", 1);
+        return $this->datatables->generate();
+    }
+
     public function createOrangtua($data)
     {
         return $this->create($data);
@@ -119,7 +146,10 @@ class Orangtua_model extends CI_Model
         $this->db->join('master_siswa ms', 'ps.id_siswa = ms.id_siswa');
 
         if ($id_tp && $id_smt) {
-            $this->db->join('kelas_siswa ks', 'ms.id_siswa = ks.id_siswa AND ks.id_tp = ' . $id_tp . ' AND ks.id_smt = ' . $id_smt, 'left');
+            // Use parameterized query to prevent SQL injection
+            $id_tp = (int) $id_tp;
+            $id_smt = (int) $id_smt;
+            $this->db->join('kelas_siswa ks', "ms.id_siswa = ks.id_siswa AND ks.id_tp = {$id_tp} AND ks.id_smt = {$id_smt}", 'left', false);
         } else {
             $this->db->join('kelas_siswa ks', 'ms.id_siswa = ks.id_siswa', 'left');
         }
@@ -130,6 +160,19 @@ class Orangtua_model extends CI_Model
         return $this->db->get()->result();
     }
 
+    /**
+     * Convenience wrapper used by Orangtua controller to force TP/SMT filtering.
+     *
+     * @param int $user_id
+     * @param int $id_tp
+     * @param int $id_smt
+     * @return array
+     */
+    public function getAnakByUserIdWithTpSmt($user_id, $id_tp, $id_smt)
+    {
+        return $this->getAnakByUserId($user_id, $id_tp, $id_smt);
+    }
+
     public function getSiswaById($id_siswa)
     {
         return $this->db->get_where('master_siswa', ['id_siswa' => $id_siswa])->row();
@@ -137,9 +180,13 @@ class Orangtua_model extends CI_Model
 
     public function getSiswaDetailById($id_siswa, $id_tp, $id_smt)
     {
+        // Sanitize parameters to prevent SQL injection
+        $id_tp = (int) $id_tp;
+        $id_smt = (int) $id_smt;
+        
         $this->db->select('ms.*, ks.id_kelas, mk.nama_kelas, mk.kode_kelas, mk.level_id');
         $this->db->from('master_siswa ms');
-        $this->db->join('kelas_siswa ks', 'ms.id_siswa = ks.id_siswa AND ks.id_tp = ' . $id_tp . ' AND ks.id_smt = ' . $id_smt, 'left');
+        $this->db->join('kelas_siswa ks', "ms.id_siswa = ks.id_siswa AND ks.id_tp = {$id_tp} AND ks.id_smt = {$id_smt}", 'left', false);
         $this->db->join('master_kelas mk', 'ks.id_kelas = mk.id_kelas', 'left');
         $this->db->where('ms.id_siswa', $id_siswa);
         return $this->db->get()->row();

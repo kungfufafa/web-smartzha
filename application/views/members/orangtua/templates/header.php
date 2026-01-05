@@ -112,7 +112,7 @@ function singkat_tanggal($str)
         <div class="mx-auto text-white text-center" style="line-height: 1">
             <span class="text-lg p-0"><?= $setting->nama_aplikasi ?></span>
             <br>
-            <small>Portal Orang Tua | TP: <?= $tp_active->tahun ?> Smt:<?= $smt_active->smt ?></small>
+            <small>Portal Orang Tua | TP: <?= isset($tp_active) && $tp_active ? $tp_active->tahun : '-' ?> Smt:<?= isset($smt_active) && $smt_active ? $smt_active->smt : '-' ?></small>
         </div>
         
         <?php if (count($anak_list) > 1): ?>

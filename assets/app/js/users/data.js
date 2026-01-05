@@ -13,27 +13,10 @@ $(document).ready(function() {
                 });
         },
         dom:
-            "<'row'<'col-sm-3'l><'col-sm-6 text-center'B><'col-sm-3'f>>" +
+            "<'row'<'col-sm-3'l><'col-sm-9'f>>" +
             "<'row'<'col-sm-12'tr>>" +
             "<'row'<'col-sm-5'i><'col-sm-7'p>>",
-        buttons: [
-            {
-                extend: "copy",
-                exportOptions: { columns: [1, 2, 3, 4, 5, 6, 7] }
-            },
-            {
-                extend: "print",
-                exportOptions: { columns: [1, 2, 3, 4, 5, 6, 7] }
-            },
-            {
-                extend: "excel",
-                exportOptions: { columns: [1, 2, 3, 4, 5, 6, 7] }
-            },
-            {
-                extend: "pdf",
-                exportOptions: { columns: [1, 2, 3, 4, 5, 6, 7] }
-            }
-        ],
+        buttons: [],
         oLanguage: {
             sProcessing: "loading..."
         },
@@ -119,11 +102,6 @@ $(document).ready(function() {
             $("td:eq(0)", row).html(index);
         }
     });
-
-    table
-        .buttons()
-        .container()
-        .appendTo("#users_wrapper .col-md-6:eq(0)");
 
     $("#show_me").on("change", function() {
         let src = base_url + "users/data";

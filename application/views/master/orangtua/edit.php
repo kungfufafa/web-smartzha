@@ -29,11 +29,9 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-sm-6">
-                            <div class="row mb-3">
-                                <div class="col-md-4">
-                                    <label for="nama_lengkap">Nama Lengkap :</label>
-                                </div>
-                                <div class="col-md-8">
+                            <div class="form-group row">
+                                <label for="nama_lengkap" class="col-12 col-md-4 col-form-label">Nama Lengkap :</label>
+                                <div class="col-12 col-md-8">
                                     <div class="input-group">
                                         <div class="input-group-prepend">
                                             <span class="input-group-text"><i class="fas fa-user"></i></span>
@@ -43,11 +41,9 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <label for="nik">NIK :</label>
-                                </div>
-                                <div class="col-md-8">
+                            <div class="form-group row">
+                                <label for="nik" class="col-12 col-md-4 col-form-label">NIK :</label>
+                                <div class="col-12 col-md-8">
                                     <div class="input-group">
                                         <div class="input-group-prepend">
                                             <span class="input-group-text"><i class="fas fa-id-card"></i></span>
@@ -57,11 +53,9 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <label for="no_hp">No. HP :</label>
-                                </div>
-                                <div class="col-md-8">
+                            <div class="form-group row">
+                                <label for="no_hp" class="col-12 col-md-4 col-form-label">No. HP :</label>
+                                <div class="col-12 col-md-8">
                                     <div class="input-group">
                                         <div class="input-group-prepend">
                                             <span class="input-group-text"><i class="fa fa-phone"></i></span>
@@ -71,11 +65,9 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <label for="email">Email :</label>
-                                </div>
-                                <div class="col-md-8">
+                            <div class="form-group row">
+                                <label for="email" class="col-12 col-md-4 col-form-label">Email :</label>
+                                <div class="col-12 col-md-8">
                                     <div class="input-group">
                                         <div class="input-group-prepend">
                                             <span class="input-group-text"><i class="far fa-envelope"></i></span>
@@ -85,11 +77,9 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <label for="jenis_kelamin">Jenis Kelamin :</label>
-                                </div>
-                                <div class="col-md-8">
+                            <div class="form-group row">
+                                <label for="jenis_kelamin" class="col-12 col-md-4 col-form-label">Jenis Kelamin :</label>
+                                <div class="col-12 col-md-8">
                                     <select id="jenis_kelamin" name="jenis_kelamin" class="form-control">
                                         <option value="">Pilih</option>
                                         <option value="L" <?= $orangtua->jenis_kelamin == 'L' ? 'selected' : '' ?>>Laki-laki</option>
@@ -97,31 +87,25 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <label for="agama">Agama :</label>
-                                </div>
-                                <div class="col-md-8">
+                            <div class="form-group row">
+                                <label for="agama" class="col-12 col-md-4 col-form-label">Agama :</label>
+                                <div class="col-12 col-md-8">
                                     <input type="text" id="agama" class="form-control" name="agama"
                                            value="<?= $orangtua->agama ?>">
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <label for="pendidikan_terakhir">Pendidikan Terakhir :</label>
-                                </div>
-                                <div class="col-md-8">
+                            <div class="form-group row">
+                                <label for="pendidikan_terakhir" class="col-12 col-md-4 col-form-label">Pendidikan Terakhir :</label>
+                                <div class="col-12 col-md-8">
                                     <input type="text" id="pendidikan_terakhir" class="form-control" name="pendidikan_terakhir"
                                            value="<?= $orangtua->pendidikan_terakhir ?>">
                                 </div>
                             </div>
                         </div>
                         <div class="col-sm-6">
-                            <div class="row mb-3">
-                                <div class="col-md-4">
-                                    <label for="pekerjaan">Pekerjaan :</label>
-                                </div>
-                                <div class="col-md-8">
+                            <div class="form-group row">
+                                <label for="pekerjaan" class="col-12 col-md-4 col-form-label">Pekerjaan :</label>
+                                <div class="col-12 col-md-8">
                                     <div class="input-group">
                                         <div class="input-group-prepend">
                                             <span class="input-group-text"><i class="fas fa-briefcase"></i></span>
@@ -131,38 +115,30 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <label for="alamat">Alamat :</label>
-                                </div>
-                                <div class="col-md-8">
+                            <div class="form-group row">
+                                <label for="alamat" class="col-12 col-md-4 col-form-label">Alamat :</label>
+                                <div class="col-12 col-md-8">
                                     <textarea id="alamat" class="form-control" name="alamat" rows="3"
                                     ><?= $orangtua->alamat ?></textarea>
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <label for="kota">Kota :</label>
-                                </div>
-                                <div class="col-md-8">
+                            <div class="form-group row">
+                                <label for="kota" class="col-12 col-md-4 col-form-label">Kota :</label>
+                                <div class="col-12 col-md-8">
                                     <input type="text" id="kota" class="form-control" name="kota"
                                            value="<?= $orangtua->kota ?>">
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <label for="provinsi">Provinsi :</label>
-                                </div>
-                                <div class="col-md-8">
+                            <div class="form-group row">
+                                <label for="provinsi" class="col-12 col-md-4 col-form-label">Provinsi :</label>
+                                <div class="col-12 col-md-8">
                                     <input type="text" id="provinsi" class="form-control" name="provinsi"
                                            value="<?= $orangtua->provinsi ?>">
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <label for="kode_pos">Kode Pos :</label>
-                                </div>
-                                <div class="col-md-8">
+                            <div class="form-group row">
+                                <label for="kode_pos" class="col-12 col-md-4 col-form-label">Kode Pos :</label>
+                                <div class="col-12 col-md-8">
                                     <input type="number" id="kode_pos" class="form-control" name="kode_pos"
                                            value="<?= $orangtua->kode_pos ?>">
                                 </div>

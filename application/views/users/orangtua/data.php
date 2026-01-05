@@ -34,10 +34,11 @@
                                 <th class="text-center" style="width: 40px">No.</th>
                                 <th>Nama</th>
                                 <th>Username</th>
-                                <th>No HP</th>
-                                <th>Email</th>
-                                <th class="text-center">Status</th>
+                                <th>Password</th>
+                                <th>Orang Tua Dari</th>
+                                <th>Peran</th>
                                 <th class="text-center">Reset Login</th>
+                                <th class="text-center">Status</th>
                                 <th class="text-center">Aksi</th>
                             </tr>
                         </thead>

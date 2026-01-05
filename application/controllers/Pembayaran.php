@@ -499,9 +499,20 @@ class Pembayaran extends CI_Controller
 
     public function dataRiwayat()
     {
+        // DataTables server-side library in this project reads POST parameters
+        // but keep GET fallback for compatibility.
+        $tanggal_dari = $this->input->post('tanggal_dari');
+        if ($tanggal_dari === null || $tanggal_dari === '') {
+            $tanggal_dari = $this->input->get('tanggal_dari');
+        }
+        $tanggal_sampai = $this->input->post('tanggal_sampai');
+        if ($tanggal_sampai === null || $tanggal_sampai === '') {
+            $tanggal_sampai = $this->input->get('tanggal_sampai');
+        }
+
         $filters = [
-            'tanggal_dari' => $this->input->get('tanggal_dari'),
-            'tanggal_sampai' => $this->input->get('tanggal_sampai')
+            'tanggal_dari' => $tanggal_dari,
+            'tanggal_sampai' => $tanggal_sampai
         ];
         $this->output_json($this->pembayaran->getDataTableRiwayatVerifikasi($filters), false);
     }

@@ -20,7 +20,7 @@
                                     <table class="table table-borderless">
                                         <tr>
                                             <td width="150">Kode Transaksi</td>
-                                            <td><strong><?= $transaksi->kode_transaksi ?></strong></td>
+                                            <td><strong><?= e($transaksi->kode_transaksi) ?></strong></td>
                                         </tr>
                                         <tr>
                                             <td>Tanggal</td>
@@ -28,7 +28,7 @@
                                         </tr>
                                         <tr>
                                             <td>Metode Bayar</td>
-                                            <td><?= strtoupper($transaksi->metode_bayar ?? '-') ?></td>
+                                            <td><?= strtoupper(e($transaksi->metode_bayar ?? '-')) ?></td>
                                         </tr>
                                         <tr>
                                             <td>Jumlah</td>
@@ -53,7 +53,7 @@
                                                         echo '<span class="badge badge-danger badge-lg"><i class="fas fa-times"></i> Ditolak</span>';
                                                         break;
                                                     default:
-                                                        echo '<span class="badge badge-secondary">' . $transaksi->status . '</span>';
+                                                        echo '<span class="badge badge-secondary">' . e($transaksi->status) . '</span>';
                                                 }
                                                 ?>
                                             </td>
@@ -67,13 +67,13 @@
                                         <?php if ($transaksi->catatan_siswa): ?>
                                         <tr>
                                             <td>Catatan Anda</td>
-                                            <td><?= $transaksi->catatan_siswa ?></td>
+                                            <td><?= e($transaksi->catatan_siswa) ?></td>
                                         </tr>
                                         <?php endif; ?>
                                         <?php if ($transaksi->catatan_admin): ?>
                                         <tr>
                                             <td>Catatan Admin</td>
-                                            <td class="<?= $transaksi->status == 'ditolak' ? 'text-danger' : '' ?>"><?= $transaksi->catatan_admin ?></td>
+                                            <td class="<?= $transaksi->status == 'ditolak' ? 'text-danger' : '' ?>"><?= e($transaksi->catatan_admin) ?></td>
                                         </tr>
                                         <?php endif; ?>
                                     </table>

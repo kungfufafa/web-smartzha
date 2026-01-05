@@ -20,7 +20,6 @@ class Tendik extends CI_Controller
 
         $this->load->model('Tendik_model', 'tendik');
         $this->load->model('Dashboard_model', 'dashboard');
-        $this->load->model('Absensi_model', 'absensi');
 
         $this->user = $this->ion_auth->user()->row();
         $this->tendik_data = $this->tendik->get_by_user_id($this->user->id);

@@ -15,6 +15,7 @@ $(document).ready(function() {
         oLanguage: {
             sProcessing: "loading..."
         },
+        buttons: [],
         processing: true,
         serverSide: true,
         ajax: {
@@ -23,70 +24,58 @@ $(document).ready(function() {
         },
         columns: [
             {
-                data: "id",
+                data: "id_tendik",
                 className: "text-center",
                 orderable: false,
                 searchable: false
             },
             { data: "nama_tendik" },
             { data: "username" },
-            { data: "nip" },
-            { data: "tipe_tendik" },
             {
-                data: "active",
+                data: "username",
+                render: function(data, type, row, meta) {
+                    return row.username || "";
+                }
+            },
+            {
+                data: null,
+                searchable: false,
+                className: "text-center",
+                orderable: false,
+                render: function(data, type, row, meta) {
+                    return `<button type="button" class="btn btn-reset btn-default btn-xs ${row.reset == 0 ? 'btn-disabled' : ''}"
+                                data-username="${row.username}" data-nama="${row.nama_tendik}" data-toggle="tooltip" title="Reset Login"
+                                ${row.reset == 0 ? 'disabled' : ''}>
+                                <i class="fa fa-sync m-1"></i>
+                            </button>`;
+                }
+            },
+            {
+                data: "aktif",
                 className: "text-center",
                 orderable: true,
                 searchable: false,
                 render: function(data, type, row, meta) {
                     if (data > 0) {
                         return `<span class="badge badge-success">Aktif</span>`;
-                    } else {
-                        return `<span class="badge badge-danger">Tidak Aktif</span>`;
                     }
-                }
-            }
-        ],
-        columnDefs: [
-            {
-                searchable: false,
-                className: "text-center",
-                orderable: false,
-                targets: 6,
-                data: {
-                    username: "username",
-                    nama_tendik: "nama_tendik",
-                    reset: "reset"
-                },
-                render: function(data, type, row, meta) {
-                    return `<button type="button" class="btn btn-reset btn-default btn-xs ${data.reset == 0 ? 'btn-disabled' : ''}"
-                                data-username="${data.username}" data-nama="${data.nama_tendik}" data-toggle="tooltip" title="Reset Login"
-                                ${data.reset == 0 ? 'disabled' : ''}>
-                                <i class="fa fa-sync m-1"></i>
-                            </button>`;
+                    return `<span class="badge badge-danger">Tidak Aktif</span>`;
                 }
             },
             {
+                data: null,
                 searchable: false,
                 className: "text-center",
                 orderable: false,
-                targets: 7,
-                data: {
-                    id: "id",
-                    nama_tendik: "nama_tendik",
-                    aktif: "active"
-                },
                 render: function(data, type, row, meta) {
-                    let btn;
-                    if (data.aktif > 0) {
-                        btn = `<button type="button" class="btn btn-nonaktif btn-danger btn-xs" data-id="${data.id}" data-nama="${data.nama_tendik}" data-toggle="tooltip" title="Nonaktifkan">
+                    if (row.aktif > 0) {
+                        return `<button type="button" class="btn btn-nonaktif btn-danger btn-xs" data-id="${row.id}" data-nama="${row.nama_tendik}" data-toggle="tooltip" title="Nonaktifkan">
                                 <i class="fa fa-ban m-1"></i>
                             </button>`;
-                    } else {
-                        btn = `<button type="button" class="btn btn-aktif btn-success btn-xs" data-id="${data.id}" data-toggle="tooltip" title="Aktifkan">
+                    }
+                    return `<button type="button" class="btn btn-aktif btn-success btn-xs" data-id="${row.id_tendik}" data-toggle="tooltip" title="Aktifkan">
                                 <i class="fa fa-user-plus m-1"></i>
                             </button>`;
-                    }
-                    return btn;
                 }
             }
         ],
@@ -103,18 +92,12 @@ $(document).ready(function() {
         }
     });
 
-    table
-        .buttons()
-        .container()
-        .appendTo("#users_wrapper .col-md-6:eq(0)");
-
     $("#users").on("click", ".btn-aktif", function() {
         let id = $(this).data("id");
         $('#loading').removeClass('d-none');
         $.ajax({
-            url: base_url + "usertendik/activate",
-            type: "POST",
-            data: { id: id },
+            url: base_url + "usertendik/activate/" + id,
+            type: "GET",
             dataType: 'json',
             success: function(response) {
                 $('#loading').addClass('d-none');
@@ -152,9 +135,8 @@ $(document).ready(function() {
         let nama = $(this).data("nama");
         $('#loading').removeClass('d-none');
         $.ajax({
-            url: base_url + "usertendik/deactivate",
-            type: "POST",
-            data: { id: id },
+            url: base_url + "usertendik/deactivate/" + id,
+            type: "GET",
             dataType: 'json',
             success: function(response) {
                 $('#loading').addClass('d-none');
@@ -192,9 +174,8 @@ $(document).ready(function() {
         let nama = $(this).data("nama");
         $('#loading').removeClass('d-none');
         $.ajax({
-            url: base_url + "usertendik/reset_login",
-            type: "POST",
-            data: { username: username },
+            url: base_url + "usertendik/reset_login?username=" + username,
+            type: "GET",
             dataType: 'json',
             success: function(response) {
                 $('#loading').addClass('d-none');
@@ -229,7 +210,7 @@ $(document).ready(function() {
 
     $(".btn-action").on("click", function() {
         let action = $(this).data("action");
-        let uri = action === 'aktifkan' ? base_url + "usertendik/activate_all" : base_url + "usertendik/deactivate_all";
+        let uri = action === 'aktifkan' ? base_url + "usertendik/aktifkansemua" : base_url + "usertendik/nonaktifkansemua";
 
         swal.fire({
             title: action === 'aktifkan' ? "Aktifkan Semua Tendik" : "Nonaktifkan Semua Tendik",
@@ -244,7 +225,7 @@ $(document).ready(function() {
                 $('#loading').removeClass('d-none');
                 $.ajax({
                     url: uri,
-                    type: "POST",
+                    type: "GET",
                     dataType: "json",
                     success: function(response) {
                         $('#loading').addClass('d-none');

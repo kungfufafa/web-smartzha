@@ -32,7 +32,86 @@ class Userorangtua extends CI_Controller
 
     public function data()
     {
-        $this->output_json($this->orangtua->getDataOrangtua(), false);
+        $this->output_json($this->orangtua->getUserOrangtua(), false);
+    }
+
+    private function activate_orangtua_account($id_orangtua)
+    {
+        $id_orangtua = (int) $id_orangtua;
+        if ($id_orangtua < 1) {
+            return ['status' => false, 'msg' => 'ID orangtua tidak ditemukan'];
+        }
+
+        $orangtua = $this->orangtua->get_by_id($id_orangtua);
+        if (!$orangtua || (int) $orangtua->is_active !== 1) {
+            return ['status' => false, 'msg' => 'Data orang tua tidak ditemukan'];
+        }
+
+        if (!empty($orangtua->id_user)) {
+            return ['status' => false, 'msg' => 'Akun orang tua sudah aktif.'];
+        }
+
+        $username = trim((string) ($orangtua->no_hp ?? ''));
+        if ($username === '') {
+            return ['status' => false, 'msg' => 'Username tidak tersedia (no_hp kosong).'];
+        }
+
+        $email = trim((string) ($orangtua->email ?? ''));
+        if ($email === '') {
+            $email = strtolower($username) . '@orangtua.com';
+        }
+
+        if (!$this->user_management->isUsernameAvailable($username)) {
+            return ['status' => false, 'msg' => 'Username ' . $username . ' tidak tersedia (sudah digunakan).'];
+        }
+
+        if (!$this->user_management->isEmailAvailable($email)) {
+            return ['status' => false, 'msg' => 'Email ' . $email . ' tidak tersedia (sudah digunakan).'];
+        }
+
+        $group = $this->db->get_where('groups', ['name' => 'orangtua'])->row();
+        if (!$group) {
+            return ['status' => false, 'msg' => 'Group orangtua tidak ditemukan.'];
+        }
+
+        $name = $this->user_management->parseName((string) $orangtua->nama_lengkap);
+        $additional_data = ['first_name' => $name['first_name'], 'last_name' => $name['last_name']];
+        $password = $username;
+
+        $id_user = $this->user_management->createUser($username, $password, $email, $additional_data, [(string) $group->id]);
+        if (!$id_user) {
+            return ['status' => false, 'msg' => 'Gagal membuat user orang tua.'];
+        }
+
+        $this->db->set('id_user', (int) $id_user);
+        $this->db->where('id_orangtua', $id_orangtua);
+        $updated = $this->db->update('master_orangtua');
+        if (!$updated) {
+            $this->ion_auth->delete_user((int) $id_user);
+            return ['status' => false, 'msg' => 'Gagal menyimpan link user ke data orang tua.'];
+        }
+
+        return ['status' => true, 'msg' => 'Akun ' . $orangtua->nama_lengkap . ' diaktifkan.', 'username' => $username, 'pass' => $password];
+    }
+
+    private function deactivate_orangtua_account($id_user)
+    {
+        $id_user = (int) $id_user;
+        if ($id_user < 1) {
+            return ['status' => false, 'msg' => 'ID user tidak ditemukan'];
+        }
+
+        $deleted = $this->ion_auth->delete_user($id_user);
+        if ($deleted) {
+            $this->db->set('id_user', NULL);
+            $this->db->where('id_user', $id_user);
+            $this->db->update('master_orangtua');
+        }
+
+        return [
+            'status' => (bool) $deleted,
+            'msg' => $deleted ? 'telah dinonaktifkan.' : 'gagal dinonaktifkan.'
+        ];
     }
 
     public function index()
@@ -53,159 +132,107 @@ class Userorangtua extends CI_Controller
         }
     }
 
-    public function activate()
+    public function activate($id_orangtua = null)
     {
         $this->requireAdmin();
 
-        $id_user = $this->input->post('id');
-
-        if (!$id_user) {
-            $this->user_management->jsonResponse([
-                'status' => false,
-                'msg' => 'ID user tidak ditemukan'
-            ]);
-            return;
+        if ($id_orangtua === null) {
+            $id_orangtua = $this->input->post('id', true);
         }
 
-        $orangtua = $this->orangtua->get_by_user_id($id_user);
-
-        if (!$orangtua) {
-            $this->user_management->jsonResponse([
-                'status' => false,
-                'msg' => 'Data orang tua tidak ditemukan'
-            ]);
-            return;
-        }
-
-         $activated = $this->user_management->activateUser($id_user);
-
-        if ($activated) {
-            $this->db->set("id_user", $id_user);
-            $this->db->where("id_orangtua", $orangtua->id_orangtua);
-            $this->db->update("master_orangtua");
-
-            $this->user_management->jsonResponse([
-                'status' => true,
-                'msg' => 'Akun ' . $orangtua->nama_lengkap . ' berhasil diaktifkan.'
-            ]);
-        } else {
-            $this->user_management->jsonResponse([
-                'status' => false,
-                'msg' => 'Gagal mengaktifkan akun.'
-            ]);
-        }
+        $data = $this->activate_orangtua_account($id_orangtua);
+        $this->output_json($data);
     }
 
-    public function deactivate()
+    public function deactivate($id_user = null)
     {
         $this->requireAdmin();
 
-        $id_user = $this->input->post('id');
-
-        if (!$id_user) {
-            $this->user_management->jsonResponse([
-                'status' => false,
-                'msg' => 'ID user tidak ditemukan'
-            ]);
-            return;
+        if ($id_user === null) {
+            $id_user = $this->input->post('id', true);
         }
 
-        $deactivated = $this->user_management->deactivateUser($id_user);
-
-        if ($deactivated) {
-            $this->db->set("id_user", NULL);
-            $this->db->where("id_user", $id_user);
-            $this->db->update("master_orangtua");
-
-            $this->user_management->jsonResponse([
-                'status' => true,
-                'msg' => 'Akun berhasil dinonaktifkan.'
-            ]);
-        } else {
-            $this->user_management->jsonResponse([
-                'status' => false,
-                'msg' => 'Gagal menonaktifkan akun.'
-            ]);
-        }
+        $data = $this->deactivate_orangtua_account($id_user);
+        $this->output_json($data);
     }
 
     public function reset_login()
     {
         $this->requireAdmin();
 
-        $username = $this->input->post('username');
+        $username = $this->input->get('username', true);
+        if ($username === null || $username === '') {
+            $username = $this->input->post('username', true);
+        }
 
         if (!$username) {
-            $this->user_management->jsonResponse([
-                'status' => false,
-                'msg' => 'Username tidak ditemukan'
-            ]);
+            $this->output_json(['status' => false, 'msg' => 'Username tidak ditemukan']);
             return;
         }
 
         $reset = $this->user_management->resetLogin($username);
-
-        if ($reset) {
-            $this->user_management->jsonResponse([
-                'status' => true,
-                'msg' => 'Reset login berhasil.'
-            ]);
-        } else {
-            $this->user_management->jsonResponse([
-                'status' => false,
-                'msg' => 'Reset login gagal.'
-            ]);
-        }
+        $this->output_json([
+            'status' => (bool) $reset,
+            'msg' => $reset ? ' berhasil direset' : ' gagal direset'
+        ]);
     }
 
-    public function activate_all()
+    public function aktifkanSemua()
+    {
+        $this->requireAdmin();
+
+        $orangtua_list = $this->db
+            ->select('id_orangtua')
+            ->from('master_orangtua')
+            ->where('is_active', 1)
+            ->where('id_user IS NULL', null, false)
+            ->get()
+            ->result();
+
+        $jum = 0;
+        foreach ($orangtua_list as $o) {
+            $res = $this->activate_orangtua_account((int) $o->id_orangtua);
+            if (!empty($res['status'])) {
+                $jum += 1;
+            }
+        }
+
+        $this->output_json(['status' => true, 'jumlah' => $jum, 'msg' => $jum . ' orang tua diaktifkan.']);
+    }
+
+    public function nonaktifkanSemua()
     {
         $this->requireAdmin();
 
         $orangtuaUsers = $this->db
-            ->select('u.id, u.active, mo.nama_lengkap, mo.no_hp, mo.id_orangtua')
-            ->from('users u')
-            ->join('users_groups ug', 'u.id = ug.user_id')
-            ->join('groups g', 'ug.group_id = g.id')
-            ->join('master_orangtua mo', 'mo.id_user = u.id', 'left')
-            ->where('g.name', 'orangtua')
-            ->where('u.active', 0)
+            ->select('id_user')
+            ->from('master_orangtua')
+            ->where('is_active', 1)
+            ->where('id_user IS NOT NULL', null, false)
             ->get()
             ->result();
 
-        $count = 0;
-
+        $jum = 0;
         foreach ($orangtuaUsers as $orangtua) {
-            if ($this->user_management->activateUser($orangtua->id)) {
-                $count++;
-            }
-        }
-
-        $this->user_management->jsonResponse([
-            'status' => true,
-            'msg' => $count . ' akun orang tua berhasil diaktifkan dari ' . count($orangtuaUsers) . ' data.'
-        ]);
-    }
-
-    public function deactivate_all()
-    {
-        $this->requireAdmin();
-
-        $orangtuaUsers = $this->orangtua->get_all();
-        $count = 0;
-
-        foreach ($orangtuaUsers as $orangtua) {
-            if ($orangtua->id) {
-                if ($this->user_management->deactivateUser($orangtua->id)) {
-                    $count++;
+            if ($orangtua->id_user) {
+                $res = $this->deactivate_orangtua_account((int) $orangtua->id_user);
+                if (!empty($res['status'])) {
+                    $jum += 1;
                 }
             }
         }
 
-        $this->user_management->jsonResponse([
-            'status' => true,
-            'msg' => $count . ' akun orang tua berhasil dinonaktifkan.'
-        ]);
+        $this->output_json(['status' => true, 'jumlah' => $jum, 'msg' => $jum . ' orang tua dinonaktifkan.']);
+    }
+
+    public function activate_all()
+    {
+        $this->aktifkanSemua();
+    }
+
+    public function deactivate_all()
+    {
+        $this->nonaktifkanSemua();
     }
 
     private function requireAdmin()

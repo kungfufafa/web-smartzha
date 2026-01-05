@@ -90,7 +90,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="overlay" id="loading">
+                <div class="overlay d-none" id="loading">
                     <div class="spinner-grow"></div>
                 </div>
             </div>
@@ -189,3 +189,5 @@
     </div>
 </div>
 <?= form_close() ?>
+
+<script src="<?= base_url() ?>/assets/app/js/master/orangtua/data.js"></script>

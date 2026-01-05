@@ -63,11 +63,14 @@
 var table;
 
 $(document).ready(function() {
+    ajaxcsrf(); // Init CSRF for AJAX
+
     table = $('#tableRiwayat').DataTable({
         processing: true,
         serverSide: true,
         ajax: {
             url: '<?= base_url('pembayaran/dataRiwayat') ?>',
+            type: 'POST',
             data: function(d) {
                 d.tanggal_dari = $('#tanggalDari').val();
                 d.tanggal_sampai = $('#tanggalSampai').val();

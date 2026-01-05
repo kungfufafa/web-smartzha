@@ -36,7 +36,15 @@ class Datatendik extends CI_Controller
     public function index()
     {
         $user = $this->ion_auth->user()->row();
-        $data = ["user" => $user, "judul" => "Tenaga Kependidikan", "subjudul" => "Data Tendik", "profile" => $this->dashboard->getProfileAdmin($user->id), "setting" => $this->dashboard->getSetting()];
+        $data = [
+            "user" => $user,
+            "judul" => "Tenaga Kependidikan",
+            "subjudul" => "Data Tendik",
+            "profile" => $this->dashboard->getProfileAdmin($user->id),
+            "setting" => $this->dashboard->getSetting(),
+            "tp_active" => $this->dashboard->getTahunActive(),
+            "smt_active" => $this->dashboard->getSemesterActive()
+        ];
         $this->load->view("_templates/dashboard/_header", $data);
         $this->load->view("master/tendik/data");
         $this->load->view("_templates/dashboard/_footer");
@@ -44,7 +52,7 @@ class Datatendik extends CI_Controller
 
     public function data()
     {
-        $this->output_json($this->tendik->get_all(), true);
+        $this->output_json($this->tendik->getDataMasterTendik(), false);
     }
 
     public function add()
@@ -77,14 +85,21 @@ class Datatendik extends CI_Controller
     {
         $nip = $this->input->post("nip", true);
         $nama_tendik = $this->input->post("nama_tendik", true);
+        $tipe_tendik = $this->input->post("tipe_tendik", true);
 
         $this->form_validation->set_rules("nama_tendik", "Nama Tendik", "required|trim|min_length[3]");
         $this->form_validation->set_rules("nip", "NIP", "trim|is_unique[master_tendik.nip]");
+        $this->form_validation->set_rules("no_hp", "No. HP", "required|trim|min_length[10]");
 
         if ($this->form_validation->run() == FALSE) {
-            $data = ["status" => false, "errors" => ["nama_tendik" => form_error("nama_tendik"), "nip" => form_error("nip")]];
+            $data = ["status" => false, "errors" => ["nama_tendik" => form_error("nama_tendik"), "nip" => form_error("nip"), "no_hp" => form_error("no_hp")]];
             $this->output_json($data);
         } else {
+            $valid_tipe_list = $this->tendik->get_tipe_list();
+            if (!in_array($tipe_tendik, $valid_tipe_list)) {
+                $tipe_tendik = 'LAINNYA';
+            }
+            
             $input = [
                 "nip" => trim($nip),
                 "nama_tendik" => trim($nama_tendik),
@@ -95,7 +110,7 @@ class Datatendik extends CI_Controller
                 "no_hp" => $this->input->post("no_hp", true),
                 "email" => $this->input->post("email", true),
                 "alamat" => $this->input->post("alamat", true),
-                "tipe_tendik" => $this->input->post("tipe_tendik", true),
+                "tipe_tendik" => $tipe_tendik,
                 "jabatan" => $this->input->post("jabatan", true),
                 "status_kepegawaian" => $this->input->post("status_kepegawaian", true),
                 "tanggal_masuk" => $this->input->post("tanggal_masuk", true),
@@ -116,6 +131,7 @@ class Datatendik extends CI_Controller
         $id_tendik = $this->input->post("id_tendik", true);
         $nip = $this->input->post("nip", true);
         $nama_tendik = $this->input->post("nama_tendik", true);
+        $tipe_tendik = $this->input->post("tipe_tendik", true);
 
         $tendik = $this->tendik->get_by_id($id_tendik);
         if (!$tendik) {
@@ -128,11 +144,17 @@ class Datatendik extends CI_Controller
 
         $this->form_validation->set_rules("nama_tendik", "Nama Tendik", "required|trim|min_length[3]");
         $this->form_validation->set_rules("nip", "NIP", "trim" . $u_nip);
+        $this->form_validation->set_rules("no_hp", "No. HP", "required|trim|min_length[10]");
 
         if ($this->form_validation->run() == FALSE) {
-            $data = ["status" => false, "errors" => ["nama_tendik" => form_error("nama_tendik"), "nip" => form_error("nip")]];
+            $data = ["status" => false, "errors" => ["nama_tendik" => form_error("nama_tendik"), "nip" => form_error("nip"), "no_hp" => form_error("no_hp")]];
             $this->output_json($data);
         } else {
+            $valid_tipe_list = $this->tendik->get_tipe_list();
+            if (!in_array($tipe_tendik, $valid_tipe_list)) {
+                $tipe_tendik = 'LAINNYA';
+            }
+            
             $input = [
                 "nip" => trim($nip),
                 "nama_tendik" => trim($nama_tendik),
@@ -143,7 +165,7 @@ class Datatendik extends CI_Controller
                 "no_hp" => $this->input->post("no_hp", true),
                 "email" => $this->input->post("email", true),
                 "alamat" => $this->input->post("alamat", true),
-                "tipe_tendik" => $this->input->post("tipe_tendik", true),
+                "tipe_tendik" => $tipe_tendik,
                 "jabatan" => $this->input->post("jabatan", true),
                 "status_kepegawaian" => $this->input->post("status_kepegawaian", true),
                 "tanggal_masuk" => $this->input->post("tanggal_masuk", true)

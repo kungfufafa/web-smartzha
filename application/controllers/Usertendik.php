@@ -15,7 +15,6 @@ class Usertendik extends CI_Controller
             }
         }
         $this->load->library(["datatables", "form_validation", "user_management"]);
-        $this->load->model("Users_model", "users");
         $this->load->model("Master_model", "master");
         $this->load->model("Tendik_model", "tendik");
         $this->load->model("Dashboard_model", "dashboard");
@@ -32,7 +31,86 @@ class Usertendik extends CI_Controller
 
     public function data()
     {
-        $this->output_json($this->tendik->getDataTendik(), false);
+        $this->output_json($this->tendik->getUserTendik(), false);
+    }
+
+    private function activate_tendik_account($id_tendik)
+    {
+        $id_tendik = (int) $id_tendik;
+        if ($id_tendik < 1) {
+            return ['status' => false, 'msg' => 'ID tendik tidak ditemukan'];
+        }
+
+        $tendik = $this->tendik->get_by_id($id_tendik);
+        if (!$tendik || (int) $tendik->is_active !== 1) {
+            return ['status' => false, 'msg' => 'Data tendik tidak ditemukan'];
+        }
+
+        if (!empty($tendik->id_user)) {
+            return ['status' => false, 'msg' => 'Akun tendik sudah aktif.'];
+        }
+
+        $username = trim((string) ($tendik->nip ?? ''));
+        if ($username === '') {
+            return ['status' => false, 'msg' => 'NIP kosong. Username & password user tendik menggunakan NIP.'];
+        }
+
+        $email = trim((string) ($tendik->email ?? ''));
+        if ($email === '') {
+            $email = strtolower($username) . '@tendik.com';
+        }
+
+        if (!$this->user_management->isUsernameAvailable($username)) {
+            return ['status' => false, 'msg' => 'Username ' . $username . ' tidak tersedia (sudah digunakan).'];
+        }
+
+        if (!$this->user_management->isEmailAvailable($email)) {
+            return ['status' => false, 'msg' => 'Email ' . $email . ' tidak tersedia (sudah digunakan).'];
+        }
+
+        $group = $this->db->get_where('groups', ['name' => 'tendik'])->row();
+        if (!$group) {
+            return ['status' => false, 'msg' => 'Group tendik tidak ditemukan.'];
+        }
+
+        $name = $this->user_management->parseName((string) $tendik->nama_tendik);
+        $additional_data = ['first_name' => $name['first_name'], 'last_name' => $name['last_name']];
+
+        $password = $username;
+        $id_user = $this->user_management->createUser($username, $password, $email, $additional_data, [(string) $group->id]);
+        if (!$id_user) {
+            return ['status' => false, 'msg' => 'Gagal membuat user tendik.'];
+        }
+
+        $this->db->set('id_user', (int) $id_user);
+        $this->db->where('id_tendik', $id_tendik);
+        $updated = $this->db->update('master_tendik');
+        if (!$updated) {
+            $this->ion_auth->delete_user((int) $id_user);
+            return ['status' => false, 'msg' => 'Gagal menyimpan link user ke data tendik.'];
+        }
+
+        return ['status' => true, 'msg' => 'Akun ' . $tendik->nama_tendik . ' diaktifkan.', 'username' => $username, 'pass' => $password];
+    }
+
+    private function deactivate_tendik_account($id_user)
+    {
+        $id_user = (int) $id_user;
+        if ($id_user < 1) {
+            return ['status' => false, 'msg' => 'ID user tidak ditemukan'];
+        }
+
+        $deleted = $this->ion_auth->delete_user($id_user);
+        if ($deleted) {
+            $this->db->set('id_user', NULL);
+            $this->db->where('id_user', $id_user);
+            $this->db->update('master_tendik');
+        }
+
+        return [
+            'status' => (bool) $deleted,
+            'msg' => $deleted ? 'telah dinonaktifkan.' : 'gagal dinonaktifkan.'
+        ];
     }
 
     public function index()
@@ -53,159 +131,107 @@ class Usertendik extends CI_Controller
         }
     }
 
-    public function activate()
+    public function activate($id_tendik = null)
     {
         $this->requireAdmin();
 
-        $id_user = $this->input->post('id');
-
-        if (!$id_user) {
-            $this->user_management->jsonResponse([
-                'status' => false,
-                'msg' => 'ID user tidak ditemukan'
-            ]);
-            return;
+        if ($id_tendik === null) {
+            $id_tendik = $this->input->post('id', true);
         }
 
-        $tendik = $this->tendik->get_by_user_id($id_user);
-
-        if (!$tendik) {
-            $this->user_management->jsonResponse([
-                'status' => false,
-                'msg' => 'Data tendik tidak ditemukan'
-            ]);
-            return;
-        }
-
-         $activated = $this->user_management->activateUser($id_user);
-
-        if ($activated) {
-            $this->db->set("id_user", $id_user);
-            $this->db->where("id_tendik", $tendik->id_tendik);
-            $this->db->update("master_tendik");
-
-            $this->user_management->jsonResponse([
-                'status' => true,
-                'msg' => 'Akun ' . $tendik->nama_tendik . ' berhasil diaktifkan.'
-            ]);
-        } else {
-            $this->user_management->jsonResponse([
-                'status' => false,
-                'msg' => 'Gagal mengaktifkan akun.'
-            ]);
-        }
+        $data = $this->activate_tendik_account($id_tendik);
+        $this->output_json($data);
     }
 
-    public function deactivate()
+    public function deactivate($id_user = null)
     {
         $this->requireAdmin();
 
-        $id_user = $this->input->post('id');
-
-        if (!$id_user) {
-            $this->user_management->jsonResponse([
-                'status' => false,
-                'msg' => 'ID user tidak ditemukan'
-            ]);
-            return;
+        if ($id_user === null) {
+            $id_user = $this->input->post('id', true);
         }
 
-        $deactivated = $this->user_management->deactivateUser($id_user);
-
-        if ($deactivated) {
-            $this->db->set("id_user", NULL);
-            $this->db->where("id_user", $id_user);
-            $this->db->update("master_tendik");
-
-            $this->user_management->jsonResponse([
-                'status' => true,
-                'msg' => 'Akun berhasil dinonaktifkan.'
-            ]);
-        } else {
-            $this->user_management->jsonResponse([
-                'status' => false,
-                'msg' => 'Gagal menonaktifkan akun.'
-            ]);
-        }
+        $data = $this->deactivate_tendik_account($id_user);
+        $this->output_json($data);
     }
 
     public function reset_login()
     {
         $this->requireAdmin();
 
-        $username = $this->input->post('username');
+        $username = $this->input->get('username', true);
+        if ($username === null || $username === '') {
+            $username = $this->input->post('username', true);
+        }
 
         if (!$username) {
-            $this->user_management->jsonResponse([
-                'status' => false,
-                'msg' => 'Username tidak ditemukan'
-            ]);
+            $this->output_json(['status' => false, 'msg' => 'Username tidak ditemukan']);
             return;
         }
 
         $reset = $this->user_management->resetLogin($username);
-
-        if ($reset) {
-            $this->user_management->jsonResponse([
-                'status' => true,
-                'msg' => 'Reset login berhasil.'
-            ]);
-        } else {
-            $this->user_management->jsonResponse([
-                'status' => false,
-                'msg' => 'Reset login gagal.'
-            ]);
-        }
+        $this->output_json([
+            'status' => (bool) $reset,
+            'msg' => $reset ? ' berhasil direset' : ' gagal direset'
+        ]);
     }
 
-    public function activate_all()
+    public function aktifkanSemua()
+    {
+        $this->requireAdmin();
+
+        $tendik_list = $this->db
+            ->select('id_tendik')
+            ->from('master_tendik')
+            ->where('is_active', 1)
+            ->where('id_user IS NULL', null, false)
+            ->get()
+            ->result();
+
+        $jum = 0;
+        foreach ($tendik_list as $t) {
+            $res = $this->activate_tendik_account((int) $t->id_tendik);
+            if (!empty($res['status'])) {
+                $jum += 1;
+            }
+        }
+
+        $this->output_json(['status' => true, 'jumlah' => $jum, 'msg' => $jum . ' tendik diaktifkan.']);
+    }
+
+    public function nonaktifkanSemua()
     {
         $this->requireAdmin();
 
         $tendikUsers = $this->db
-            ->select('u.id, u.active, t.nama_tendik, t.nip')
-            ->from('users u')
-            ->join('users_groups ug', 'u.id = ug.user_id')
-            ->join('groups g', 'ug.group_id = g.id')
-            ->join('master_tendik t', 't.id_user = u.id', 'left')
-            ->where('g.name', 'tendik')
-            ->where('u.active', 0)
+            ->select('id_user')
+            ->from('master_tendik')
+            ->where('is_active', 1)
+            ->where('id_user IS NOT NULL', null, false)
             ->get()
             ->result();
 
-        $count = 0;
-
+        $jum = 0;
         foreach ($tendikUsers as $tendik) {
-            if ($this->user_management->activateUser($tendik->id)) {
-                $count++;
-            }
-        }
-
-        $this->user_management->jsonResponse([
-            'status' => true,
-            'msg' => $count . ' akun tendik berhasil diaktifkan dari ' . count($tendikUsers) . ' data.'
-        ]);
-    }
-
-    public function deactivate_all()
-    {
-        $this->requireAdmin();
-
-        $tendikUsers = $this->tendik->get_all();
-        $count = 0;
-
-        foreach ($tendikUsers as $tendik) {
-            if ($tendik->id) {
-                if ($this->user_management->deactivateUser($tendik->id)) {
-                    $count++;
+            if ($tendik->id_user) {
+                $res = $this->deactivate_tendik_account((int) $tendik->id_user);
+                if (!empty($res['status'])) {
+                    $jum += 1;
                 }
             }
         }
 
-        $this->user_management->jsonResponse([
-            'status' => true,
-            'msg' => $count . ' akun tendik berhasil dinonaktifkan.'
-        ]);
+        $this->output_json(['status' => true, 'jumlah' => $jum, 'msg' => $jum . ' tendik dinonaktifkan.']);
+    }
+
+    public function activate_all()
+    {
+        $this->aktifkanSemua();
+    }
+
+    public function deactivate_all()
+    {
+        $this->nonaktifkanSemua();
     }
 
     private function requireAdmin()

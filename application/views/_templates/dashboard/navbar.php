@@ -23,7 +23,7 @@
 				</h6>
 				<?php
         $no = 1;
-        foreach ($tp as $row) : ?>
+        foreach ($tp ?? [] as $row) : ?>
 					<div class="dropdown-divider"></div>
 					<?= form_hidden('id_tp[' . $no . ']', $row->id_tp) ?>
 					<input type="hidden" name="tahun[<?= $no; ?>]" value="<?= $row->tahun; ?>" class="form-control">
@@ -60,7 +60,7 @@
 				</h6>
 				<?php
         $no = 1;
-        foreach ($smt as $r) : ?>
+        foreach ($smt ?? [] as $r) : ?>
 					<div class="dropdown-divider"></div>
 					<?= form_hidden('id_smt[' . $no . ']', $r->id_smt) ?>
 					<input type="hidden" name="smt[<?= $no; ?>]" value="<?= $r->smt; ?>" class="form-control">

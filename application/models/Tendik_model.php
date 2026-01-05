@@ -122,4 +122,30 @@ class Tendik_model extends CI_Model
         $this->datatables->where("groups.name", "tendik");
         return $this->datatables->generate();
     }
+
+    public function getUserTendik()
+    {
+        $this->db->query("SET SQL_BIG_SELECTS=1");
+        $this->datatables->select("t.id_tendik, t.nama_tendik, COALESCE(u.username, t.nip) AS username, u.id, (SELECT COUNT(id) FROM users WHERE users.id = t.id_user) AS aktif, (SELECT COUNT(login) FROM login_attempts WHERE login_attempts.login = COALESCE(u.username, t.nip)) AS reset");
+        $this->datatables->from('master_tendik t');
+        $this->datatables->join('users u', 't.id_user=u.id', 'left');
+        $this->datatables->where('t.is_active', 1);
+        return $this->datatables->generate();
+    }
+
+    public function getDataMasterTendik()
+    {
+        $this->db->query("SET SQL_BIG_SELECTS=1");
+        $this->datatables->select("
+            t.id_tendik,
+            t.nama_tendik,
+            t.nip,
+            t.tipe_tendik,
+            t.jabatan,
+            t.is_active
+        ");
+        $this->datatables->from("master_tendik t");
+        $this->datatables->where("t.is_active", 1);
+        return $this->datatables->generate();
+    }
 }

@@ -41,6 +41,9 @@ class Orangtua extends CI_Controller
         }
 
         $selected_id = $this->session->userdata('selected_anak_id');
+        // Validate selected_id is a positive integer
+        $selected_id = filter_var($selected_id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        
         if ($selected_id) {
             foreach ($this->anak_list as $anak) {
                 if ($anak->id_siswa == $selected_id) {
@@ -116,7 +119,10 @@ class Orangtua extends CI_Controller
 
     public function switchAnak($id_siswa)
     {
-        if (!$this->orangtua->isParentOfSiswa($this->user->id, $id_siswa)) {
+        // Validate id_siswa is a positive integer
+        $id_siswa = filter_var($id_siswa, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        
+        if (!$id_siswa || !$this->orangtua->isParentOfSiswa($this->user->id, $id_siswa)) {
             $this->session->set_flashdata('error', 'Anak tidak ditemukan');
             redirect('orangtua');
         }
@@ -393,7 +399,7 @@ class Orangtua extends CI_Controller
             }
             $s_es = $bagi_essai == 0 ? 0 : $benar_es / $bagi_essai * $bobot_essai;
             $input_es = 0;
-            if ($nilai_input != null && $nilai_input->isian_nilai != null) {
+            if ($nilai_input != null && $nilai_input->essai_nilai != null) {
                 $input_es = $nilai_input->essai_nilai;
             }
             $skor_es = $input_es != 0 ? $input_es : ($otomatis_es == 0 ? $s_es : $skor_koreksi_es);

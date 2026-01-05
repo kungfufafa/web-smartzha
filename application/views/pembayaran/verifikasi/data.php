@@ -51,10 +51,15 @@
 var table;
 
 $(document).ready(function() {
+    ajaxcsrf(); // Init CSRF for AJAX
+
     table = $('#tableVerifikasi').DataTable({
         processing: true,
         serverSide: true,
-        ajax: '<?= base_url('pembayaran/dataVerifikasi') ?>',
+        ajax: {
+            url: '<?= base_url('pembayaran/dataVerifikasi') ?>',
+            type: 'POST'
+        },
         columns: [
             {data: null, render: function(data, type, row, meta) { return meta.row + 1; }},
             {data: 'kode_transaksi'},

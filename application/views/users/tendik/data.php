@@ -15,9 +15,6 @@
                 <div class="card-header with-border">
                     <h3 class="card-title">Master <?= $subjudul ?></h3>
                     <div class="card-tools">
-                        <button type="button" onclick="reload_ajax()" class="btn btn-sm btn-default">
-                            <i class="fa fa-sync"></i> <span class="d-none d-sm-inline-block ml-1">Reload</span>
-                        </button>
                         <button type="button" class="btn btn-action btn-success btn-sm" data-action="aktifkan"
                                 data-toggle="tooltip" title="Aktifkan">
                             <i class="fa fa-users m-1"></i><span
@@ -38,10 +35,9 @@
                                 <th class="text-center" style="width: 40px">No.</th>
                                 <th>Nama</th>
                                 <th>Username</th>
-                                <th>NIP</th>
-                                <th>Tipe</th>
-                                <th class="text-center">Status</th>
+                                <th>Password</th>
                                 <th class="text-center">Reset Login</th>
+                                <th class="text-center">Status</th>
                                 <th class="text-center">Aksi</th>
                             </tr>
                             </thead>

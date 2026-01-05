@@ -10,9 +10,9 @@
                 ?>
                 <img class="avatar" src="<?= base_url($foto) ?>" width="120" height="120">
                 <div class="info-box-content">
-                    <h5 class="info-box-text text-white text-wrap"><b><?= $selected_anak->nama ?></b></h5>
-                    <span class="info-box-text text-white"><?= $siswa->nis ?? '-' ?></span>
-                    <span class="info-box-text text-white mb-1"><?= $siswa->nama_kelas ?? 'Belum ada kelas' ?></span>
+                    <h5 class="info-box-text text-white text-wrap"><b><?= e($selected_anak->nama) ?></b></h5>
+                    <span class="info-box-text text-white"><?= e($siswa->nis ?? '-') ?></span>
+                    <span class="info-box-text text-white mb-1"><?= e($siswa->nama_kelas ?? 'Belum ada kelas') ?></span>
                 </div>
             </div>
 
@@ -38,11 +38,11 @@
                             <table class="table table-borderless">
                                 <tr>
                                     <td width="40%">Kode Tagihan</td>
-                                    <td><strong><?= $tagihan->kode_tagihan ?></strong></td>
+                                    <td><strong><?= e($tagihan->kode_tagihan) ?></strong></td>
                                 </tr>
                                 <tr>
                                     <td>Jenis</td>
-                                    <td><?= $tagihan->nama_jenis ?></td>
+                                    <td><?= e($tagihan->nama_jenis) ?></td>
                                 </tr>
                                 <?php if ($tagihan->bulan): ?>
                                 <tr>
@@ -84,7 +84,7 @@
                             <?php if ($tagihan->status == 'ditolak' && $transaksi_terakhir): ?>
                             <div class="alert alert-danger">
                                 <h5><i class="fas fa-exclamation-circle"></i> Pembayaran Sebelumnya Ditolak</h5>
-                                <p><strong>Alasan:</strong> <?= $transaksi_terakhir->catatan_admin ?: 'Tidak ada keterangan' ?></p>
+                                <p><strong>Alasan:</strong> <?= e($transaksi_terakhir->catatan_admin ?: 'Tidak ada keterangan') ?></p>
                                 <?php if ($transaksi_terakhir->reject_count >= 3): ?>
                                     <p class="mb-0 text-danger"><strong>Pembayaran sudah ditolak 3 kali. Silakan hubungi admin.</strong></p>
                                 <?php else: ?>
@@ -113,7 +113,7 @@
                         <div class="card-body text-center">
                             <img src="<?= base_url($config->qris_image) ?>" class="img-fluid" style="max-height: 300px;" alt="QRIS">
                             <?php if ($config->qris_merchant_name): ?>
-                                <p class="mt-2 mb-0"><strong><?= $config->qris_merchant_name ?></strong></p>
+                                            <p class="mt-2 mb-0"><strong><?= e($config->qris_merchant_name) ?></strong></p>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -128,15 +128,15 @@
                             <table class="table table-borderless">
                                 <tr>
                                     <td>Bank</td>
-                                    <td><strong><?= $config->bank_name ?></strong></td>
+                                    <td><strong><?= e($config->bank_name) ?></strong></td>
                                 </tr>
                                 <tr>
                                     <td>No. Rekening</td>
-                                    <td><strong style="font-size: 1.2em;"><?= $config->bank_account ?></strong></td>
+                                    <td><strong style="font-size: 1.2em;"><?= e($config->bank_account) ?></strong></td>
                                 </tr>
                                 <tr>
                                     <td>Atas Nama</td>
-                                    <td><strong><?= $config->bank_holder ?></strong></td>
+                                    <td><strong><?= e($config->bank_holder) ?></strong></td>
                                 </tr>
                             </table>
                         </div>
@@ -149,7 +149,7 @@
                             <h3 class="card-title"><i class="fas fa-info-circle"></i> Petunjuk Pembayaran</h3>
                         </div>
                         <div class="card-body">
-                            <?= nl2br($config->payment_instruction) ?>
+                            <?= nl2br(e($config->payment_instruction)) ?>
                         </div>
                     </div>
                     <?php endif; ?>

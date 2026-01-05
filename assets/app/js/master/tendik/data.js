@@ -3,37 +3,28 @@ var table;
 $(document).ready(function() {
   ajaxcsrf();
 
-  table = $("#table-tendik").DataTable({
-    initComplete: function() {
-      var api = this.api();
-      $("#table-tendik_filter input")
-        .off(".DT")
-        .on("keyup.DT", function(e) {
-          api.search(this.value).draw();
-        });
-    },
+  const $loading = $("#loading");
+  const $table = $("#table-tendik");
+
+  $table.on("processing.dt", function(e, settings, processing) {
+    if (!$loading.length) {
+      return;
+    }
+    if (processing) {
+      $loading.removeClass("d-none");
+    } else {
+      $loading.addClass("d-none");
+    }
+  });
+
+  if ($table.length && $.fn.DataTable && $.fn.DataTable.isDataTable($table[0])) {
+    $table.DataTable().clear().destroy();
+  }
+
+  table = $table.DataTable({
     dom:
-      "<'row'<'col-sm-3'l><'col-sm-6 text-center'B><'col-sm-3'f>>" +
       "<'row'<'col-sm-12'tr>>" +
       "<'row'<'col-sm-5'i><'col-sm-7'p>>",
-    buttons: [
-      {
-        extend: "copy",
-        exportOptions: { columns: [2, 3, 4, 5] }
-      },
-      {
-        extend: "print",
-        exportOptions: { columns: [2, 3, 4, 5] }
-      },
-      {
-        extend: "excel",
-        exportOptions: { columns: [2, 3, 4, 5] }
-      },
-      {
-        extend: "pdf",
-        exportOptions: { columns: [2, 3, 4, 5] }
-      }
-    ],
     oLanguage: {
       sProcessing: "loading..."
     },
@@ -44,6 +35,11 @@ $(document).ready(function() {
       type: "POST"
     },
     columns: [
+      {
+        data: "id_tendik",
+        orderable: false,
+        searchable: false
+      },
       {
         data: "id_tendik",
         orderable: false,
@@ -65,7 +61,6 @@ $(document).ready(function() {
       },
       {
         searchable: false,
-        targets: 7,
         data: {
           id_tendik: "id_tendik",
           nama_tendik: "nama_tendik"
@@ -93,7 +88,7 @@ $(document).ready(function() {
         }
       }
     ],
-    order: [[2, "asc"]],
+    order: [[3, "asc"]],
     rowId: function(a) {
       return a;
     },
@@ -108,10 +103,113 @@ $(document).ready(function() {
     }
   });
 
-  table
-    .buttons()
-    .container()
-    .appendTo("#table-tendik_wrapper .col-md-6:eq(0)");
+  function syncSearchButtons() {
+    var val = $("#input-search").val() || "";
+    var hasValue = val.trim().length > 0;
+    if (hasValue) {
+      $("#btn-search").removeAttr("disabled");
+      $("#btn-clear").removeAttr("disabled");
+    } else {
+      $("#btn-search").attr("disabled", "disabled");
+      $("#btn-clear").attr("disabled", "disabled");
+    }
+  }
+
+  $("#users_length").on("change", function() {
+    var length = parseInt($(this).val(), 10);
+    if (!isNaN(length)) {
+      table.page.len(length).draw();
+    }
+  });
+
+  $("#input-search").on("input", syncSearchButtons);
+  $("#input-search").on("keyup", function(e) {
+    if (e.key === "Enter") {
+      applySearch();
+    }
+  });
+
+  $("#btn-clear").on("click", function() {
+    $("#input-search").val("");
+    table.search("").draw();
+    syncSearchButtons();
+  });
+
+  syncSearchButtons();
+
+  $(".select_all").on("click", function() {
+    if (this.checked) {
+      $("#table-tendik tbody .check").each(function() {
+        this.checked = true;
+      });
+      $(".select_all").prop("checked", true);
+      $("#hapusterpilih").removeAttr("disabled");
+    } else {
+      $("#table-tendik tbody .check").each(function() {
+        this.checked = false;
+      });
+      $(".select_all").prop("checked", false);
+      $("#hapusterpilih").attr("disabled", "disabled");
+    }
+  });
+
+  $("#table-tendik tbody").on("click", "tr .check", function() {
+    var total = $("#table-tendik tbody tr .check").length;
+    var checked = $("#table-tendik tbody tr .check:checked").length;
+    $(".select_all").prop("checked", total > 0 && total === checked);
+    if (checked === 0) {
+      $("#hapusterpilih").attr("disabled", "disabled");
+    } else {
+      $("#hapusterpilih").removeAttr("disabled");
+    }
+  });
+
+  table.on("draw", function() {
+    $(".select_all").prop("checked", false);
+    var checked = $("#table-tendik tbody tr .check:checked").length;
+    if (checked === 0) {
+      $("#hapusterpilih").attr("disabled", "disabled");
+    }
+  });
+
+  $("#formtendik").on("submit", function(e) {
+    e.preventDefault();
+    $.ajax({
+      url: base_url + "datatendik/create",
+      type: "POST",
+      data: $(this).serialize(),
+      dataType: "json",
+      success: function(response) {
+        if (response && response.status) {
+          Swal.fire({
+            icon: "success",
+            title: "Berhasil",
+            text: response.msg,
+            timer: 1500,
+            showConfirmButton: false
+          });
+          $("#createTendikModal").modal("hide");
+          $("#formtendik")[0].reset();
+          reload_ajax();
+        } else {
+          var errorMsg = response && response.msg ? response.msg : "Gagal menambahkan data";
+          if (response && response.errors) {
+            errorMsg = "";
+            for (var key in response.errors) {
+              if (response.errors[key]) {
+                errorMsg += response.errors[key] + "<br>";
+              }
+            }
+          }
+          Swal.fire({
+            icon: "error",
+            title: "Gagal",
+            html: errorMsg
+          });
+        }
+      }
+    });
+  });
 
   $("#table-tendik").on("click", ".btn-delete", function() {
     let id = $(this).data("id");
@@ -127,7 +225,7 @@ $(document).ready(function() {
       confirmButtonText: "Ya, Hapus!",
       cancelButtonText: "Batal"
     }).then((result) => {
-      if (result.isConfirmed) {
+      if (result.isConfirmed || result.value) {
         $.ajax({
           url: base_url + "datatendik/delete",
           type: "POST",
@@ -185,7 +283,7 @@ function bulk_delete() {
     confirmButtonText: "Ya, Hapus!",
     cancelButtonText: "Batal"
   }).then((result) => {
-    if (result.isConfirmed) {
+    if (result.isConfirmed || result.value) {
       $.ajax({
         url: base_url + "datatendik/delete",
         type: "POST",

@@ -89,7 +89,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="overlay" id="loading">
+                <div class="overlay d-none" id="loading">
                     <div class="spinner-grow"></div>
                 </div>
             </div>
@@ -133,6 +133,19 @@
                                 <span class="input-group-text"><i class="fas fa-id-card"></i></span>
                             </div>
                             <input type="text" id="nip" class="form-control" name="nip" placeholder="NIP">
+                        </div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-4 col-sm-offset-4">
+                        <label for="no_hp">No. HP :</label>
+                    </div>
+                    <div class="col-md-8 col-sm-offset-8">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text"><i class="fas fa-phone"></i></span>
+                            </div>
+                            <input type="text" id="no_hp" class="form-control" name="no_hp" placeholder="No. HP" required>
                         </div>
                     </div>
                 </div>
@@ -182,3 +195,5 @@
     </div>
 </div>
 <?= form_close() ?>
+
+<script src="<?= base_url() ?>/assets/app/js/master/tendik/data.js"></script>

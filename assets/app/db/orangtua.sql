@@ -56,8 +56,37 @@ ALTER TABLE `master_siswa`
   ADD KEY `idx_id_user_orangtua` (`id_user_orangtua`),
   ADD CONSTRAINT `fk_siswa_orangtua_user` FOREIGN KEY (`id_user_orangtua`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
-CREATE INDEX IF NOT EXISTS `idx_users_username` ON `users` (`username`);
-CREATE INDEX IF NOT EXISTS `idx_users_email` ON `users` (`email`);
-CREATE INDEX IF NOT EXISTS `idx_login_attempts_login` ON `login_attempts` (`login`);
+-- MySQL/MariaDB compatibility: CREATE INDEX does not reliably support IF NOT EXISTS.
+-- Use information_schema.statistics checks + dynamic SQL.
+
+SET @idx_exists := (
+  SELECT COUNT(1)
+  FROM information_schema.statistics
+  WHERE table_schema = DATABASE()
+    AND table_name = 'users'
+    AND index_name = 'idx_users_username'
+);
+SET @sql := IF(@idx_exists = 0, 'CREATE INDEX `idx_users_username` ON `users` (`username`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx_exists := (
+  SELECT COUNT(1)
+  FROM information_schema.statistics
+  WHERE table_schema = DATABASE()
+    AND table_name = 'users'
+    AND index_name = 'idx_users_email'
+);
+SET @sql := IF(@idx_exists = 0, 'CREATE INDEX `idx_users_email` ON `users` (`email`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx_exists := (
+  SELECT COUNT(1)
+  FROM information_schema.statistics
+  WHERE table_schema = DATABASE()
+    AND table_name = 'login_attempts'
+    AND index_name = 'idx_login_attempts_login'
+);
+SET @sql := IF(@idx_exists = 0, 'CREATE INDEX `idx_login_attempts_login` ON `login_attempts` (`login`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -11,9 +11,9 @@
                 <?php $nis = ($siswa && isset($siswa->nis)) ? $siswa->nis : ''; ?>
                 <img class="avatar img-circle" src="<?= base_url() ?>assets/img/siswa.png" width="120" height="120" alt="Avatar">
                 <div class="info-box-content">
-                    <h5 class="info-box-text text-white text-wrap"><b><?= $selected_anak->nama ?></b></h5>
-                    <span class="info-box-text text-white"><?= $nis ?: '-' ?></span>
-                    <span class="info-box-text text-white mb-1"><?= ($siswa && isset($siswa->nama_kelas)) ? $siswa->nama_kelas : 'Belum ada kelas' ?></span>
+                    <h5 class="info-box-text text-white text-wrap"><b><?= e($selected_anak->nama) ?></b></h5>
+                    <span class="info-box-text text-white"><?= e($nis ?: '-') ?></span>
+                    <span class="info-box-text text-white mb-1"><?= e(($siswa && isset($siswa->nama_kelas)) ? $siswa->nama_kelas : 'Belum ada kelas') ?></span>
                 </div>
             </div>
 
@@ -43,21 +43,21 @@
                                         $no = 1;
                                         foreach ($nilai_materi as $nil) :
                                             ?>
-                                            <tr onclick="showDialog(this)" data-text="<?= $nil->catatan ?>">
+                                            <tr onclick="showDialog(this)" data-text="<?= e($nil->catatan) ?>">
                                                 <td class="text-center"><?= $no ?></td>
                                                 <td>
-                                                    <?= $nil->kode ?>
+                                                    <?= e($nil->kode) ?>
                                                     <br>
                                                     <small>
-                                                        <?= $nil->kode_materi ?>
+                                                        <?= e($nil->kode_materi) ?>
                                                     </small>
                                                     <br>
                                                     <small>
-                                                        <?= $nil->judul_materi ?>
+                                                        <?= e($nil->judul_materi) ?>
                                                     </small>
                                                 </td>
                                                 <td><?= singkat_tanggal(date('D, d M Y', strtotime($nil->jadwal_materi))) ?></td>
-                                                <td class="text-center text-lg"><b><?= $nil->nilai ?></b></td>
+                                                <td class="text-center text-lg"><b><?= e($nil->nilai) ?></b></td>
                                             </tr>
                                             <?php $no++; endforeach; ?>
                                         </tbody>
@@ -93,21 +93,21 @@
                                         $no = 1;
                                         foreach ($nilai_tugas as $nil) :
                                             ?>
-                                            <tr onclick="showDialog(this)" data-text="<?= $nil->catatan ?>">
+                                            <tr onclick="showDialog(this)" data-text="<?= e($nil->catatan) ?>">
                                                 <td class="text-center"><?= $no ?></td>
                                                 <td>
-                                                    <?= $nil->kode ?>
+                                                    <?= e($nil->kode) ?>
                                                     <br>
                                                     <small>
-                                                        <?= $nil->kode_materi ?>
+                                                        <?= e($nil->kode_materi) ?>
                                                     </small>
                                                     <br>
                                                     <small>
-                                                        <?= $nil->judul_materi ?>
+                                                        <?= e($nil->judul_materi) ?>
                                                     </small>
                                                 </td>
                                                 <td><?= singkat_tanggal(date('D, d M Y', strtotime($nil->jadwal_materi))) ?></td>
-                                                <td class="text-center text-lg"><b><?= $nil->nilai ?></b></td>
+                                                <td class="text-center text-lg"><b><?= e($nil->nilai) ?></b></td>
                                             </tr>
                                             <?php $no++; endforeach; ?>
                                         </tbody>
@@ -153,11 +153,11 @@
                                             ?>
                                             <tr>
                                                 <td class="text-center"><?= $no ?></td>
-                                                <td><?= $j->nama_jenis ?>
+                                                <td><?= e($j->nama_jenis) ?>
                                                     <br><small><?= buat_tanggal(date('D, d M Y', strtotime($j->tgl_mulai))) ?></small>
                                                 </td>
-                                                <td><?= $j->kode ?></td>
-                                                <td><?= $j->bank_kode ?></td>
+                                                <td><?= e($j->kode) ?></td>
+                                                <td><?= e($j->bank_kode) ?></td>
                                                 <td class="text-center"><?= $total ?></td>
                                                 <td class="text-center">
                                                     <button type="button"

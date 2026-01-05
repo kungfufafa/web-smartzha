@@ -1,6 +1,33 @@
 <?php 
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+/**
+ * XSS-safe output escaping helper
+ * Use this to escape user-controlled data before outputting to HTML
+ * 
+ * @param mixed $value The value to escape
+ * @param string $encoding Character encoding (default UTF-8)
+ * @return string Escaped string safe for HTML output
+ */
+function e($value, $encoding = 'UTF-8')
+{
+    if ($value === null) {
+        return '';
+    }
+    return htmlspecialchars((string) $value, ENT_QUOTES | ENT_HTML5, $encoding, false);
+}
+
+/**
+ * Alias for e() - escape for HTML attribute context
+ * 
+ * @param mixed $value The value to escape
+ * @return string Escaped string
+ */
+function esc($value)
+{
+    return e($value);
+}
+
 function tampil_media($file,$width="",$height="") {
 	$ret = '';
 

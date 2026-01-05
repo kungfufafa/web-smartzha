@@ -94,7 +94,10 @@ $(document).ready(function() {
     table = $('#tableJenis').DataTable({
         processing: true,
         serverSide: true,
-        ajax: '<?= base_url('pembayaran/dataJenis') ?>',
+        ajax: {
+            url: '<?= base_url('pembayaran/dataJenis') ?>',
+            type: 'POST'
+        },
         columns: [
             {data: null, render: function(data, type, row, meta) { return meta.row + 1; }},
             {data: 'kode_jenis'},
