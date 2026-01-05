@@ -1,4 +1,11 @@
 <?php
+/**
+ * @deprecated This model is deprecated. Use Tendik_model instead.
+ * The master_karyawan table is legacy. Use master_tendik table with tendik group.
+ * 
+ * Migration note: Karyawan functionality has been migrated to Tendik.
+ * All new features should use Tendik_model and master_tendik table.
+ */
 defined('BASEPATH') or exit('No direct script access allowed');
 
 class Karyawan_model extends CI_Model

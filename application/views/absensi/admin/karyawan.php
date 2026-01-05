@@ -19,7 +19,7 @@
         <div class="container-fluid">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-user-tie mr-1"></i> Daftar Karyawan</h3>
+                    <h3 class="card-title"><i class="fas fa-user-tie mr-1"></i> Daftar Tenaga Kependidikan</h3>
                     <div class="card-tools">
                         <a href="<?= base_url('absensi/assignShift') ?>" class="btn btn-primary btn-sm">
                             <i class="fas fa-clock"></i> Assign Shift
@@ -28,11 +28,13 @@
                 </div>
                 <div class="card-body">
                     <table id="tableKaryawan" class="table table-bordered table-striped">
-                        <thead>
+                         <thead>
                             <tr>
                                 <th>Username</th>
                                 <th>Nama</th>
-                                <th>Grup</th>
+                                <th>Tipe</th>
+                                <th>Jabatan</th>
+                                <th>No HP</th>
                                 <th>Shift</th>
                                 <th>Tgl Efektif</th>
                                 <th>Status</th>
@@ -52,17 +54,27 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Detail Karyawan</h5>
+                 <h5 class="modal-title">Detail Tenaga Kependidikan</h5>
                 <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
             </div>
             <div class="modal-body">
-                <table class="table table-borderless">
+                 <table class="table table-borderless">
                     <tr><th width="40%">Username</th><td id="detail_username"></td></tr>
-                    <tr><th>Nama</th><td id="detail_nama"></td></tr>
+                    <tr><th>Nama Lengkap</th><td id="detail_nama"></td></tr>
+                    <tr><th>NIP</th><td id="detail_nip"></td></tr>
+                    <tr><th>Tipe Tendik</th><td id="detail_tipe"></td></tr>
+                    <tr><th>Jabatan</th><td id="detail_jabatan"></td></tr>
+                    <tr><th>No HP</th><td id="detail_no_hp"></td></tr>
                     <tr><th>Email</th><td id="detail_email"></td></tr>
+                    <tr><th>Jenis Kelamin</th><td id="detail_jk"></td></tr>
+                    <tr><th>Agama</th><td id="detail_agama"></td></tr>
+                    <tr><th>Tempat Lahir</th><td id="detail_tempat_lahir"></td></tr>
+                    <tr><th>Tanggal Lahir</th><td id="detail_tgl_lahir"></td></tr>
+                    <tr><th>Alamat</th><td id="detail_alamat"></td></tr>
                     <tr><th>Shift</th><td id="detail_shift"></td></tr>
                     <tr><th>Tgl Efektif</th><td id="detail_tgl_efektif"></td></tr>
-                </table>
+                    <tr><th>Status</th><td id="detail_status"></td></tr>
+                 </table>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
@@ -72,45 +84,42 @@
 </div>
 
 <script>
-var tableKaryawan;
+     var tableTendik;
 
-$(document).ready(function() {
-    tableKaryawan = $('#tableKaryawan').DataTable({
-        "processing": true,
-        "serverSide": true,
-        "ajax": {
-            "url": "<?= base_url('absensi/dataKaryawan') ?>",
-            "type": "GET"
-        },
+     $(document).ready(function() {
+         tableTendik = $('#tableKaryawan').DataTable({
+             "processing": true,
+             "serverSide": true,
+             "ajax": {
+                 "url": "<?= base_url('absensi/dataTendik') ?>",
+                 "type": "GET"
+             },
         "columns": [
             { "data": "username" },
-            { "data": "nama_user" },
-            { 
-                "data": "group_name",
-                "render": function(data) {
-                    return '<span class="badge badge-secondary">' + (data ? data.charAt(0).toUpperCase() + data.slice(1) : '-') + '</span>';
-                }
-            },
-            { 
+            { "data": "nama_tendik" },
+            { "data": "tipe_tendik" },
+            { "data": "jabatan" },
+            { "data": "no_hp" },
+            {
                 "data": "shift_name",
                 "render": function(data) {
                     return data ? '<span class="badge badge-info">' + data + '</span>' : '<span class="text-muted">-</span>';
                 }
             },
-            { 
+            {
                 "data": "tgl_efektif",
                 "render": function(data) {
                     return data ? data : '-';
                 }
             },
-            { 
-                "data": "active",
+            {
+                "data": "is_active",
                 "render": function(data) {
                     return data == 1 ? '<span class="badge badge-success">Aktif</span>' : '<span class="badge badge-secondary">Nonaktif</span>';
                 }
             },
             {
-                "data": "id",
+                "data": "id_tendik",
                 "orderable": false,
                 "render": function(data) {
                     return '<button type="button" class="btn btn-info btn-xs" onclick="showDetail(' + data + ')"><i class="fas fa-eye"></i></button>';
@@ -123,24 +132,34 @@ $(document).ready(function() {
     });
 });
 
-function showDetail(id) {
-    $.ajax({
-        url: '<?= base_url("absensi/getKaryawan") ?>/' + id,
-        type: 'GET',
-        dataType: 'json',
-        success: function(res) {
-            if (res.status) {
-                var data = res.data;
-                $('#detail_username').text(data.username);
-                $('#detail_nama').text(data.nama_user || data.username);
-                $('#detail_email').text(data.email);
-                $('#detail_shift').text(data.shift_name || '-');
-                $('#detail_tgl_efektif').text(data.tgl_efektif || '-');
-                $('#modalDetail').modal('show');
-            } else {
-                Swal.fire('Error', res.message, 'error');
-            }
-        }
-    });
-}
+ function showDetail(id) {
+     $.ajax({
+         url: '<?= base_url("absensi/getTendik") ?>/' + id,
+         type: 'GET',
+         dataType: 'json',
+         success: function(res) {
+             if (res.status) {
+                 var data = res.data;
+                 $('#detail_username').text(data.username);
+                 $('#detail_nama').text(data.nama_tendik);
+                 $('#detail_nip').text(data.nip || '-');
+                 $('#detail_tipe').text(data.tipe_tendik || '-');
+                 $('#detail_jabatan').text(data.jabatan || '-');
+                 $('#detail_no_hp').text(data.no_hp || '-');
+                 $('#detail_email').text(data.email || '-');
+                 $('#detail_jk').text(data.jenis_kelamin || '-');
+                 $('#detail_agama').text(data.agama || '-');
+                 $('#detail_tempat_lahir').text(data.tempat_lahir || '-');
+                 $('#detail_tgl_lahir').text(data.tgl_lahir || '-');
+                 $('#detail_alamat').text(data.alamat || '-');
+                 $('#detail_shift').text(data.shift_name || '-');
+                 $('#detail_tgl_efektif').text(data.tgl_efektif || '-');
+                 $('#detail_status').text(data.is_active == 1 ? 'Aktif' : 'Nonaktif');
+                 $('#modalDetail').modal('show');
+             } else {
+                 Swal.fire('Error', res.message, 'error');
+             }
+         }
+     });
+ }
 </script>

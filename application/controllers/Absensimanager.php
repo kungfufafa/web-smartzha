@@ -29,7 +29,7 @@ class Absensimanager extends CI_Controller
         $this->load->library(['datatables', 'form_validation']);
         $this->load->model('Dashboard_model', 'dashboard');
         $this->load->model('Shift_model', 'shift');
-        $this->load->model('Karyawan_model', 'karyawan');
+        $this->load->model('Tendik_model', 'tendik');
         $this->load->model('Absensi_model', 'absensi');
         $this->form_validation->set_error_delimiters('', '');
     }
@@ -56,7 +56,7 @@ class Absensimanager extends CI_Controller
             'profile' => $this->dashboard->getProfileAdmin($user->id)
         ];
 
-        $data['total_karyawan'] = count($this->karyawan->get_all());
+        $data['total_tendik'] = count($this->tendik->get_all());
         $data['shift_active'] = count($this->shift->getAllShifts());
         $data['hadir_hari_ini'] = $this->absensi->count_today_attendance($today);
         $data['terlambat_hari_ini'] = $this->absensi->count_late_today($today);
@@ -118,43 +118,49 @@ class Absensimanager extends CI_Controller
         $this->output_json(['status' => (bool) $result]);
     }
 
-    // KARYAWAN MANAGEMENT
+    // TENDIK MANAGEMENT
     public function karyawan()
     {
         $user = $this->ion_auth->user()->row();
         $setting = $this->dashboard->getSetting();
         $data = [
             'user' => $user,
-            'judul' => 'Data Karyawan',
-            'subjudul' => 'Manajemen Staff/Karyawan',
+            'judul' => 'Data Tenaga Kependidikan',
+            'subjudul' => 'Manajemen Tendik',
             'setting' => $setting,
             'profile' => $this->dashboard->getProfileAdmin($user->id),
-            'karyawan' => $this->karyawan->get_all(),
+            'tendik_list' => $this->tendik->get_all(),
             'shifts' => $this->shift->getAllShifts()
         ];
-        
+
         $this->load->view('_templates/dashboard/_header', $data);
-        $this->load->view('absensi/karyawan/index', $data);
+        $this->load->view('absensi/admin/karyawan', $data);
         $this->load->view('_templates/dashboard/_footer');
     }
 
     public function save_karyawan()
     {
-        $id = $this->input->post('id_karyawan');
+        $id = $this->input->post('id_tendik');
         $data = [
-            'nama_karyawan' => $this->input->post('nama_karyawan'),
+            'nama_tendik' => $this->input->post('nama_tendik'),
             'nip' => $this->input->post('nip'),
             'jabatan' => $this->input->post('jabatan'),
             'no_hp' => $this->input->post('no_hp'),
-            'alamat' => $this->input->post('alamat')
+            'email' => $this->input->post('email'),
+            'alamat' => $this->input->post('alamat'),
+            'tipe_tendik' => $this->input->post('tipe_tendik'),
+            'jenis_kelamin' => $this->input->post('jenis_kelamin'),
+            'agama' => $this->input->post('agama'),
+            'tempat_lahir' => $this->input->post('tempat_lahir'),
+            'tgl_lahir' => $this->input->post('tgl_lahir')
         ];
 
         if ($id) {
-            $this->karyawan->update($id, $data);
+            $this->tendik->update($id, $data);
         } else {
-            $this->karyawan->create($data);
+            $this->tendik->create($data);
         }
-        
+
         $this->output_json(['status' => true]);
     }
 

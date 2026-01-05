@@ -6,8 +6,10 @@ class Absensi extends CI_Controller
     private $is_admin = false;
     private $is_guru = false;
     private $is_siswa = false;
+    private $is_tendik = false;
     private $guru = null;
     private $siswa = null;
+    private $tendik = null;
     private $tp = null;
     private $smt = null;
 
@@ -28,6 +30,7 @@ class Absensi extends CI_Controller
         $this->is_admin = $this->ion_auth->is_admin();
         $this->is_guru = $this->ion_auth->in_group('guru');
         $this->is_siswa = $this->ion_auth->in_group('siswa');
+        $this->is_tendik = $this->ion_auth->in_group('tendik');
         
         if ($this->is_guru) {
             $this->tp = $this->dashboard->getTahunActive();
@@ -38,8 +41,11 @@ class Absensi extends CI_Controller
             $this->tp = $this->dashboard->getTahunActive();
             $this->smt = $this->dashboard->getSemesterActive();
             $user = $this->ion_auth->user()->row();
-            // Fetch student data similar to Dashboard logic
             $this->siswa = $this->dashboard->getDataSiswa($user->username, $this->tp->id_tp, $this->smt->id_smt);
+        } elseif ($this->is_tendik) {
+            $this->load->model('Tendik_model', 'tendik_model');
+            $user = $this->ion_auth->user()->row();
+            $this->tendik = $this->tendik_model->get_by_user_id($user->id);
         }
     }
 
@@ -109,6 +115,13 @@ class Absensi extends CI_Controller
             $this->load->view('members/siswa/templates/header', $data);
             $this->load->view($view, $data);
             $this->load->view('members/siswa/templates/footer');
+        } elseif ($this->is_tendik) {
+            $data['tendik'] = $this->tendik;
+            
+            $this->load->view('members/tendik/templates/header', $data);
+            $this->load->view('members/tendik/templates/sidebar', $data);
+            $this->load->view($view, $data);
+            $this->load->view('members/tendik/templates/footer');
         } else {
             $this->load->view('_templates/dashboard/_header', $data);
             $this->load->view($view, $data);
@@ -1277,24 +1290,24 @@ class Absensi extends CI_Controller
     }
 
     /**
-     * DataTables server-side for karyawan
+     * DataTables server-side for tendik
      */
-    public function dataKaryawan()
+    public function dataTendik()
     {
         $this->requireAdmin();
-        
-        echo $this->absensi->datatableKaryawan();
+
+        echo $this->absensi->datatableTendik();
     }
 
     /**
-     * Get karyawan detail for editing
+     * Get tendik detail for editing
      */
-    public function getKaryawan($id)
+    public function getTendik($id)
     {
         $this->requireAdmin();
-        
-        $user = $this->absensi->getKaryawanDetail($id);
-        
+
+        $user = $this->absensi->getTendikDetail($id);
+
         if ($user) {
             $this->output_json(['status' => true, 'data' => $user]);
         } else {

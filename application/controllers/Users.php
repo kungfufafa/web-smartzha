@@ -46,17 +46,69 @@ class Users extends CI_Controller
         $data["tp_active"] = $this->admindashboard->getTahunActive();
         $data["smt"] = $this->admindashboard->getSemester();
         $data["smt_active"] = $this->admindashboard->getSemesterActive();
-        $this->load->view("_templates/dashboard/header.php", $data);
+        $this->load->view("_templates/dashboard/_header", $data);
         $this->load->view("users/data");
-        $this->load->view("_templates/dashboard/footer.php");
+        $this->load->view("_templates/dashboard/_footer");
+    }
+
+    public function admin()
+    {
+        $this->is_admin();
+        $data = ["user" => $this->ion_auth->user()->row(), "judul" => "User Management", "subjudul" => "Data Administrator"];
+        $data["tp"] = $this->admindashboard->getTahun();
+        $data["tp_active"] = $this->admindashboard->getTahunActive();
+        $data["smt"] = $this->admindashboard->getSemester();
+        $data["smt_active"] = $this->admindashboard->getSemesterActive();
+        $this->load->view("_templates/dashboard/_header", $data);
+        $this->load->view("users/admin/data");
+        $this->load->view("_templates/dashboard/_footer");
+    }
+
+    public function guru()
+    {
+        $this->is_admin();
+        $data = ["user" => $this->ion_auth->user()->row(), "judul" => "User Management", "subjudul" => "Data Guru"];
+        $data["tp"] = $this->admindashboard->getTahun();
+        $data["tp_active"] = $this->admindashboard->getTahunActive();
+        $data["smt"] = $this->admindashboard->getSemester();
+        $data["smt_active"] = $this->admindashboard->getSemesterActive();
+        $this->load->view("_templates/dashboard/_header", $data);
+        $this->load->view("users/guru/data");
+        $this->load->view("_templates/dashboard/_footer");
+    }
+
+    public function tendik()
+    {
+        $this->is_admin();
+        $data = ["user" => $this->ion_auth->user()->row(), "judul" => "User Management", "subjudul" => "Data Tendik"];
+        $data["tp"] = $this->admindashboard->getTahun();
+        $data["tp_active"] = $this->admindashboard->getTahunActive();
+        $data["smt"] = $this->admindashboard->getSemester();
+        $data["smt_active"] = $this->admindashboard->getSemesterActive();
+        $this->load->view("_templates/dashboard/_header", $data);
+        $this->load->view("users/tendik/data");
+        $this->load->view("_templates/dashboard/_footer");
+    }
+
+    public function orangtua()
+    {
+        $this->is_admin();
+        $data = ["user" => $this->ion_auth->user()->row(), "judul" => "User Management", "subjudul" => "Data Orang Tua"];
+        $data["tp"] = $this->admindashboard->getTahun();
+        $data["tp_active"] = $this->admindashboard->getTahunActive();
+        $data["smt"] = $this->admindashboard->getSemester();
+        $data["smt_active"] = $this->admindashboard->getSemesterActive();
+        $this->load->view("_templates/dashboard/_header", $data);
+        $this->load->view("users/orangtua/data");
+        $this->load->view("_templates/dashboard/_footer");
     }
     public function edit($id)
     {
         $level = $this->ion_auth->get_users_groups($id)->result();
         $data = ["user" => $this->ion_auth->user()->row(), "judul" => "User Management", "subjudul" => "Edit Data User", "users" => $this->ion_auth->user($id)->row(), "groups" => $this->ion_auth->groups()->result(), "level" => $level[0]];
-        $this->load->view("_templates/dashboard/header.php", $data);
+        $this->load->view("_templates/dashboard/_header", $data);
         $this->load->view("users/edit");
-        $this->load->view("_templates/dashboard/footer.php");
+        $this->load->view("_templates/dashboard/_footer");
     }
     public function edit_info()
     {

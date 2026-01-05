@@ -1,10 +1,5 @@
 <?php
 
-/*   ________________________________________
-    |                 GarudaCBT              |
-    |    https://github.com/garudacbt/cbt    |
-    |________________________________________|
-*/
 class Cbt_model extends CI_Model
 {
     public function get_where($table, $pk, $id, $join = null, $order = null)

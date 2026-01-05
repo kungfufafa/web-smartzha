@@ -42,7 +42,15 @@ class Auth extends CI_Controller
         if ($this->ion_auth->logged_in()) {
             $user_id = $this->ion_auth->user()->row()->id;
             $group = $this->ion_auth->get_users_groups($user_id)->row()->name;
-            redirect("dashboard");
+            
+            // Redirect orangtua to their own dashboard
+            if ($group === 'orangtua') {
+                redirect("orangtua");
+            } elseif ($group === 'tendik') {
+                redirect("tendik");
+            } else {
+                redirect("dashboard");
+            }
         }
 
         $this->data["setting"] = $setting;
@@ -84,7 +92,15 @@ class Auth extends CI_Controller
             $status = true;
             $this->load->model("Log_model", "logging");
             $this->logging->saveLog(1, "Login");
-            $url = "dashboard";
+            
+            // Redirect based on user group
+            if ($this->ion_auth->in_group('orangtua')) {
+                $url = "orangtua";
+            } elseif ($this->ion_auth->in_group('tendik')) {
+                $url = "tendik";
+            } else {
+                $url = "dashboard";
+            }
         } else {
             $status = false;
             $url = "auth";

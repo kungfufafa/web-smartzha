@@ -2253,6 +2253,68 @@ class Absensi_model extends CI_Model
             ->join('groups gr', 'ug.group_id = gr.id', 'left')
             ->join('master_guru g', 'u.username = g.nip', 'left')
             ->join('master_karyawan k', 'u.id = k.id_user', 'left')
+             ->join('pegawai_shift ps', 'u.id = ps.id_user AND ps.tipe_shift = "fixed"', 'left')
+            ->join('master_shift ms', 'ps.id_shift_fixed = ms.id_shift', 'left')
+            ->where('u.id', $id)
+            ->get()
+            ->row();
+    }
+
+    /**
+     * DataTables server-side for tendik
+     * @return string JSON response for DataTables
+     */
+    public function datatableTendik()
+    {
+        $this->load->library('datatables');
+
+        $this->datatables
+            ->select('u.id, u.username, u.email, u.active,
+                      t.nama_tendik as nama_user,
+                      t.tipe_tendik,
+                      ms.nama_shift as shift_name,
+                      ps.tgl_efektif')
+            ->from('users u')
+            ->join('users_groups ug', 'u.id = ug.user_id')
+            ->join('groups gr', 'ug.group_id = gr.id')
+            ->join('master_tendik t', 'u.id = t.id_user', 'left')
+            ->join('pegawai_shift ps', 'u.id = ps.id_user AND ps.tipe_shift = "fixed"', 'left')
+            ->join('master_shift ms', 'ps.id_shift_fixed = ms.id_shift', 'left')
+            ->where('gr.name', 'tendik')
+            ->where('u.active', 1);
+
+        return $this->datatables->generate();
+    }
+
+    /**
+     * Get tendik detail for editing
+     * Returns all fields needed by edit modal including shift info
+     *
+     * @param int $id User ID
+     * @return object|null User data with shift info
+     */
+    public function getTendikDetail($id)
+    {
+        return $this->db->select('u.*, 
+                                   ps.id_shift_fixed as id_shift, 
+                                   ps.tgl_efektif,
+                                   ms.nama_shift as shift_name,
+                                   t.nama_tendik,
+                                   t.tipe_tendik,
+                                   t.nip,
+                                   t.jabatan,
+                                   t.no_hp,
+                                   t.email,
+                                   t.jenis_kelamin,
+                                   t.agama,
+                                   t.tempat_lahir,
+                                   t.tgl_lahir,
+                                   t.alamat,
+                                   t.is_active')
+            ->from('users u')
+            ->join('users_groups ug', 'u.id = ug.user_id', 'left')
+            ->join('groups gr', 'ug.group_id = gr.id', 'left')
+            ->join('master_tendik t', 'u.id = t.id_user', 'left')
             ->join('pegawai_shift ps', 'u.id = ps.id_user AND ps.tipe_shift = "fixed"', 'left')
             ->join('master_shift ms', 'ps.id_shift_fixed = ms.id_shift', 'left')
             ->where('u.id', $id)

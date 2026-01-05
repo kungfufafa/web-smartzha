@@ -33,14 +33,14 @@
                 data-accordion="false">
                 <?php
                 $page = $this->uri->segment(1);
-                $master = ["datatahun", "dataguru", "datajurusan", "datakelas", "datamapel", "dataekstra", "datasiswa"];
+                 $master = ["datatahun", "dataguru", "datajurusan", "datakelas", "datamapel", "dataekstra", "datasiswa", "dataorangtua", "datatendik"];
                 $elearning = ["kelasjadwal", "kelasmateri", "kelastugas", "kelasmaterijadwal"];
                 $infoelearning = ["kelascetak", "kelasstatus", "kelasabsensiharian", "kelasabsensiharianmapel", "kelasabsensibulanan", "kelasnilai", "kelascatatan"];
                 $cbt = ["cbtjenis", "cbtruang", "cbtsesi", "cbtsesisiswa", "cbtnomorpeserta", "cbtjadwal", "cbtbanksoal", "cbtalokasi", "cbtpengawas", "cbttoken"];
                 $infoujian = ["cbtcetak", "cbtpeserta", "cbtstatus", "cbtnilai", "cbtanalisis", "cbtrekap"];
                 $pembayaran = ["pembayaran", "datajenistagihan", "datatagihan"];
                 $absensi = ["absensimanager", "absensi"];
-                $usermanager = ["useradmin", "userguru", "usersiswa"];
+                $usermanager = ["useradmin", "userguru", "usersiswa", "usertendik", "userorangtua"];
                 $databases = ["dbmanager", "dbclear", "update"];
                 $users = ["users"];
                 ?>
@@ -99,16 +99,36 @@
                                 <p>Ekstrakurikuler</p>
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a href="<?= base_url('dataguru') ?>"
-                               class="nav-link <?= $page === 'dataguru' ? "active" : "" ?>">
-                                <i class="fa fa-chalkboard-teacher nav-icon"></i>
-                                <p>Guru</p>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-                <li class="nav-item has-treeview <?= in_array($page, $elearning) ? "menu-open" : "" ?>">
+                         <li class="nav-item">
+                             <a href="<?= base_url('dataguru') ?>"
+                                class="nav-link <?= $page === 'dataguru' ? "active" : "" ?>">
+                                 <i class="fa fa-chalkboard-teacher nav-icon"></i>
+                                 <p>Guru</p>
+                             </a>
+                         </li>
+                          <li class="nav-item">
+                              <a href="<?= base_url('dataorangtua') ?>"
+                                 class="nav-link <?= $page === 'dataorangtua' ? "active" : "" ?>">
+                                  <i class="fa fa-users nav-icon"></i>
+                                  <p>
+                                      Orang Tua
+                                      <span class="badge badge-success right">FITUR BARU</span>
+                                  </p>
+                              </a>
+                          </li>
+                          <li class="nav-item">
+                              <a href="<?= base_url('datatendik') ?>"
+                                 class="nav-link <?= $page === 'datatendik' ? "active" : "" ?>">
+                                  <i class="fa fa-user-tie nav-icon"></i>
+                                  <p>
+                                      Tenaga Kependidikan
+                                      <span class="badge badge-success right">FITUR BARU</span>
+                                  </p>
+                              </a>
+                          </li>
+                     </ul>
+                 </li>
+                 <li class="nav-item has-treeview <?= in_array($page, $elearning) ? "menu-open" : "" ?>">
                     <a href="#" class="nav-link <?= in_array($page, $elearning) ? "active" : "" ?>">
                         <i class="nav-icon fas fa-chalkboard"></i>
                         <p>
@@ -252,15 +272,7 @@
                                 <i class="far fa-clipboard nav-icon"></i>
                                 <p>Nilai Harian</p>
                             </a>
-                        </li>
-                        <!--
-                        <li class="nav-item">
-                            <a href="<?= base_url('kelasabsensiharianmapel') ?>" class="nav-link <?= $page === 'kelasabsensiharianmapel' ? "active" : "" ?>">
-                                <i class="fa fa-tasks nav-icon"></i>
-                                <p>Kehadiran dan Nilai</p>
-                            </a>
-                        </li>
-                        -->
+                  </li>
                         <li class="nav-item">
                             <a href="<?= base_url('kelasabsensiharian') ?>"
                                class="nav-link <?= $page === 'kelasabsensiharian' ? "active" : "" ?>">
@@ -344,14 +356,6 @@
                         <p>Kumpulan Nilai Rapor</p>
                     </a>
                 </li>
-                <!--
-                <li class="nav-item">
-                    <a href="<?= base_url('bukuinduk') ?>" class="nav-link <?= $page === 'bukuinduk' ? "active" : "" ?>">
-                        <i class="fas fa-book nav-icon"></i>
-                        <p>Buku Induk</p>
-                    </a>
-                </li>
-                -->
                 <li class="nav-item">
                     <a href="<?= base_url('dataalumni') ?>"
                        class="nav-link <?= $page === 'dataalumni' ? "active" : "" ?>">
@@ -359,7 +363,7 @@
                         <p>Alumni</p>
                     </a>
                 </li>
-                <li class="nav-header">ABSENSI</li>
+                 <li class="nav-header">ABSENSI <span class="badge badge-success right">FITUR BARU</span></li>
                 <li class="nav-item has-treeview <?= in_array($page, $absensi) ? "menu-open" : "" ?>">
                     <a href="#" class="nav-link <?= in_array($page, $absensi) ? "active" : "" ?>">
                         <i class="nav-icon fas fa-fingerprint"></i>
@@ -390,13 +394,13 @@
                                 <p>Shift</p>
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a href="<?= base_url('absensi/karyawan') ?>"
-                               class="nav-link <?= $this->uri->segment(2) === 'karyawan' ? "active" : "" ?>">
-                                <i class="fas fa-user-tie nav-icon"></i>
-                                <p>Data Karyawan</p>
-                            </a>
-                        </li>
+                         <li class="nav-item">
+                             <a href="<?= base_url('absensi/karyawan') ?>"
+                                class="nav-link <?= $this->uri->segment(2) === 'karyawan' ? "active" : "" ?>">
+                                 <i class="fas fa-user-tie nav-icon"></i>
+                                 <p>Data Tenaga Kependidikan</p>
+                             </a>
+                         </li>
                         <li class="nav-item">
                             <a href="<?= base_url('absensi/logs') ?>"
                                class="nav-link <?= $this->uri->segment(2) === 'logs' ? "active" : "" ?>">
@@ -420,7 +424,7 @@
                         </li>
                     </ul>
                 </li>
-                <li class="nav-header">PEMBAYARAN</li>
+                <li class="nav-header">PEMBAYARAN <span class="badge badge-success right">FITUR BARU</span></li>
                 <li class="nav-item has-treeview <?= in_array($page, $pembayaran) ? "menu-open" : "" ?>">
                     <a href="#" class="nav-link <?= in_array($page, $pembayaran) ? "active" : "" ?>">
                         <i class="nav-icon fas fa-money-bill-wave"></i>
@@ -526,6 +530,26 @@
                                 <p>Siswa</p>
                             </a>
                         </li>
+                         <li class="nav-item">
+                             <a href="<?= base_url('userorangtua') ?>"
+                                class="nav-link <?= $page === 'userorangtua' ? "active" : "" ?>">
+                                 <i class="fas fa-user-friends nav-icon"></i>
+                                 <p>
+                                     Orang Tua
+                                     <span class="badge badge-success right">FITUR BARU</span>
+                                 </p>
+                             </a>
+                         </li>
+                         <li class="nav-item">
+                             <a href="<?= base_url('usertendik') ?>"
+                                class="nav-link <?= $page === 'usertendik' ? "active" : "" ?>">
+                                 <i class="fas fa-id-badge nav-icon"></i>
+                                 <p>
+                                     Tenaga Kependidikan
+                                     <span class="badge badge-success right">FITUR BARU</span>
+                                 </p>
+                             </a>
+                         </li>
                     </ul>
                 </li>
                 <li class="nav-item has-treeview <?= in_array($page, $databases) ? "menu-open" : "" ?>">

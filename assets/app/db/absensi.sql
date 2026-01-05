@@ -66,29 +66,6 @@ CREATE TABLE IF NOT EXISTS `master_hari_libur` (
   UNIQUE KEY `uk_tanggal` (`tanggal`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- -----------------------------------------------------------
--- Table: master_karyawan
--- -----------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `master_karyawan` (
-  `id_karyawan` int(11) NOT NULL AUTO_INCREMENT,
-  `id_user` int(11) UNSIGNED DEFAULT NULL,
-  `nama_karyawan` varchar(100) NOT NULL,
-  `nip` varchar(30) DEFAULT NULL,
-  `jabatan` varchar(50) DEFAULT NULL COMMENT 'Security, Cleaning, Admin, etc.',
-  `tipe_karyawan` varchar(20) DEFAULT NULL COMMENT 'TU, SATPAM, KEBUN, etc.',
-  `departemen` varchar(50) DEFAULT NULL,
-  `no_hp` varchar(20) DEFAULT NULL,
-  `alamat` text,
-  `foto` varchar(255) DEFAULT NULL,
-  `tanggal_masuk` date DEFAULT NULL,
-  `is_active` tinyint(1) DEFAULT 1,
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id_karyawan`),
-  KEY `idx_id_user` (`id_user`),
-  CONSTRAINT `fk_karyawan_user` FOREIGN KEY (`id_user`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 -- ============================================================
 -- PART 2: CONFIGURATION TABLES
 -- ============================================================
@@ -380,13 +357,13 @@ CREATE TABLE IF NOT EXISTS `absensi_audit_log` (
 -- UPGRADE PATCHES (SAFE ALTER)
 -- ============================================================
 
--- master_karyawan.tipe_karyawan
+-- master_tendik.tipe_tendik (upgrade patch for tendik table)
 SET @sql = (SELECT IF(
     (SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'master_karyawan') = 1
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'master_tendik') = 1
     AND (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'master_karyawan' AND COLUMN_NAME = 'tipe_karyawan') = 0,
-    'ALTER TABLE `master_karyawan` ADD COLUMN `tipe_karyawan` varchar(20) DEFAULT NULL COMMENT ''TU, SATPAM, KEBUN, etc.''',
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'master_tendik' AND COLUMN_NAME = 'tipe_tendik') = 0,
+    'ALTER TABLE `master_tendik` ADD COLUMN `tipe_tendik` enum(''TU'',''PUSTAKAWAN'',''LABORAN'',''SATPAM'',''KEBERSIHAN'',''PENJAGA'',''TEKNISI'',''DRIVER'',''LAINNYA'') DEFAULT ''LAINNYA''',
     'SELECT 1'
 ));
 PREPARE stmt FROM @sql;
@@ -832,7 +809,7 @@ INSERT INTO `absensi_group_config`
  `require_checkout`, `enable_lembur`, `lembur_require_approval`, `is_active`)
 SELECT g.id, 'TU', 'Tata Usaha', '[1,2,3,4,5,6]', NULL, 0, 'all', 1, 1, 0, 1, 1, 15, 1, 1, 1, 1
 FROM `groups` g
-WHERE g.name = 'karyawan'
+WHERE g.name = 'tendik'
 LIMIT 1
 ON DUPLICATE KEY UPDATE
   `nama_konfigurasi` = VALUES(`nama_konfigurasi`),
@@ -852,7 +829,7 @@ INSERT INTO `absensi_group_config`
  `require_checkout`, `enable_lembur`, `lembur_require_approval`, `is_active`)
 SELECT g.id, 'SATPAM', 'Satpam', '[1,2,3,4,5,6,7]', NULL, 0, 'essential', 1, 1, 0, 1, 1, 0, 1, 1, 1, 1
 FROM `groups` g
-WHERE g.name = 'karyawan'
+WHERE g.name = 'tendik'
 LIMIT 1
 ON DUPLICATE KEY UPDATE
   `nama_konfigurasi` = VALUES(`nama_konfigurasi`),
@@ -870,9 +847,9 @@ INSERT INTO `absensi_group_config`
 (`id_group`, `kode_tipe`, `nama_konfigurasi`, `working_days`, `id_shift_default`, `follow_academic_calendar`, `holiday_group`,
  `enable_gps`, `enable_qr`, `enable_manual`, `require_photo`, `allow_bypass`, `toleransi_terlambat`,
  `require_checkout`, `enable_lembur`, `lembur_require_approval`, `is_active`)
-SELECT g.id, 'KEBUN', 'Tukang Kebun', '[1,2,3,4,5,6]', NULL, 0, 'all', 1, 0, 0, 1, 1, 30, 1, 1, 1, 1
+SELECT g.id, 'KEBERSIHAN', 'Petugas Kebersihan', '[1,2,3,4,5,6]', NULL, 0, 'all', 1, 0, 0, 1, 1, 30, 1, 1, 1, 1
 FROM `groups` g
-WHERE g.name = 'karyawan'
+WHERE g.name = 'tendik'
 LIMIT 1
 ON DUPLICATE KEY UPDATE
   `nama_konfigurasi` = VALUES(`nama_konfigurasi`),
@@ -894,10 +871,10 @@ CREATE OR REPLACE VIEW `v_absensi_harian` AS
 SELECT
   al.tanggal,
   al.id_user,
-  COALESCE(g.nama_guru, k.nama_karyawan, u.username) AS nama,
+  COALESCE(g.nama_guru, t.nama_tendik, u.username) AS nama,
   CASE
     WHEN g.id_guru IS NOT NULL THEN 'Guru'
-    WHEN k.id_karyawan IS NOT NULL THEN 'Karyawan'
+    WHEN t.id_tendik IS NOT NULL THEN 'Tendik'
     ELSE 'Admin'
   END AS tipe_user,
   s.nama_shift,
@@ -912,7 +889,7 @@ SELECT
 FROM absensi_logs al
 LEFT JOIN users u ON al.id_user = u.id
 LEFT JOIN master_guru g ON u.id = g.id_user
-LEFT JOIN master_karyawan k ON u.id = k.id_user
+LEFT JOIN master_tendik t ON u.id = t.id_user
 LEFT JOIN master_shift s ON al.id_shift = s.id_shift
 LEFT JOIN absensi_lokasi l ON al.id_lokasi = l.id_lokasi;
 

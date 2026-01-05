@@ -605,4 +605,198 @@ class Datasiswa extends CI_Controller
         }
         return $data;
     }
+
+    /**
+     * Get parent access info for a student
+     */
+    public function getParentAccess($id_siswa)
+    {
+        $this->load->model("Master_model", "master");
+        $this->load->model("Orangtua_model", "orangtua");
+        
+        $siswa = $this->master->getSiswaById($id_siswa);
+        if (!$siswa) {
+            $this->output_json(['status' => false, 'message' => 'Siswa tidak ditemukan']);
+            return;
+        }
+
+        // Get existing parent access
+        $existing = $this->orangtua->getParentAccessBySiswa($id_siswa);
+
+        $data = [
+            'status' => true,
+            'siswa' => $siswa,
+            'existing' => $existing,
+            'parents' => [
+                'ayah' => ['nama' => $siswa->nama_ayah, 'hp' => $siswa->nohp_ayah],
+                'ibu' => ['nama' => $siswa->nama_ibu, 'hp' => $siswa->nohp_ibu],
+                'wali' => ['nama' => $siswa->nama_wali, 'hp' => $siswa->nohp_wali]
+            ]
+        ];
+
+        $this->output_json($data);
+    }
+
+    /**
+     * Create parent access for a student
+     */
+    public function createParentAccess()
+    {
+        $this->load->model("Master_model", "master");
+        $this->load->model("Orangtua_model", "orangtua");
+
+        $id_siswa = $this->input->post("id_siswa", true);
+        $relasi = $this->input->post("relasi", true); // ayah, ibu, wali
+
+        if (!in_array($relasi, ['ayah', 'ibu', 'wali'])) {
+            $this->output_json(['status' => false, 'message' => 'Jenis relasi tidak valid']);
+            return;
+        }
+
+        $siswa = $this->master->getSiswaById($id_siswa);
+        if (!$siswa) {
+            $this->output_json(['status' => false, 'message' => 'Siswa tidak ditemukan']);
+            return;
+        }
+
+        // Get phone number based on relasi
+        $hp_field = 'nohp_' . $relasi;
+        $nama_field = 'nama_' . $relasi;
+        $phone = $siswa->$hp_field;
+        $nama = $siswa->$nama_field;
+
+        if (empty($phone)) {
+            $this->output_json(['status' => false, 'message' => 'Nomor HP ' . ucfirst($relasi) . ' belum diisi di data siswa']);
+            return;
+        }
+
+        // Normalize phone number (remove leading 0, add 62)
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+        if (substr($phone, 0, 1) === '0') {
+            $phone = '62' . substr($phone, 1);
+        } elseif (substr($phone, 0, 2) !== '62') {
+            $phone = '62' . $phone;
+        }
+
+        // Check if user already exists with this phone
+        $existing_user = $this->db->get_where('users', ['username' => $phone])->row();
+
+        if ($existing_user) {
+            // Check if already in orangtua group
+            $in_orangtua_group = $this->ion_auth->in_group('orangtua', $existing_user->id);
+
+            if (!$in_orangtua_group) {
+                // Add user to orangtua group
+                $orangtua_group = $this->db->get_where('groups', ['name' => 'orangtua'])->row();
+                if ($orangtua_group) {
+                    $this->db->insert('users_groups', [
+                        'user_id' => $existing_user->id,
+                        'group_id' => $orangtua_group->id
+                    ]);
+                }
+            }
+
+            // Check if master_orangtua record exists
+            $existing_orangtua = $this->orangtua->get_by_user_id($existing_user->id);
+            if (!$existing_orangtua) {
+                // Create master_orangtua record if not exists
+                $jenis_kelamin = ($relasi == 'ayah') ? 'L' : 'P';
+                $id_orangtua = $this->orangtua->createOrangtua([
+                    'id_user' => $existing_user->id,
+                    'nama_lengkap' => $nama,
+                    'no_hp' => $phone,
+                    'jenis_kelamin' => $jenis_kelamin
+                ]);
+            }
+
+            // Check if relation already exists
+            $existing_relation = $this->orangtua->getRelation($existing_user->id, $id_siswa);
+            if ($existing_relation) {
+                $this->output_json(['status' => false, 'message' => 'Akses orang tua sudah ada untuk siswa ini']);
+                return;
+            }
+
+            // Add relation
+            $this->orangtua->addParentSiswa($existing_user->id, $id_siswa, $relasi);
+
+            $this->output_json([
+                'status' => true,
+                'message' => 'Anak berhasil ditambahkan ke akun orang tua yang sudah ada',
+                'username' => $phone,
+                'is_new_user' => false
+            ]);
+        } else {
+            // Create new user with phone as username and password
+            $email = $phone . '@orangtua.smartzha.local';
+            $nama_parts = explode(' ', $nama ?: 'Orang Tua');
+            $first_name = $nama_parts[0];
+            $last_name = count($nama_parts) > 1 ? end($nama_parts) : '';
+
+            $additional_data = [
+                'first_name' => $first_name,
+                'last_name' => $last_name,
+                'phone' => $phone
+            ];
+
+            // Get orangtua group id
+            $orangtua_group = $this->db->get_where('groups', ['name' => 'orangtua'])->row();
+            if (!$orangtua_group) {
+                $this->output_json(['status' => false, 'message' => 'Group orangtua belum ada di database. Jalankan migration SQL terlebih dahulu.']);
+                return;
+            }
+
+            $group = [$orangtua_group->id];
+
+            // Register user
+            $user_id = $this->ion_auth->register($phone, $phone, $email, $additional_data, $group);
+
+            if (!$user_id) {
+                $this->output_json(['status' => false, 'message' => 'Gagal membuat akun orang tua: ' . implode(', ', $this->ion_auth->errors_array())]);
+                return;
+            }
+
+            // Create master_orangtua record
+            $jenis_kelamin = ($relasi == 'ayah') ? 'L' : 'P';
+            $id_orangtua = $this->orangtua->createOrangtua([
+                'id_user' => $user_id,
+                'nama_lengkap' => $nama,
+                'no_hp' => $phone,
+                'jenis_kelamin' => $jenis_kelamin
+            ]);
+
+            // Add relation with id_orangtua
+            $this->orangtua->addParentSiswa($user_id, $id_siswa, $relasi);
+
+            $this->output_json([
+                'status' => true,
+                'message' => 'Akun orang tua berhasil dibuat. Username: ' . $phone . ', Password: ' . $phone,
+                'username' => $phone,
+                'password' => $phone,
+                'is_new_user' => true
+            ]);
+        }
+    }
+
+    /**
+     * Remove parent access for a student
+     */
+    public function removeParentAccess()
+    {
+        $this->load->model("Orangtua_model", "orangtua");
+
+        $id = $this->input->post("id", true);
+        
+        if (!$id) {
+            $this->output_json(['status' => false, 'message' => 'ID tidak valid']);
+            return;
+        }
+
+        $result = $this->orangtua->removeParentSiswa($id);
+        
+        if ($result) {
+            $this->output_json(['status' => true, 'message' => 'Akses orang tua berhasil dihapus']);
+        } else {
+            $this->output_json(['status' => false, 'message' => 'Gagal menghapus akses orang tua']);
+        }
+    }
 }

@@ -70,6 +70,15 @@ if (!file_exists(FCPATH . $siswa->foto)) {
                                                 </button>
                                             </div>
                                         </div>
+                                        <div class="row mt-3">
+                                            <div class="col-12">
+                                                <button type="button" class="btn btn-info btn-block"
+                                                        data-toggle="modal" data-target="#parentAccessModal"
+                                                        onclick="loadParentAccess()"><i
+                                                            class="fas fa-users"></i> Akses Orang Tua
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -451,6 +460,107 @@ if (!file_exists(FCPATH . $siswa->foto)) {
 </div>
 <?= form_close() ?>
 
+<!-- Modal Akses Orang Tua -->
+<div class="modal fade" id="parentAccessModal" tabindex="-1" role="dialog" aria-labelledby="parentAccessLabel"
+     aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="parentAccessLabel"><i class="fas fa-users"></i> Akses Orang Tua - <?= $siswa->nama ?></h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Existing Access -->
+                <div id="existingAccess">
+                    <h6><i class="fas fa-check-circle text-success"></i> Akses Yang Sudah Diberikan</h6>
+                    <div id="accessList" class="mb-3">
+                        <p class="text-muted text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</p>
+                    </div>
+                </div>
+                <hr>
+                <!-- Add New Access -->
+                <h6><i class="fas fa-plus-circle text-primary"></i> Berikan Akses Baru</h6>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card card-outline card-primary parent-card" data-relasi="ayah">
+                            <div class="card-header text-center">
+                                <i class="fas fa-male fa-2x"></i>
+                                <h6 class="mt-2 mb-0">Ayah</h6>
+                            </div>
+                            <div class="card-body text-center p-2">
+                                <small class="d-block"><strong>Nama:</strong> <?= $siswa->nama_ayah ?: '-' ?></small>
+                                <small class="d-block"><strong>HP:</strong> <span class="text-primary"><?= $siswa->nohp_ayah ?: '-' ?></span></small>
+                            </div>
+                            <div class="card-footer p-2 text-center" id="ayah-action">
+                                <?php if (!empty($siswa->nohp_ayah)): ?>
+                                    <button type="button" class="btn btn-sm btn-primary btn-block" onclick="createParentAccess('ayah')">
+                                        <i class="fas fa-plus"></i> Berikan Akses
+                                    </button>
+                                <?php else: ?>
+                                    <span class="text-muted small">HP belum diisi</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card card-outline card-danger parent-card" data-relasi="ibu">
+                            <div class="card-header text-center">
+                                <i class="fas fa-female fa-2x"></i>
+                                <h6 class="mt-2 mb-0">Ibu</h6>
+                            </div>
+                            <div class="card-body text-center p-2">
+                                <small class="d-block"><strong>Nama:</strong> <?= $siswa->nama_ibu ?: '-' ?></small>
+                                <small class="d-block"><strong>HP:</strong> <span class="text-primary"><?= $siswa->nohp_ibu ?: '-' ?></span></small>
+                            </div>
+                            <div class="card-footer p-2 text-center" id="ibu-action">
+                                <?php if (!empty($siswa->nohp_ibu)): ?>
+                                    <button type="button" class="btn btn-sm btn-danger btn-block" onclick="createParentAccess('ibu')">
+                                        <i class="fas fa-plus"></i> Berikan Akses
+                                    </button>
+                                <?php else: ?>
+                                    <span class="text-muted small">HP belum diisi</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card card-outline card-warning parent-card" data-relasi="wali">
+                            <div class="card-header text-center">
+                                <i class="fas fa-user-shield fa-2x"></i>
+                                <h6 class="mt-2 mb-0">Wali</h6>
+                            </div>
+                            <div class="card-body text-center p-2">
+                                <small class="d-block"><strong>Nama:</strong> <?= $siswa->nama_wali ?: '-' ?></small>
+                                <small class="d-block"><strong>HP:</strong> <span class="text-primary"><?= $siswa->nohp_wali ?: '-' ?></span></small>
+                            </div>
+                            <div class="card-footer p-2 text-center" id="wali-action">
+                                <?php if (!empty($siswa->nohp_wali)): ?>
+                                    <button type="button" class="btn btn-sm btn-warning btn-block" onclick="createParentAccess('wali')">
+                                        <i class="fas fa-plus"></i> Berikan Akses
+                                    </button>
+                                <?php else: ?>
+                                    <span class="text-muted small">HP belum diisi</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="alert alert-info mt-3 mb-0">
+                    <i class="fas fa-info-circle"></i> <strong>Catatan:</strong><br>
+                    - Username orang tua = Nomor HP<br>
+                    - Password orang tua = Nomor HP (sama dengan username)<br>
+                    - Satu akun orang tua bisa melihat beberapa anak (kakak-adik)
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     var fotoProfile = '';
     var idSiswa = '<?=$siswa->id_siswa?>';
@@ -705,6 +815,176 @@ if (!file_exists(FCPATH . $siswa->foto)) {
                 if (fromBtn) {
                     window.location.reload();
                 }
+            }
+        });
+    }
+
+    // Parent Access Functions
+    function loadParentAccess() {
+        $('#accessList').html('<p class="text-muted text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</p>');
+        
+        $.ajax({
+            url: base_url + "datasiswa/getParentAccess/" + idSiswa,
+            type: "GET",
+            dataType: "JSON",
+            success: function (response) {
+                if (response.status) {
+                    var data = response.data;
+                    var html = '';
+                    
+                    if (data.existing_access && data.existing_access.length > 0) {
+                        html = '<div class="table-responsive"><table class="table table-sm table-bordered mb-0">';
+                        html += '<thead class="thead-light"><tr><th>Relasi</th><th>Username</th><th>Nama</th><th>Aksi</th></tr></thead><tbody>';
+                        
+                        data.existing_access.forEach(function(access) {
+                            var relasiBadge = '';
+                            if (access.relasi === 'ayah') {
+                                relasiBadge = '<span class="badge badge-primary">Ayah</span>';
+                            } else if (access.relasi === 'ibu') {
+                                relasiBadge = '<span class="badge badge-danger">Ibu</span>';
+                            } else {
+                                relasiBadge = '<span class="badge badge-warning">Wali</span>';
+                            }
+                            
+                            html += '<tr>';
+                            html += '<td>' + relasiBadge + '</td>';
+                            html += '<td><code>' + access.username + '</code></td>';
+                            html += '<td>' + (access.first_name || '-') + '</td>';
+                            html += '<td><button type="button" class="btn btn-xs btn-outline-danger" onclick="removeParentAccess(' + access.id + ')"><i class="fas fa-trash"></i></button></td>';
+                            html += '</tr>';
+                        });
+                        
+                        html += '</tbody></table></div>';
+                        
+                        // Update card footers to show already granted
+                        data.existing_access.forEach(function(access) {
+                            var actionId = '#' + access.relasi + '-action';
+                            $(actionId).html('<span class="badge badge-success"><i class="fas fa-check"></i> Sudah Diberikan</span>');
+                        });
+                    } else {
+                        html = '<p class="text-muted text-center mb-0"><i class="fas fa-info-circle"></i> Belum ada akses orang tua</p>';
+                    }
+                    
+                    $('#accessList').html(html);
+                } else {
+                    $('#accessList').html('<p class="text-danger text-center"><i class="fas fa-exclamation-circle"></i> ' + response.message + '</p>');
+                }
+            },
+            error: function (xhr, status, error) {
+                console.log("error", xhr.responseText);
+                $('#accessList').html('<p class="text-danger text-center"><i class="fas fa-exclamation-circle"></i> Gagal memuat data</p>');
+            }
+        });
+    }
+
+    function createParentAccess(relasi) {
+        swal.fire({
+            title: 'Berikan Akses?',
+            html: 'Akun orang tua (<strong>' + relasi.toUpperCase() + '</strong>) akan dibuat.<br>Username & Password = Nomor HP',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Ya, Berikan Akses',
+            cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.value) {
+                swal.fire({
+                    text: "Memproses...",
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    onOpen: () => { swal.showLoading(); }
+                });
+                
+                $.ajax({
+                    url: base_url + "datasiswa/createParentAccess",
+                    type: "POST",
+                    dataType: "JSON",
+                    data: {
+                        id_siswa: idSiswa,
+                        relasi: relasi
+                    },
+                    success: function (response) {
+                        if (response.status) {
+                            swal.fire({
+                                title: 'Berhasil!',
+                                html: response.message + '<br><br><strong>Username:</strong> <code>' + response.username + '</code><br><strong>Password:</strong> <code>' + response.username + '</code>',
+                                icon: 'success'
+                            }).then(() => {
+                                loadParentAccess();
+                            });
+                        } else {
+                            swal.fire({
+                                title: 'Gagal',
+                                text: response.message,
+                                icon: 'error'
+                            });
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.log("error", xhr.responseText);
+                        swal.fire({
+                            title: 'Error',
+                            text: 'Terjadi kesalahan sistem',
+                            icon: 'error'
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    function removeParentAccess(id) {
+        swal.fire({
+            title: 'Hapus Akses?',
+            text: 'Akses orang tua untuk siswa ini akan dihapus',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Ya, Hapus',
+            cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.value) {
+                swal.fire({
+                    text: "Memproses...",
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    onOpen: () => { swal.showLoading(); }
+                });
+                
+                $.ajax({
+                    url: base_url + "datasiswa/removeParentAccess",
+                    type: "POST",
+                    dataType: "JSON",
+                    data: { id: id },
+                    success: function (response) {
+                        if (response.status) {
+                            swal.fire({
+                                title: 'Berhasil!',
+                                text: response.message,
+                                icon: 'success'
+                            }).then(() => {
+                                // Reload the page to reset the card footers
+                                window.location.reload();
+                            });
+                        } else {
+                            swal.fire({
+                                title: 'Gagal',
+                                text: response.message,
+                                icon: 'error'
+                            });
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.log("error", xhr.responseText);
+                        swal.fire({
+                            title: 'Error',
+                            text: 'Terjadi kesalahan sistem',
+                            icon: 'error'
+                        });
+                    }
+                });
             }
         });
     }
