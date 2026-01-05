@@ -47,6 +47,7 @@
                                         <input type="text" name="qris_merchant_name" class="form-control" value="<?= $config->qris_merchant_name ?? '' ?>" placeholder="Contoh: Koperasi Sekolah">
                                     </div>
                                 </div>
+
                             </div>
                         </div>
                     </div>

@@ -93,6 +93,66 @@ class Tagihanku extends CI_Controller
         $this->load->view('members/siswa/templates/footer');
     }
 
+    public function qris($id_tagihan)
+    {
+        $tagihan = $this->pembayaran->getTagihanById($id_tagihan);
+
+        if (!$tagihan || $tagihan->id_siswa != $this->siswa->id_siswa)
+        {
+            show_404();
+        }
+
+        $config = $this->pembayaran->getConfig();
+        if (!$config || empty($config->qris_string))
+        {
+            show_404();
+        }
+
+        $this->load->library('Qris');
+
+        try
+        {
+            $payload = $this->qris->generateDynamicQris($config->qris_string, (int) round($tagihan->total));
+            $png = $this->qris->renderPng($payload);
+
+            $this->output
+                ->set_header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0')
+                ->set_header('Pragma: no-cache')
+                ->set_content_type('image/png')
+                ->set_output($png);
+            return;
+        }
+        catch (Throwable $e)
+        {
+            log_message('error', 'QRIS dinamis gagal (Tagihanku/qris): ' . $e->getMessage());
+
+            // Fallback to static image if available
+            if (!empty($config->qris_image) && file_exists('./' . $config->qris_image))
+            {
+                $path = './' . $config->qris_image;
+                $mime = 'image/png';
+                if (class_exists('finfo'))
+                {
+                    $finfo = new finfo(FILEINFO_MIME_TYPE);
+                    $detected = $finfo->file($path);
+                    if (!empty($detected))
+                    {
+                        $mime = $detected;
+                    }
+                }
+
+                $this->output
+                    ->set_header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0')
+                    ->set_header('Pragma: no-cache')
+                    ->set_content_type($mime)
+                    ->set_output(file_get_contents($path));
+                return;
+            }
+
+            show_error('Gagal membuat QRIS dinamis.', 500);
+        }
+    }
+
     public function uploadBukti()
     {
         // Check if file is uploaded

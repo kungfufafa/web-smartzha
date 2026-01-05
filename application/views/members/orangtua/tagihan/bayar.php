@@ -105,13 +105,17 @@
                 </div>
 
                 <div class="col-lg-6">
-                    <?php if ($config && $config->qris_image): ?>
+                    <?php if ($config && ($config->qris_image || !empty($config->qris_string))): ?>
                     <div class="card my-shadow">
                         <div class="card-header bg-success text-white">
                             <h3 class="card-title"><i class="fas fa-qrcode"></i> Scan QRIS untuk Membayar</h3>
                         </div>
                         <div class="card-body text-center">
-                            <img src="<?= base_url($config->qris_image) ?>" class="img-fluid" style="max-height: 300px;" alt="QRIS">
+                            <?php if (!empty($config->qris_string)): ?>
+                                <img src="<?= base_url('orangtua/qris/' . $tagihan->id_tagihan) ?>" class="img-fluid" style="max-height: 300px;" alt="QRIS Dinamis">
+                            <?php else: ?>
+                                <img src="<?= base_url($config->qris_image) ?>" class="img-fluid" style="max-height: 300px;" alt="QRIS">
+                            <?php endif; ?>
                             <?php if ($config->qris_merchant_name): ?>
                                             <p class="mt-2 mb-0"><strong><?= e($config->qris_merchant_name) ?></strong></p>
                             <?php endif; ?>

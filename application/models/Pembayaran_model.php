@@ -28,6 +28,13 @@ class Pembayaran_model extends CI_Model
 
     public function updateConfig($data)
     {
+        // Filter out unknown columns to keep backward compatibility with older DB schemas.
+        // (e.g. when new config columns are added but migrations haven't run yet)
+        $fields = $this->db->list_fields('pembayaran_config');
+        if (!empty($fields)) {
+            $data = array_intersect_key((array) $data, array_flip($fields));
+        }
+
         $config = $this->getConfig();
         if ($config) {
             $this->db->where('id_config', $config->id_config);

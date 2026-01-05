@@ -299,6 +299,8 @@ class Pembayaran extends CI_Controller
 
     public function saveConfig()
     {
+        $warning = null;
+
         $data = [
             'qris_merchant_name' => $this->input->post('qris_merchant_name', true),
             'bank_name' => $this->input->post('bank_name', true),
@@ -306,6 +308,8 @@ class Pembayaran extends CI_Controller
             'bank_holder' => $this->input->post('bank_holder', true),
             'payment_instruction' => $this->input->post('payment_instruction', true)
         ];
+
+        $old_config = $this->pembayaran->getConfig();
 
         if ($_FILES['qris_image']['name']) {
             $upload_path = './uploads/pembayaran/qris/';
@@ -323,9 +327,28 @@ class Pembayaran extends CI_Controller
                 $upload_data = $this->upload->data();
                 $data['qris_image'] = 'uploads/pembayaran/qris/' . $upload_data['file_name'];
 
-                $old_config = $this->pembayaran->getConfig();
-                if ($old_config && $old_config->qris_image && file_exists('./' . $old_config->qris_image)) {
-                    unlink('./' . $old_config->qris_image);
+                // Auto-extract QRIS string from uploaded image
+                try {
+                    $filePath = $upload_path . $upload_data['file_name'];
+                    $reader = new \Zxing\QrReader($filePath);
+                    $decoded = $reader->text();
+                    $decoded = preg_replace('/\s+/', '', trim((string) $decoded));
+
+                    if (empty($decoded)) {
+                        throw new Exception('QR pada gambar tidak terbaca. Pastikan gambar jelas dan tidak blur.');
+                    }
+
+                    // Basic sanity checks for QRIS EMV payload
+                    if (strpos($decoded, '000201') !== 0) {
+                        throw new Exception('QR berhasil terbaca, tapi formatnya bukan QRIS (EMV).');
+                    }
+
+                    $data['qris_string'] = $decoded;
+                } catch (Throwable $e) {
+                    // Prevent mismatch: image changed but string can't be read -> clear qris_string.
+                    // Keep image so users still can pay using static QR.
+                    $data['qris_string'] = null;
+                    $warning = 'Gambar QRIS tersimpan, tapi gagal membaca QRIS string otomatis: ' . $e->getMessage();
                 }
             } else {
                 $this->output_json(['status' => false, 'message' => $this->upload->display_errors('', '')]);
@@ -334,7 +357,18 @@ class Pembayaran extends CI_Controller
         }
 
         $result = $this->pembayaran->updateConfig($data);
-        $this->output_json(['status' => $result, 'message' => $result ? 'Konfigurasi berhasil disimpan' : 'Gagal menyimpan konfigurasi']);
+
+        // Delete old image only after successful DB update
+        if ($result && isset($data['qris_image']) && $old_config && $old_config->qris_image && file_exists('./' . $old_config->qris_image)) {
+            unlink('./' . $old_config->qris_image);
+        }
+
+        $message = $result ? 'Konfigurasi berhasil disimpan' : 'Gagal menyimpan konfigurasi';
+        if ($result && $warning) {
+            $message .= '. ' . $warning;
+        }
+
+        $this->output_json(['status' => $result, 'message' => $message]);
     }
 
 

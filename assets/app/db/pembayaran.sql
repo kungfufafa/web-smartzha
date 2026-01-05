@@ -12,6 +12,7 @@
 CREATE TABLE IF NOT EXISTS `pembayaran_config` (
   `id_config` INT(11) NOT NULL AUTO_INCREMENT,
   `qris_image` VARCHAR(255) DEFAULT NULL COMMENT 'Path ke gambar QRIS statis',
+  `qris_string` TEXT DEFAULT NULL COMMENT 'String QRIS (EMV) untuk generate QRIS dinamis',
   `qris_merchant_name` VARCHAR(100) DEFAULT NULL COMMENT 'Nama merchant QRIS',
   `bank_name` VARCHAR(100) DEFAULT NULL COMMENT 'Nama bank untuk transfer',
   `bank_account` VARCHAR(50) DEFAULT NULL COMMENT 'Nomor rekening',
@@ -23,6 +24,9 @@ CREATE TABLE IF NOT EXISTS `pembayaran_config` (
   `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id_config`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- If you already have the table, run this once:
+-- ALTER TABLE pembayaran_config ADD COLUMN qris_string TEXT NULL COMMENT 'String QRIS (EMV) untuk generate QRIS dinamis' AFTER qris_image;
 
 -- Insert default config
 INSERT INTO `pembayaran_config` (`qris_merchant_name`, `bank_name`, `bank_account`, `bank_holder`, `payment_instruction`) 
