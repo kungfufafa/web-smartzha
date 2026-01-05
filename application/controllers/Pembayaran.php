@@ -311,6 +311,8 @@ class Pembayaran extends CI_Controller
 
         $old_config = $this->pembayaran->getConfig();
 
+        $this->load->library('Qris');
+
         if ($_FILES['qris_image']['name']) {
             $upload_path = './uploads/pembayaran/qris/';
             if (!is_dir($upload_path)) mkdir($upload_path, 0755, true);
@@ -332,7 +334,11 @@ class Pembayaran extends CI_Controller
                     $filePath = $upload_path . $upload_data['file_name'];
                     $reader = new \Zxing\QrReader($filePath);
                     $decoded = $reader->text();
-                    $decoded = preg_replace('/\s+/', '', trim((string) $decoded));
+
+                    // Keep normal spaces (they can be part of TLV values) and only remove control chars.
+                    $decoded = (string) $decoded;
+                    $decoded = trim($decoded);
+                    $decoded = str_replace(["\r", "\n", "\t"], '', $decoded);
 
                     if (empty($decoded)) {
                         throw new Exception('QR pada gambar tidak terbaca. Pastikan gambar jelas dan tidak blur.');
@@ -353,6 +359,45 @@ class Pembayaran extends CI_Controller
             } else {
                 $this->output_json(['status' => false, 'message' => $this->upload->display_errors('', '')]);
                 return;
+            }
+        }
+
+        // If no new upload happened, try to repair previously saved (possibly broken) qris_string
+        // by decoding the existing qris_image.
+        if (!isset($data['qris_string']) && $old_config && !empty($old_config->qris_image) && file_exists('./' . $old_config->qris_image))
+        {
+            $current = (string) ($old_config->qris_string ?? '');
+            $current = $this->qris->sanitizeQrisString($current);
+
+            // Consider it valid only if TLV structure is well-formed AND CRC matches.
+            $looksValid = false;
+            if ($this->qris->isWellFormedEmv($current))
+            {
+                $without = substr($current, 0, -4);
+                $given = strtoupper(substr($current, -4));
+                $calc = $this->qris->crc16($without);
+                $looksValid = ($given === $calc);
+            }
+
+            if (!$looksValid)
+            {
+                try
+                {
+                    $reader = new \Zxing\QrReader('./' . $old_config->qris_image);
+                    $decoded = (string) $reader->text();
+                    $decoded = trim($decoded);
+                    $decoded = str_replace(["\r", "\n", "\t"], '', $decoded);
+
+                    if (!empty($decoded) && strpos($decoded, '000201') === 0)
+                    {
+                        $data['qris_string'] = $decoded;
+                    }
+                }
+                catch (Throwable $e)
+                {
+                    // Ignore: keep existing value, but add a warning to help troubleshooting.
+                    $warning = ($warning ? $warning . ' ' : '') . 'Gagal refresh QRIS string dari gambar lama: ' . $e->getMessage();
+                }
             }
         }
 
