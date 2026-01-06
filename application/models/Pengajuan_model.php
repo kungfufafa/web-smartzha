@@ -11,7 +11,7 @@ class Pengajuan_model extends CI_Model
     public function create($data)
     {
         $data['created_at'] = date('Y-m-d H:i:s');
-        $result = $this->db->insert('absensi_pengajuan', $data);
+        $result = $this->db->insert('presensi_pengajuan', $data);
         if (!$result) {
             return false;
         }
@@ -20,9 +20,9 @@ class Pengajuan_model extends CI_Model
 
     public function get_by_id($id)
     {
-        return $this->db->select('p.*, j.nama_izin, j.status_absensi, j.kode_izin')
-            ->from('absensi_pengajuan p')
-            ->join('master_jenis_izin j', 'p.id_jenis_izin = j.id_jenis', 'left')
+        return $this->db->select('p.*, j.nama_izin, j.status_presensi, j.kode_izin')
+            ->from('presensi_pengajuan p')
+            ->join('presensi_jenis_izin j', 'p.id_jenis_izin = j.id_jenis', 'left')
             ->where('p.id_pengajuan', $id)
             ->get()
             ->row();
@@ -31,8 +31,8 @@ class Pengajuan_model extends CI_Model
     public function get_by_user($id_user)
     {
         return $this->db->select('p.*, j.nama_izin')
-            ->from('absensi_pengajuan p')
-            ->join('master_jenis_izin j', 'p.id_jenis_izin = j.id_jenis', 'left')
+            ->from('presensi_pengajuan p')
+            ->join('presensi_jenis_izin j', 'p.id_jenis_izin = j.id_jenis', 'left')
             ->where('p.id_user', $id_user)
             ->order_by('p.created_at', 'DESC')
             ->get()
@@ -41,10 +41,10 @@ class Pengajuan_model extends CI_Model
 
     public function get_pending_all()
     {
-        return $this->db->select('p.*, u.first_name, u.last_name, j.nama_izin, j.status_absensi')
-            ->from('absensi_pengajuan p')
+        return $this->db->select('p.*, u.first_name, u.last_name, j.nama_izin, j.status_presensi')
+            ->from('presensi_pengajuan p')
             ->join('users u', 'p.id_user = u.id')
-            ->join('master_jenis_izin j', 'p.id_jenis_izin = j.id_jenis', 'left')
+            ->join('presensi_jenis_izin j', 'p.id_jenis_izin = j.id_jenis', 'left')
             ->where('p.status', 'Pending')
             ->order_by('p.created_at', 'ASC')
             ->get()
@@ -66,7 +66,7 @@ class Pengajuan_model extends CI_Model
         ];
         
         $this->db->where('id_pengajuan', $id);
-        $result = $this->db->update('absensi_pengajuan', $data);
+        $result = $this->db->update('presensi_pengajuan', $data);
         
         if ($result && $status === 'Disetujui') {
             $this->syncToAbsensiLogs($id);
@@ -86,8 +86,8 @@ class Pengajuan_model extends CI_Model
             return $this->syncIzinKeluarToAbsensiLog($id_pengajuan, $pengajuan);
         }
 
-        $status_absensi = $this->determineAbsensiStatus($pengajuan);
-        if (!$status_absensi) {
+        $status_presensi = $this->determineAbsensiStatus($pengajuan);
+        if (!$status_presensi) {
             return false;
         }
 
@@ -102,11 +102,11 @@ class Pengajuan_model extends CI_Model
 
         foreach ($period as $date) {
             $tanggal = $date->format('Y-m-d');
-            $this->upsertAbsensiLog($pengajuan->id_user, $tanggal, $status_absensi, $id_pengajuan, $pengajuan);
+            $this->upsertAbsensiLog($pengajuan->id_user, $tanggal, $status_presensi, $id_pengajuan, $pengajuan);
         }
 
         $this->db->where('id_pengajuan', $id_pengajuan)
-            ->update('absensi_pengajuan', [
+            ->update('presensi_pengajuan', [
                 'is_synced' => 1,
                 'synced_at' => date('Y-m-d H:i:s')
             ]);
@@ -130,7 +130,7 @@ class Pengajuan_model extends CI_Model
 
         $existing = $this->db->where('id_user', $pengajuan->id_user)
             ->where('tanggal', $tanggal)
-            ->get('absensi_logs')
+            ->get('presensi_logs')
             ->row();
 
         if (!$existing || !$existing->jam_masuk) {
@@ -166,7 +166,7 @@ class Pengajuan_model extends CI_Model
         }
 
         $this->db->where('id_log', $existing->id_log)
-            ->update('absensi_logs', [
+            ->update('presensi_logs', [
                 'jam_pulang' => $tanggal . ' ' . $jam_keluar,
                 'status_kehadiran' => $status,
                 'pulang_awal_menit' => $pulang_awal_menit,
@@ -176,7 +176,7 @@ class Pengajuan_model extends CI_Model
             ]);
 
         $this->db->where('id_pengajuan', $id_pengajuan)
-            ->update('absensi_pengajuan', [
+            ->update('presensi_pengajuan', [
                 'is_synced' => 1,
                 'synced_at' => date('Y-m-d H:i:s')
             ]);
@@ -190,8 +190,8 @@ class Pengajuan_model extends CI_Model
             return null;
         }
 
-        if (!empty($pengajuan->status_absensi)) {
-            return $pengajuan->status_absensi;
+        if (!empty($pengajuan->status_presensi)) {
+            return $pengajuan->status_presensi;
         }
 
         $mapping = [
@@ -210,7 +210,7 @@ class Pengajuan_model extends CI_Model
     {
         $existing = $this->db->where('id_user', $id_user)
             ->where('tanggal', $tanggal)
-            ->get('absensi_logs')
+            ->get('presensi_logs')
             ->row();
 
         $data = [
@@ -226,12 +226,12 @@ class Pengajuan_model extends CI_Model
             }
             
             $this->db->where('id_log', $existing->id_log)
-                ->update('absensi_logs', $data);
+                ->update('presensi_logs', $data);
         } else {
             $data['id_user'] = $id_user;
             $data['tanggal'] = $tanggal;
             $data['created_at'] = date('Y-m-d H:i:s');
-            $this->db->insert('absensi_logs', $data);
+            $this->db->insert('presensi_logs', $data);
         }
     }
 
@@ -257,12 +257,12 @@ class Pengajuan_model extends CI_Model
             $tanggal = $date->format('Y-m-d');
             $existing = $this->db->where('id_user', $pengajuan->id_user)
                 ->where('tanggal', $tanggal)
-                ->get('absensi_logs')
+                ->get('presensi_logs')
                 ->row();
 
             if ($existing) {
                 $this->db->where('id_log', $existing->id_log)
-                    ->update('absensi_logs', [
+                    ->update('presensi_logs', [
                         'lembur_menit' => $lembur_menit,
                         'updated_at' => date('Y-m-d H:i:s')
                     ]);
@@ -270,7 +270,7 @@ class Pengajuan_model extends CI_Model
         }
 
         $this->db->where('id_pengajuan', $id_pengajuan)
-            ->update('absensi_pengajuan', [
+            ->update('presensi_pengajuan', [
                 'is_synced' => 1,
                 'synced_at' => date('Y-m-d H:i:s')
             ]);
@@ -298,15 +298,15 @@ class Pengajuan_model extends CI_Model
     public function get_jenis_izin()
     {
         return $this->db->where('is_active', 1)
-            ->get('master_jenis_izin')
+            ->get('presensi_jenis_izin')
             ->result();
     }
 
     public function get_by_date_range($id_user, $start_date, $end_date)
     {
-        return $this->db->select('p.*, j.nama_izin, j.status_absensi')
-            ->from('absensi_pengajuan p')
-            ->join('master_jenis_izin j', 'p.id_jenis_izin = j.id_jenis', 'left')
+        return $this->db->select('p.*, j.nama_izin, j.status_presensi')
+            ->from('presensi_pengajuan p')
+            ->join('presensi_jenis_izin j', 'p.id_jenis_izin = j.id_jenis', 'left')
             ->where('p.id_user', $id_user)
             ->where('p.status', 'Disetujui')
             ->group_start()
@@ -319,7 +319,7 @@ class Pengajuan_model extends CI_Model
 
     public function has_approved_leave($id_user, $date)
     {
-        return $this->db->from('absensi_pengajuan')
+        return $this->db->from('presensi_pengajuan')
             ->where('id_user', $id_user)
             ->where('status', 'Disetujui')
             ->where('tgl_mulai <=', $date)
@@ -335,7 +335,7 @@ class Pengajuan_model extends CI_Model
         }
         
         return $this->db->select('id_user')
-            ->from('absensi_pengajuan')
+            ->from('presensi_pengajuan')
             ->where_in('id_user', $user_ids)
             ->where('status', 'Disetujui')
             ->where('tgl_mulai <=', $date)

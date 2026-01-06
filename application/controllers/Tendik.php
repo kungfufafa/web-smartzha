@@ -51,14 +51,89 @@ class Tendik extends CI_Controller
         ];
     }
 
+    private function load_view($view, $data)
+    {
+        $this->load->view('members/tendik/templates/header_topnav', $data);
+        $this->load->view($view, $data);
+        $this->load->view('members/tendik/templates/footer_topnav');
+    }
+
     public function index()
     {
         $data = $this->getCommonData();
         $data['judul'] = 'Dashboard Tenaga Kependidikan';
         $data['subjudul'] = $this->tendik_data ? $this->tendik_data->nama_tendik : '';
 
-        $this->load->view('members/tendik/templates/header', $data);
-        $this->load->view('members/tendik/dashboard', $data);
-        $this->load->view('members/tendik/templates/footer');
+        $this->load_view('members/tendik/dashboard', $data);
+    }
+
+    public function absensi()
+    {
+        $this->load->model('Presensi_model', 'presensi');
+        $this->load->model('Shift_model', 'shift');
+        
+        $data = $this->getCommonData();
+        $data['judul'] = 'Absensi';
+        $data['subjudul'] = 'Check-in / Check-out';
+        
+        $today = date('Y-m-d');
+        $data['today_log'] = $this->presensi->getTodayLog($this->user->id, $today);
+        $data['shift'] = $this->shift->getShiftForUser($this->user->id, $today);
+        
+        $this->load_view('members/tendik/absensi', $data);
+    }
+
+    public function riwayat()
+    {
+        $this->load->model('Presensi_model', 'presensi');
+        
+        $data = $this->getCommonData();
+        $data['judul'] = 'Riwayat Absensi';
+        $data['subjudul'] = 'Rekap Kehadiran';
+        
+        $month = $this->input->get('month') ?: date('m');
+        $year = $this->input->get('year') ?: date('Y');
+        
+        $data['month'] = $month;
+        $data['year'] = $year;
+        $data['logs'] = $this->presensi->getMonthlyLogs($this->user->id, $month, $year);
+        
+        $this->load_view('members/tendik/riwayat', $data);
+    }
+
+    public function jadwal()
+    {
+        $this->load->model('Shift_model', 'shift');
+        
+        $data = $this->getCommonData();
+        $data['judul'] = 'Jadwal Kerja';
+        $data['subjudul'] = 'Jadwal Shift';
+        
+        $data['jadwal'] = $this->shift->getWeeklyScheduleForUser($this->user->id);
+        
+        $this->load_view('members/tendik/jadwal', $data);
+    }
+
+    public function pengajuan()
+    {
+        $this->load->model('Pengajuan_model', 'pengajuan_model');
+        
+        $data = $this->getCommonData();
+        $data['judul'] = 'Pengajuan Izin/Cuti';
+        $data['subjudul'] = 'Daftar Pengajuan';
+        
+        $data['list_pengajuan'] = $this->pengajuan_model->get_by_user($this->user->id);
+        $data['jenis_izin'] = $this->pengajuan_model->get_jenis_izin();
+        
+        $this->load_view('members/tendik/pengajuan', $data);
+    }
+
+    public function profil()
+    {
+        $data = $this->getCommonData();
+        $data['judul'] = 'Profil Saya';
+        $data['subjudul'] = 'Informasi Akun';
+        
+        $this->load_view('members/tendik/profil', $data);
     }
 }

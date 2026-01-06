@@ -10,7 +10,7 @@
     </ul>
 
     <h1 class="navbar-title navbar-brand ml-3">
-        <span class="brand-text font-weight-light">Portal Absensi</span>
+        <span class="brand-text font-weight-light">Portal Presensi</span>
     </h1>
 
     <ul class="navbar-nav ml-auto">

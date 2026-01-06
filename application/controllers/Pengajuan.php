@@ -16,7 +16,7 @@ class Pengajuan extends CI_Controller
         }
         $this->load->model('Dashboard_model', 'dashboard');
         $this->load->model('Pengajuan_model', 'pengajuan');
-        $this->load->model('Absensi_model', 'absensi');
+        $this->load->model('Presensi_model', 'presensi');
         $this->load->library('form_validation');
 
         $this->is_guru = $this->ion_auth->in_group('guru');
@@ -49,6 +49,14 @@ class Pengajuan extends CI_Controller
             $this->load->view('members/guru/templates/sidebar', $data);
             $this->load->view($view, $data);
             $this->load->view('members/guru/templates/footer');
+        } elseif ($this->ion_auth->in_group('tendik')) {
+            // Tendik uses top-nav layout like siswa/orangtua
+            $data['tp_active'] = $this->dashboard->getTahunActive();
+            $data['smt_active'] = $this->dashboard->getSemesterActive();
+            
+            $this->load->view('members/tendik/templates/header_topnav', $data);
+            $this->load->view($view, $data);
+            $this->load->view('members/tendik/templates/footer_topnav');
         } else {
             $this->load->view('_templates/dashboard/_header', $data);
             $this->load->view($view, $data);
@@ -70,7 +78,7 @@ class Pengajuan extends CI_Controller
             'jenis_izin' => $this->pengajuan->get_jenis_izin()
         ];
         
-        $this->load_view('absensi/pengajuan/index', $data);
+        $this->load_view('presensi/pengajuan/index', $data);
     }
 
     public function create()
@@ -136,7 +144,7 @@ class Pengajuan extends CI_Controller
         ];
         
         $this->load->view('_templates/dashboard/_header', $data);
-        $this->load->view('absensi/pengajuan/manage', $data);
+        $this->load->view('presensi/pengajuan/manage', $data);
         $this->load->view('_templates/dashboard/_footer');
     }
 
@@ -190,7 +198,7 @@ class Pengajuan extends CI_Controller
         $tanggal = date('Y-m-d');
         $user = $this->ion_auth->user()->row();
 
-        $existing = $this->absensi->getTodayLog($id_siswa, $tanggal);
+        $existing = $this->presensi->getTodayLog($id_siswa, $tanggal);
 
         if (!$existing || !$existing->jam_masuk) {
             $this->output_json(['status' => false, 'message' => 'Siswa belum check-in hari ini']);
@@ -227,7 +235,7 @@ class Pengajuan extends CI_Controller
             return;
         }
 
-        $this->pengajuan->syncIzinKeluarToAbsensiLog($id_pengajuan);
+        $this->pengajuan->syncIzinKeluarToPresensiLog($id_pengajuan);
 
         $this->output_json(['status' => true, 'message' => 'Izin keluar berhasil dicatat']);
     }
@@ -242,7 +250,7 @@ class Pengajuan extends CI_Controller
         $setting = $this->dashboard->getSetting();
         
         $today = date('Y-m-d');
-        $siswa_hadir = $this->absensi->getOpenAttendanceUsers($today, ['siswa']);
+        $siswa_hadir = $this->presensi->getOpenAttendanceUsers($today, ['siswa']);
 
         $data = [
             'user' => $user,
@@ -254,6 +262,6 @@ class Pengajuan extends CI_Controller
             'jenis_izin' => $this->pengajuan->get_jenis_izin()
         ];
         
-        $this->load_view('absensi/pengajuan/izin_keluar', $data);
+        $this->load_view('presensi/pengajuan/izin_keluar', $data);
     }
 }

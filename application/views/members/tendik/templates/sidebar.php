@@ -12,7 +12,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
     </a>
     <!-- Sidebar -->
     <div class="sidebar">
-        <!-- Absensi Menu for Tendik -->
+        <!-- Presensi Menu for Tendik -->
         <div class="user-panel mb-3">
             <div class="image text-center d-flex">
                 <div class="profile-img ml-3" style="height: 50px; width: 50px;">
@@ -20,7 +20,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
                 </div>
                 <div class="profile-info ml-2">
                     <a class="username text-muted" href="#">Tenaga Kependidikan</a>
-                    <span class="text-muted small">Panel Absensi</span>
+                    <span class="text-muted small">Panel Presensi</span>
                 </div>
             </div>
         </div>

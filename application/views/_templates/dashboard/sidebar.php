@@ -33,13 +33,13 @@
                 data-accordion="false">
                 <?php
                 $page = $this->uri->segment(1);
-                 $master = ["datatahun", "dataguru", "datajurusan", "datakelas", "datamapel", "dataekstra", "datasiswa", "dataorangtua", "datatendik"];
+                $master = ["datatahun", "dataguru", "datajurusan", "datakelas", "datamapel", "dataekstra", "datasiswa", "dataorangtua", "datatendik"];
                 $elearning = ["kelasjadwal", "kelasmateri", "kelastugas", "kelasmaterijadwal"];
                 $infoelearning = ["kelascetak", "kelasstatus", "kelasabsensiharian", "kelasabsensiharianmapel", "kelasabsensibulanan", "kelasnilai", "kelascatatan"];
                 $cbt = ["cbtjenis", "cbtruang", "cbtsesi", "cbtsesisiswa", "cbtnomorpeserta", "cbtjadwal", "cbtbanksoal", "cbtalokasi", "cbtpengawas", "cbttoken"];
                 $infoujian = ["cbtcetak", "cbtpeserta", "cbtstatus", "cbtnilai", "cbtanalisis", "cbtrekap"];
                 $pembayaran = ["pembayaran", "datajenistagihan", "datatagihan"];
-                $absensi = ["absensimanager", "absensi"];
+                $presensi = ["presensi", "presensishift", "presensilokasi", "presensigroupconfig", "presensijadwalkerja", "presensiqrtoken", "presensiglobalconfig", "pengajuan"];
                 $usermanager = ["useradmin", "userguru", "usersiswa", "usertendik", "userorangtua"];
                 $databases = ["dbmanager", "dbclear", "update"];
                 $users = ["users"];
@@ -363,65 +363,95 @@
                         <p>Alumni</p>
                     </a>
                 </li>
-                 <li class="nav-header">ABSENSI <span class="badge badge-success right">FITUR BARU</span></li>
-                <li class="nav-item has-treeview <?= in_array($page, $absensi) ? "menu-open" : "" ?>">
-                    <a href="#" class="nav-link <?= in_array($page, $absensi) ? "active" : "" ?>">
+                 <li class="nav-header">Presensi/Kehadiran <span class="badge badge-success right">FITUR BARU</span></li>
+                <li class="nav-item has-treeview <?= in_array($page, $presensi) ? "menu-open" : "" ?>">
+                    <a href="#" class="nav-link <?= in_array($page, $presensi) ? "active" : "" ?>">
                         <i class="nav-icon fas fa-fingerprint"></i>
                         <p>
-                            Absensi
+                            Presensi
                             <i class="right fas fa-angle-left"></i>
                         </p>
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
-                            <a href="<?= base_url('absensi') ?>"
-                               class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) == '' ? "active" : "" ?>">
-                                <i class="fas fa-tachometer-alt nav-icon"></i>
-                                <p>Dashboard</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?= base_url('absensi/lokasi') ?>"
-                               class="nav-link <?= $this->uri->segment(2) === 'lokasi' ? "active" : "" ?>">
-                                <i class="fas fa-map-marker-alt nav-icon"></i>
-                                <p>Lokasi</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?= base_url('absensi/shift') ?>"
-                               class="nav-link <?= $this->uri->segment(2) === 'shift' ? "active" : "" ?>">
+                            <a href="<?= base_url('presensi') ?>"
+                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == '' ? "active" : "" ?>">
                                 <i class="fas fa-clock nav-icon"></i>
-                                <p>Shift</p>
-                            </a>
-                        </li>
-                         <li class="nav-item">
-                             <a href="<?= base_url('absensi/karyawan') ?>"
-                                class="nav-link <?= $this->uri->segment(2) === 'karyawan' ? "active" : "" ?>">
-                                 <i class="fas fa-user-tie nav-icon"></i>
-                                 <p>Data Tenaga Kependidikan</p>
-                             </a>
-                         </li>
-                        <li class="nav-item">
-                            <a href="<?= base_url('absensi/logs') ?>"
-                               class="nav-link <?= $this->uri->segment(2) === 'logs' ? "active" : "" ?>">
-                                <i class="fas fa-list-alt nav-icon"></i>
-                                <p>Log Absensi</p>
+                                <p>Check-In/Out</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?= base_url('absensi/laporan') ?>"
-                               class="nav-link <?= $this->uri->segment(2) === 'laporan' ? "active" : "" ?>">
-                                <i class="fas fa-chart-bar nav-icon"></i>
-                                <p>Laporan</p>
+                            <a href="<?= base_url('presensi/history') ?>"
+                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'history' ? "active" : "" ?>">
+                                <i class="fas fa-history nav-icon"></i>
+                                <p>Riwayat Presensi</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?= base_url('absensi/config') ?>"
-                               class="nav-link <?= $this->uri->segment(2) === 'config' ? "active" : "" ?>">
-                                <i class="fas fa-cog nav-icon"></i>
-                                <p>Konfigurasi</p>
+                            <a href="<?= base_url('pengajuan') ?>"
+                               class="nav-link <?= $page === 'pengajuan' ? "active" : "" ?>">
+                                <i class="fas fa-file-alt nav-icon"></i>
+                                <p>Pengajuan Izin/Cuti</p>
                             </a>
                         </li>
+                        <?php if ($this->ion_auth->is_admin()): ?>
+                        <li class="nav-item">
+                            <a href="<?= base_url('presensi/dashboard_admin') ?>"
+                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'dashboard_admin' ? "active" : "" ?>">
+                                <i class="fas fa-tachometer-alt nav-icon"></i>
+                                <p>Dashboard Admin</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('presensi/shift_management') ?>"
+                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'shift_management' ? "active" : "" ?>">
+                                <i class="fas fa-business-time nav-icon"></i>
+                                <p>Kelola Shift</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('presensi/location_management') ?>"
+                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'location_management' ? "active" : "" ?>">
+                                <i class="fas fa-map-marker-alt nav-icon"></i>
+                                <p>Kelola Lokasi</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('presensi/group_config') ?>"
+                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'group_config' ? "active" : "" ?>">
+                                <i class="fas fa-users-cog nav-icon"></i>
+                                <p>Konfigurasi Group</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('presensi/jadwal_kerja') ?>"
+                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'jadwal_kerja' ? "active" : "" ?>">
+                                <i class="fas fa-calendar-alt nav-icon"></i>
+                                <p>Jadwal Kerja</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('presensi/list_qr_tokens') ?>"
+                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'list_qr_tokens' ? "active" : "" ?>">
+                                <i class="fas fa-qrcode nav-icon"></i>
+                                <p>QR Token</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('presensi/global_config') ?>"
+                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'global_config' ? "active" : "" ?>">
+                                <i class="fas fa-cogs nav-icon"></i>
+                                <p>Pengaturan Global</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('pengajuan/manage') ?>"
+                               class="nav-link <?= $page === 'pengajuan' && $this->uri->segment(2) == 'manage' ? "active" : "" ?>">
+                                <i class="fas fa-clipboard-check nav-icon"></i>
+                                <p>Approval Pengajuan</p>
+                            </a>
+                        </li>
+                        <?php endif; ?>
                     </ul>
                 </li>
                 <li class="nav-header">PEMBAYARAN <span class="badge badge-success right">FITUR BARU</span></li>
