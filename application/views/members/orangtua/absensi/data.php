@@ -37,9 +37,9 @@ $arrBulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli',
                 ?>
                 <img class="avatar" src="<?= base_url($foto) ?>" width="120" height="120">
                 <div class="info-box-content">
-                    <h5 class="info-box-text text-white text-wrap"><b><?= e($selected_anak->nama) ?></b></h5>
-                    <span class="info-box-text text-white"><?= e($siswa->nis ?? '-') ?></span>
-                    <span class="info-box-text text-white mb-1"><?= e($siswa->nama_kelas ?? 'Belum ada kelas') ?></span>
+                    <h5 class="info-box-text text-white text-wrap"><b><?= $selected_anak->nama ?></b></h5>
+                    <span class="info-box-text text-white"><?= $siswa->nis ?? '-' ?></span>
+                    <span class="info-box-text text-white mb-1"><?= $siswa->nama_kelas ?? 'Belum ada kelas' ?></span>
                 </div>
             </div>
 
@@ -140,7 +140,7 @@ $arrBulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli',
                                                         <?= $jamMulai->format('H:i') ?>
                                                         - <?= $jamSampai->format('H:i') ?>
                                                     </td>
-                                                    <td><?= isset($arrRes[$jamke]) ? e($arrRes[$jamke]->mapel) : '-' ?></td>
+                                                    <td><?= isset($arrRes[$jamke]) ? $arrRes[$jamke]->mapel : '-' ?></td>
                                                     <td class="text-center"><?= $absenMateri ?></td>
                                                     <td class="text-center"><?= $absenTugas ?></td>
                                                 </tr>
@@ -295,7 +295,7 @@ $arrBulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli',
                                                         ?>
                                                         <tr>
                                                             <td class="text-center align-middle"><?= $jamke ?></td>
-                                                            <td><?= $currentMapel ? e($currentMapel->nama_mapel) : '-' ?><br>
+                                                            <td><?= $currentMapel ? $currentMapel->nama_mapel : '-' ?><br>
                                                                 <small>
                                                                     <?= $jamMulai->format('H:i') ?>
                                                                     - <?= $jamSampai->format('H:i') ?>

@@ -13,9 +13,9 @@ $namaBulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli'
                 ?>
                 <img class="avatar" src="<?= base_url($foto) ?>" width="120" height="120">
                 <div class="info-box-content">
-                    <h5 class="info-box-text text-white text-wrap"><b><?= e($selected_anak->nama) ?></b></h5>
-                    <span class="info-box-text text-white"><?= e($siswa->nis ?? '-') ?></span>
-                    <span class="info-box-text text-white mb-1"><?= e($siswa->nama_kelas ?? 'Belum ada kelas') ?></span>
+                    <h5 class="info-box-text text-white text-wrap"><b><?= $selected_anak->nama ?></b></h5>
+                    <span class="info-box-text text-white"><?= $siswa->nis ?? '-' ?></span>
+                    <span class="info-box-text text-white mb-1"><?= $siswa->nama_kelas ?? 'Belum ada kelas' ?></span>
                 </div>
             </div>
 
@@ -62,7 +62,7 @@ $namaBulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli'
                                             foreach ($tagihan_belum as $t): 
                                             ?>
                                             <tr>
-                                                <td class="align-middle"><strong><?= e($t->nama_jenis) ?></strong></td>
+                                                <td class="align-middle"><strong><?= $t->nama_jenis ?></strong></td>
                                                 <td class="align-middle"><?= $t->bulan ? $namaBulan[$t->bulan] . ' ' . $t->tahun : '-' ?></td>
                                                 <td class="align-middle text-danger"><strong>Rp <?= number_format($t->total, 0, ',', '.') ?></strong></td>
                                                 <td class="align-middle">
@@ -115,7 +115,7 @@ $namaBulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli'
                                     <tbody>
                                         <?php foreach ($tagihan_proses as $t): ?>
                                         <tr>
-                                            <td class="align-middle"><strong><?= e($t->nama_jenis) ?></strong></td>
+                                            <td class="align-middle"><strong><?= $t->nama_jenis ?></strong></td>
                                             <td class="align-middle"><?= $t->bulan ? $namaBulan[$t->bulan] . ' ' . $t->tahun : '-' ?></td>
                                             <td class="align-middle">Rp <?= number_format($t->total, 0, ',', '.') ?></td>
                                             <td class="align-middle"><span class="badge badge-info"><i class="fas fa-spinner fa-spin"></i> Menunggu Verifikasi</span></td>
@@ -156,7 +156,7 @@ $namaBulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli'
                                     <tbody>
                                         <?php foreach ($tagihan_lunas as $t): ?>
                                         <tr>
-                                            <td class="align-middle"><?= e($t->nama_jenis) ?></td>
+                                            <td class="align-middle"><?= $t->nama_jenis ?></td>
                                             <td class="align-middle"><?= $t->bulan ? $namaBulan[$t->bulan] . ' ' . $t->tahun : '-' ?></td>
                                             <td class="align-middle">Rp <?= number_format($t->total, 0, ',', '.') ?></td>
                                             <td class="align-middle"><span class="badge badge-success"><i class="fas fa-check"></i> Lunas</span></td>

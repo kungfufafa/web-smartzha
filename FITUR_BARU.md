@@ -873,59 +873,9 @@ Controllers (dimodifikasi):
 Models (dimodifikasi):
   application/models/Pengajuan_model.php
 
-Models (DIHAPUS - tidak dipakai):
-  application/models/Shift_model.php (fungsionalitas di Presensi_model.php)
-  application/models/Karyawan_model.php (diganti Tendik_model.php)
-
 Views (dimodifikasi):
   application/views/members/siswa/dashboard.php
 ```
-
----
-
-## Catatan Perubahan Dokumentasi
-
-### Perbaikan dari Versi Sebelumnya
-
-1. **File yang dihapus dari dokumentasi (tidak ada):**
-   - `application/models/Shift_model.php` - Fungsionalitas terintegrasi di `Presensi_model.php`
-
-2. **File yang ditambahkan:**
-   - `application/controllers/api/Pembayaran.php` - API pembayaran untuk mobile
-   - `application/views/master/orangtua/add.php`
-   - `application/views/master/orangtua/edit.php`
-   - `application/views/master/orangtua/data.php`
-   - `application/views/master/tendik/add.php`
-   - `application/views/master/tendik/edit.php`
-   - `application/views/master/tendik/data.php`
-   - `application/views/members/siswa/presensi/bypass_request.php`
-   - `application/views/members/siswa/presensi/riwayat.php`
-   - `assets/app/js/master/tendik/data.js`
-   - `assets/app/js/users/tendik/data.js`
-
-3. **Folder upload yang ditambahkan:**
-   - `uploads/presensi/selfie/`
-   - `uploads/presensi/bypass/`
-   - `uploads/foto_orangtua/`
-   - `uploads/foto_tendik/`
-
-4. **Endpoint yang ditambahkan:**
-   - `/presensi/rekap` - Rekap presensi
-   - `/presensi/rekap_export` - Export rekap
-   - `/presensi/bypass_manage` - Manajemen bypass
-   - `/presensi/bypass_update_status` - Update status bypass
-
-5. **File yang ikut dimodifikasi (integrasi):**
-   - `application/controllers/Dashboard.php` - Integrasi presensi
-   - `application/controllers/Siswa.php` - Method riwayat_presensi
-   - `application/controllers/Datasiswa.php` - Integrasi orangtua
-   - `application/controllers/Auth.php` - Redirect logic
-   - `application/models/Pengajuan_model.php` - Sync presensi logs
-   - `application/views/members/siswa/dashboard.php` - Section presensi
-
-6. **File yang DIHAPUS (tidak dipakai):**
-   - `application/models/Shift_model.php` - Fungsionalitas sudah di `Presensi_model.php`
-   - `application/models/Karyawan_model.php` - Deprecated, diganti `Tendik_model.php`
 
 ---
 

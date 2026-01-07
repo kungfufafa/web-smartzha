@@ -10,9 +10,9 @@
                 ?>
                 <img class="avatar" src="<?= base_url($foto) ?>" width="120" height="120">
                 <div class="info-box-content">
-                    <h5 class="info-box-text text-white text-wrap"><b><?= e($selected_anak->nama) ?></b></h5>
-                    <span class="info-box-text text-white"><?= e($selected_anak->nis ?? '-') ?></span>
-                    <span class="info-box-text text-white mb-1"><?= e($selected_anak->nama_kelas ?? 'Belum ada kelas') ?></span>
+                    <h5 class="info-box-text text-white text-wrap"><b><?= $selected_anak->nama ?></b></h5>
+                    <span class="info-box-text text-white"><?= $selected_anak->nis ?? '-' ?></span>
+                    <span class="info-box-text text-white mb-1"><?= $selected_anak->nama_kelas ?? 'Belum ada kelas' ?></span>
                 </div>
             </div>
 
@@ -66,8 +66,8 @@
                                             ?>
                                             <tr>
                                                 <td class="text-center"><?= $no++ ?></td>
-                                                <td><strong><?= e($t->kode_transaksi) ?></strong></td>
-                                                <td><?= e($t->nama_jenis ?? 'N/A') ?></td>
+                                                <td><strong><?= $t->kode_transaksi ?></strong></td>
+                                                <td><?= $t->nama_jenis ?? 'N/A' ?></td>
                                                 <td class="text-right">Rp <?= number_format($t->jumlah ?? 0, 0, ',', '.') ?></td>
                                                 <td class="text-center"><?= date('d M Y', strtotime($t->created_at)) ?></td>
                                                 <td class="text-center">
@@ -83,7 +83,7 @@
                                                             echo '<span class="badge badge-danger"><i class="fas fa-times"></i> Ditolak</span>';
                                                             break;
                                                         default:
-                                                            echo '<span class="badge badge-secondary">' . e($t->status) . '</span>';
+                                                            echo '<span class="badge badge-secondary">' . $t->status . '</span>';
                                                     }
                                                     ?>
                                                 </td>

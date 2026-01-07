@@ -12,9 +12,9 @@
                 ?>
                 <img class="avatar" src="<?= base_url($foto) ?>" width="120" height="120">
                 <div class="info-box-content">
-                    <h5 class="info-box-text text-white text-wrap"><b><?= e($selected_anak->nama) ?></b></h5>
-                    <span class="info-box-text text-white"><?= e($selected_anak->nis ?? '-') ?></span>
-                    <span class="info-box-text text-white mb-1"><?= e($selected_anak->nama_kelas ?? 'Belum ada kelas') ?></span>
+                    <h5 class="info-box-text text-white text-wrap"><b><?= $selected_anak->nama ?></b></h5>
+                    <span class="info-box-text text-white"><?= $selected_anak->nis ?? '-' ?></span>
+                    <span class="info-box-text text-white mb-1"><?= $selected_anak->nama_kelas ?? 'Belum ada kelas' ?></span>
                 </div>
             </div>
 
@@ -72,19 +72,19 @@
                                 <table class="table table-borderless">
                                     <tr>
                                         <td width="200">Nama Lengkap</td>
-                                        <td><strong><?= e($selected_anak->nama) ?></strong></td>
+                                        <td><strong><?= $selected_anak->nama ?></strong></td>
                                     </tr>
                                     <tr>
                                         <td>NIS</td>
-                                        <td><?= e($selected_anak->nis ?? '-') ?></td>
+                                        <td><?= $selected_anak->nis ?? '-' ?></td>
                                     </tr>
                                     <tr>
                                         <td>NISN</td>
-                                        <td><?= e($selected_anak->nisn ?? '-') ?></td>
+                                        <td><?= $selected_anak->nisn ?? '-' ?></td>
                                     </tr>
                                     <tr>
                                         <td>Kelas</td>
-                                        <td><?= e($selected_anak->nama_kelas ?? 'Belum ada kelas') ?></td>
+                                        <td><?= $selected_anak->nama_kelas ?? 'Belum ada kelas' ?></td>
                                     </tr>
                                     <tr>
                                         <td>Jenis Kelamin</td>
@@ -114,10 +114,10 @@
                                         <div class="card-body text-center">
                                             <img src="<?= base_url() ?>assets/img/siswa.png" class="rounded-circle mb-2" width="60" height="60">
                                             <h6 class="<?= $anak->id_siswa == $selected_anak->id_siswa ? 'text-white' : '' ?>">
-                                                <?= e($anak->nama) ?>
+                                                <?= $anak->nama ?>
                                             </h6>
                                             <small class="<?= $anak->id_siswa == $selected_anak->id_siswa ? 'text-white-50' : 'text-muted' ?>">
-                                                <?= e($anak->nama_kelas ?? 'Belum ada kelas') ?>
+                                                <?= $anak->nama_kelas ?? 'Belum ada kelas' ?>
                                             </small>
                                             <?php if ($anak->id_siswa != $selected_anak->id_siswa): ?>
                                             <div class="mt-2">
