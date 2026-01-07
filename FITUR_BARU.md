@@ -22,7 +22,10 @@ Target dokumen ini adalah teknis dan _traceable_ (bisa ditelusuri ke kode + DB),
 	 - Pastikan folder berikut writable oleh web server:
 		 - `uploads/pembayaran/qris/`
 		 - `uploads/pembayaran/bukti/` (subfolder otomatis per tahun/bulan: `YYYY/MM/`)
-		 - `uploads/presensi/` (subfolder otomatis per tahun/bulan: `YYYY/MM/`)
+		 - `uploads/presensi/selfie/` (subfolder otomatis per tahun/bulan: `YYYY/MM/`)
+		 - `uploads/presensi/bypass/` (subfolder otomatis per tahun/bulan: `YYYY/MM/`)
+		 - `uploads/foto_orangtua/`
+		 - `uploads/foto_tendik/`
 
 3. **Role/Izin akses (Ion Auth groups)**
 	 - Admin: `ion_auth->is_admin()`
@@ -57,6 +60,7 @@ Mengelola tagihan siswa (invoice) dan proses upload bukti bayar, termasuk verifi
 | `application/controllers/Pembayaran.php` | Admin: CRUD tagihan, verifikasi, laporan |
 | `application/controllers/Tagihanku.php` | Siswa: lihat & bayar tagihan |
 | `application/controllers/Orangtua.php` | Orang Tua: lihat & bayar tagihan anak |
+| `application/controllers/api/Pembayaran.php` | API: JSON endpoint pembayaran untuk mobile |
 
 #### Models
 | File | Deskripsi |
@@ -183,18 +187,32 @@ Memberikan portal orang tua untuk melihat data anak (nilai hasil, kehadiran, tag
 |------|-----------|
 | `application/models/Orangtua_model.php` | Business logic orangtua |
 
-#### Views
+#### Views - Portal Orangtua
 | Path | Deskripsi |
 |------|-----------|
 | `application/views/members/orangtua/dashboard.php` | Dashboard orangtua |
 | `application/views/members/orangtua/no_anak.php` | Halaman jika belum ada anak |
 | `application/views/members/orangtua/nilai/data.php` | Nilai anak |
 | `application/views/members/orangtua/absensi/data.php` | Kehadiran anak |
-| `application/views/members/orangtua/tagihan/*` | Tagihan (lihat bagian Pembayaran) |
+| `application/views/members/orangtua/tagihan/data.php` | Tagihan anak |
+| `application/views/members/orangtua/tagihan/bayar.php` | Form bayar tagihan |
+| `application/views/members/orangtua/tagihan/riwayat.php` | Riwayat pembayaran |
+| `application/views/members/orangtua/tagihan/detail_transaksi.php` | Detail transaksi |
 | `application/views/members/orangtua/templates/header.php` | Template header |
 | `application/views/members/orangtua/templates/footer.php` | Template footer |
-| `application/views/users/orangtua/data.php` | Admin: data user orangtua |
-| `application/views/users/orangtua/dashboard.php` | Admin: dashboard user orangtua |
+
+#### Views - Admin Master Data
+| Path | Deskripsi |
+|------|-----------|
+| `application/views/master/orangtua/data.php` | Daftar data orangtua |
+| `application/views/master/orangtua/add.php` | Form tambah orangtua |
+| `application/views/master/orangtua/edit.php` | Form edit orangtua |
+
+#### Views - Admin User Management
+| Path | Deskripsi |
+|------|-----------|
+| `application/views/users/orangtua/data.php` | Data user orangtua |
+| `application/views/users/orangtua/dashboard.php` | Dashboard user orangtua |
 
 #### Assets
 | Path | Deskripsi |
@@ -276,7 +294,7 @@ Memberikan portal khusus tenaga kependidikan (tendik) dan integrasi tampilan unt
 |------|-----------|
 | `application/models/Tendik_model.php` | Business logic tendik |
 
-#### Views
+#### Views - Portal Tendik
 | Path | Deskripsi |
 |------|-----------|
 | `application/views/members/tendik/dashboard.php` | Dashboard tendik |
@@ -285,15 +303,36 @@ Memberikan portal khusus tenaga kependidikan (tendik) dan integrasi tampilan unt
 | `application/views/members/tendik/riwayat.php` | Riwayat presensi |
 | `application/views/members/tendik/pengajuan.php` | Pengajuan izin |
 | `application/views/members/tendik/bypass_request.php` | Request bypass |
+
+#### Views - Template Tendik
+| Path | Deskripsi |
+|------|-----------|
 | `application/views/members/tendik/templates/sidebar.php` | Sidebar |
 | `application/views/members/tendik/templates/navbar.php` | Navbar |
 | `application/views/members/tendik/templates/header.php` | Header |
 | `application/views/members/tendik/templates/header_topnav.php` | Header topnav |
 | `application/views/members/tendik/templates/footer.php` | Footer |
 | `application/views/members/tendik/templates/footer_topnav.php` | Footer topnav |
-| `application/views/users/tendik/index.php` | Admin: index user tendik |
-| `application/views/users/tendik/data.php` | Admin: data user tendik |
-| `application/views/users/tendik/dashboard.php` | Admin: dashboard user tendik |
+
+#### Views - Admin Master Data
+| Path | Deskripsi |
+|------|-----------|
+| `application/views/master/tendik/data.php` | Daftar data tendik |
+| `application/views/master/tendik/add.php` | Form tambah tendik |
+| `application/views/master/tendik/edit.php` | Form edit tendik |
+
+#### Views - Admin User Management
+| Path | Deskripsi |
+|------|-----------|
+| `application/views/users/tendik/index.php` | Index user tendik |
+| `application/views/users/tendik/data.php` | Data user tendik |
+| `application/views/users/tendik/dashboard.php` | Dashboard user tendik |
+
+#### Assets
+| Path | Deskripsi |
+|------|-----------|
+| `assets/app/js/master/tendik/data.js` | JS master data tendik |
+| `assets/app/js/users/tendik/data.js` | JS user tendik |
 
 ### Skema DB
 Sumber: `assets/app/db/tendik.sql`
@@ -361,20 +400,19 @@ Sistem presensi untuk multi role (guru/siswa/tendik/admin) yang mendukung shift 
 |------|-----------|
 | `application/controllers/Presensi.php` | Controller utama presensi |
 | `application/controllers/Pengajuan.php` | Pengajuan izin/cuti/lembur |
+| `application/controllers/Siswa.php` | Presensi siswa (method: `riwayat_presensi`) |
 
 #### Models
 | File | Deskripsi |
 |------|-----------|
-| `application/models/Presensi_model.php` | Business logic presensi |
-| `application/models/Shift_model.php` | Manajemen shift |
+| `application/models/Presensi_model.php` | Business logic presensi (termasuk shift management) |
 | `application/models/Pengajuan_model.php` | Business logic pengajuan |
 
-#### Views
+> **Catatan:** `Shift_model.php` tidak ada sebagai file terpisah. Fungsionalitas shift management terintegrasi di `Presensi_model.php`.
+
+#### Views - Admin
 | Path | Deskripsi |
 |------|-----------|
-| `application/views/presensi/checkin.php` | Halaman check-in |
-| `application/views/presensi/history.php` | Riwayat presensi |
-| `application/views/presensi/jadwal.php` | Jadwal user |
 | `application/views/presensi/dashboard_admin.php` | Dashboard admin |
 | `application/views/presensi/shift_management.php` | Manajemen shift |
 | `application/views/presensi/location_management.php` | Manajemen lokasi |
@@ -383,9 +421,28 @@ Sistem presensi untuk multi role (guru/siswa/tendik/admin) yang mendukung shift 
 | `application/views/presensi/global_config.php` | Konfigurasi global |
 | `application/views/presensi/jadwal_kerja.php` | Jadwal kerja |
 | `application/views/presensi/list_qr_tokens.php` | Daftar QR token |
+| `application/views/presensi/bypass_manage.php` | Manajemen bypass request |
+| `application/views/presensi/rekap.php` | Rekap presensi |
+
+#### Views - User (Guru/Tendik/Siswa)
+| Path | Deskripsi |
+|------|-----------|
+| `application/views/presensi/checkin.php` | Halaman check-in |
+| `application/views/presensi/history.php` | Riwayat presensi |
+| `application/views/presensi/jadwal.php` | Jadwal user |
 | `application/views/presensi/bypass_request.php` | Form bypass request |
+
+#### Views - Pengajuan
+| Path | Deskripsi |
+|------|-----------|
 | `application/views/presensi/pengajuan/index.php` | Daftar pengajuan user |
 | `application/views/presensi/pengajuan/manage.php` | Manajemen pengajuan (admin) |
+
+#### Views - Siswa Presensi
+| Path | Deskripsi |
+|------|-----------|
+| `application/views/members/siswa/presensi/bypass_request.php` | Bypass request siswa |
+| `application/views/members/siswa/presensi/riwayat.php` | Riwayat presensi siswa |
 
 ### Skema DB
 Sumber: `assets/app/db/presensi.sql`
@@ -454,14 +511,14 @@ Sumber: `assets/app/db/presensi.sql`
 | Method | Route | Deskripsi |
 |--------|-------|-----------|
 | GET | `/presensi/dashboard_admin` | Dashboard admin |
+| GET | `/presensi/rekap` | Rekap presensi |
+| GET | `/presensi/rekap_export` | Export rekap |
 | GET | `/presensi/shift_management` | Manajemen shift |
 | POST | `/presensi/save_shift` | Simpan shift |
 | POST | `/presensi/delete_shift` | Hapus shift |
-| GET | `/presensi/kode_shift_check/{kode}` | Cek kode shift |
 | GET | `/presensi/location_management` | Manajemen lokasi |
 | POST | `/presensi/save_location` | Simpan lokasi |
 | POST | `/presensi/delete_location` | Hapus lokasi |
-| GET | `/presensi/kode_lokasi_check/{kode}` | Cek kode lokasi |
 | GET | `/presensi/hari_libur` | Manajemen libur |
 | POST | `/presensi/save_hari_libur` | Simpan libur |
 | POST | `/presensi/delete_hari_libur` | Hapus libur |
@@ -477,6 +534,8 @@ Sumber: `assets/app/db/presensi.sql`
 | GET | `/presensi/get_jadwal_user` | Get jadwal user |
 | POST | `/presensi/save_jadwal_user_weekly` | Simpan jadwal user |
 | POST | `/presensi/clear_jadwal_user_weekly` | Hapus jadwal user |
+| GET | `/presensi/bypass_manage` | Manajemen bypass |
+| POST | `/presensi/bypass_update_status` | Update status bypass |
 | POST | `/presensi/generate_qr_token` | Generate QR token |
 | GET | `/presensi/list_qr_tokens` | Daftar QR token |
 | GET | `/presensi/global_config` | Konfigurasi global |
@@ -543,7 +602,8 @@ Menyediakan endpoint JSON untuk Flutter Mobile App.
 
 | File | Deskripsi |
 |------|-----------|
-| `application/controllers/Api.php` | Controller API |
+| `application/controllers/Api.php` | Controller API utama |
+| `application/controllers/api/Pembayaran.php` | API pembayaran |
 
 ### Pola Autentikasi
 - Menggunakan Ion Auth session (bukan token stateless):
@@ -585,6 +645,7 @@ Integrasi UI spreadsheet (LuckySheet) untuk kebutuhan input/rekap berbasis web.
 Controllers:
   application/controllers/Pembayaran.php
   application/controllers/Tagihanku.php
+  application/controllers/api/Pembayaran.php
 
 Models:
   application/models/Pembayaran_model.php
@@ -618,7 +679,7 @@ Controllers:
 Models:
   application/models/Orangtua_model.php
 
-Views:
+Views - Portal:
   application/views/members/orangtua/dashboard.php
   application/views/members/orangtua/no_anak.php
   application/views/members/orangtua/nilai/data.php
@@ -629,6 +690,11 @@ Views:
   application/views/members/orangtua/tagihan/detail_transaksi.php
   application/views/members/orangtua/templates/header.php
   application/views/members/orangtua/templates/footer.php
+
+Views - Admin:
+  application/views/master/orangtua/data.php
+  application/views/master/orangtua/add.php
+  application/views/master/orangtua/edit.php
   application/views/users/orangtua/data.php
   application/views/users/orangtua/dashboard.php
 
@@ -650,22 +716,33 @@ Controllers:
 Models:
   application/models/Tendik_model.php
 
-Views:
+Views - Portal:
   application/views/members/tendik/dashboard.php
   application/views/members/tendik/profil.php
   application/views/members/tendik/jadwal.php
   application/views/members/tendik/riwayat.php
   application/views/members/tendik/pengajuan.php
   application/views/members/tendik/bypass_request.php
+
+Views - Template:
   application/views/members/tendik/templates/sidebar.php
   application/views/members/tendik/templates/navbar.php
   application/views/members/tendik/templates/header.php
   application/views/members/tendik/templates/header_topnav.php
   application/views/members/tendik/templates/footer.php
   application/views/members/tendik/templates/footer_topnav.php
+
+Views - Admin:
+  application/views/master/tendik/data.php
+  application/views/master/tendik/add.php
+  application/views/master/tendik/edit.php
   application/views/users/tendik/index.php
   application/views/users/tendik/data.php
   application/views/users/tendik/dashboard.php
+
+Assets:
+  assets/app/js/master/tendik/data.js
+  assets/app/js/users/tendik/data.js
 
 SQL:
   assets/app/db/tendik.sql
@@ -676,16 +753,13 @@ SQL:
 Controllers:
   application/controllers/Presensi.php
   application/controllers/Pengajuan.php
+  application/controllers/Siswa.php (method: riwayat_presensi)
 
 Models:
   application/models/Presensi_model.php
-  application/models/Shift_model.php
   application/models/Pengajuan_model.php
 
-Views:
-  application/views/presensi/checkin.php
-  application/views/presensi/history.php
-  application/views/presensi/jadwal.php
+Views - Admin:
   application/views/presensi/dashboard_admin.php
   application/views/presensi/shift_management.php
   application/views/presensi/location_management.php
@@ -694,13 +768,164 @@ Views:
   application/views/presensi/global_config.php
   application/views/presensi/jadwal_kerja.php
   application/views/presensi/list_qr_tokens.php
+  application/views/presensi/bypass_manage.php
+  application/views/presensi/rekap.php
+
+Views - User:
+  application/views/presensi/checkin.php
+  application/views/presensi/history.php
+  application/views/presensi/jadwal.php
   application/views/presensi/bypass_request.php
+
+Views - Pengajuan:
   application/views/presensi/pengajuan/index.php
   application/views/presensi/pengajuan/manage.php
+
+Views - Siswa:
+  application/views/members/siswa/presensi/bypass_request.php
+  application/views/members/siswa/presensi/riwayat.php
 
 SQL:
   assets/app/db/presensi.sql
 ```
+
+---
+
+## File yang Ikut Berubah (Integrasi Fitur)
+
+Selain file-file utama di atas, beberapa **controllers dan models existing** juga ikut dimodifikasi untuk mengintegrasikan fitur Orangtua, Tendik, Presensi, dan Pembayaran.
+
+### Controllers yang Dimodifikasi
+
+| File | Fitur Terkait | Perubahan |
+|------|---------------|-----------|
+| `application/controllers/Dashboard.php` | Presensi | Load `Presensi_model`, tampilkan status presensi hari ini, shift aktif, dan open log di dashboard siswa |
+| `application/controllers/Siswa.php` | Presensi | Tambah method `riwayat_presensi()` untuk menampilkan riwayat presensi siswa per bulan |
+| `application/controllers/Datasiswa.php` | Orangtua | Load `Orangtua_model`, integrasi fitur parent-siswa (tambah/hapus relasi, buat akun orangtua otomatis) |
+| `application/controllers/Auth.php` | Orangtua, Tendik | Tambah redirect logic: user `orangtua` → `/orangtua`, user `tendik` → `/tendik` setelah login |
+
+### Models yang Dimodifikasi
+
+| File | Fitur Terkait | Perubahan |
+|------|---------------|-----------|
+| `application/models/Pengajuan_model.php` | Presensi | Akses tabel `presensi_pengajuan`, `presensi_logs`, `presensi_jenis_izin`; sinkronisasi pengajuan izin ke log presensi |
+
+### Detail Perubahan per Controller
+
+#### Dashboard.php
+```php
+// Load Presensi_model untuk dashboard siswa
+$this->load->model("Presensi_model", "presensi");
+
+// Data yang ditambahkan ke view:
+$data["today_log"] = $this->presensi->getTodayLog($user->id, $today);
+$data["shift"] = $this->presensi->getUserShiftForDate($user->id, $today);
+$data["open_log"] = $this->presensi->getOpenAttendanceLog($user->id);
+$data["presensi_config"] = $this->presensi->getResolvedConfig($user->id);
+```
+
+#### Siswa.php
+```php
+// Method baru untuk riwayat presensi
+public function riwayat_presensi()
+{
+    $this->load->model("Presensi_model", "presensi");
+    // ... menampilkan riwayat presensi per bulan
+}
+```
+
+#### Datasiswa.php
+```php
+// Load Orangtua_model untuk integrasi parent-siswa
+$this->load->model("Orangtua_model", "orangtua");
+
+// Fungsi baru:
+// - getParentAccessBySiswa() - lihat orangtua yang terhubung
+// - addParentSiswa() - tambah relasi parent-siswa
+// - removeParentSiswa() - hapus relasi
+// - createOrangtua() - buat record master_orangtua + akun user otomatis
+```
+
+#### Auth.php
+```php
+// Redirect setelah login berdasarkan group
+if ($this->ion_auth->in_group('orangtua')) {
+    redirect("orangtua");
+} elseif ($this->ion_auth->in_group('tendik')) {
+    redirect("tendik");
+}
+```
+
+### Views Siswa yang Dimodifikasi
+
+| File | Perubahan |
+|------|-----------|
+| `application/views/members/siswa/dashboard.php` | Tambah section presensi (check-in/check-out, status hari ini, shift info) |
+
+### Inventaris File Modifikasi
+```
+Controllers (dimodifikasi):
+  application/controllers/Dashboard.php
+  application/controllers/Siswa.php
+  application/controllers/Datasiswa.php
+  application/controllers/Auth.php
+
+Models (dimodifikasi):
+  application/models/Pengajuan_model.php
+
+Models (DIHAPUS - tidak dipakai):
+  application/models/Shift_model.php (fungsionalitas di Presensi_model.php)
+  application/models/Karyawan_model.php (diganti Tendik_model.php)
+
+Views (dimodifikasi):
+  application/views/members/siswa/dashboard.php
+```
+
+---
+
+## Catatan Perubahan Dokumentasi
+
+### Perbaikan dari Versi Sebelumnya
+
+1. **File yang dihapus dari dokumentasi (tidak ada):**
+   - `application/models/Shift_model.php` - Fungsionalitas terintegrasi di `Presensi_model.php`
+
+2. **File yang ditambahkan:**
+   - `application/controllers/api/Pembayaran.php` - API pembayaran untuk mobile
+   - `application/views/master/orangtua/add.php`
+   - `application/views/master/orangtua/edit.php`
+   - `application/views/master/orangtua/data.php`
+   - `application/views/master/tendik/add.php`
+   - `application/views/master/tendik/edit.php`
+   - `application/views/master/tendik/data.php`
+   - `application/views/members/siswa/presensi/bypass_request.php`
+   - `application/views/members/siswa/presensi/riwayat.php`
+   - `assets/app/js/master/tendik/data.js`
+   - `assets/app/js/users/tendik/data.js`
+
+3. **Folder upload yang ditambahkan:**
+   - `uploads/presensi/selfie/`
+   - `uploads/presensi/bypass/`
+   - `uploads/foto_orangtua/`
+   - `uploads/foto_tendik/`
+
+4. **Endpoint yang ditambahkan:**
+   - `/presensi/rekap` - Rekap presensi
+   - `/presensi/rekap_export` - Export rekap
+   - `/presensi/bypass_manage` - Manajemen bypass
+   - `/presensi/bypass_update_status` - Update status bypass
+
+5. **File yang ikut dimodifikasi (integrasi):**
+   - `application/controllers/Dashboard.php` - Integrasi presensi
+   - `application/controllers/Siswa.php` - Method riwayat_presensi
+   - `application/controllers/Datasiswa.php` - Integrasi orangtua
+   - `application/controllers/Auth.php` - Redirect logic
+   - `application/models/Pengajuan_model.php` - Sync presensi logs
+   - `application/views/members/siswa/dashboard.php` - Section presensi
+
+6. **File yang DIHAPUS (tidak dipakai):**
+   - `application/models/Shift_model.php` - Fungsionalitas sudah di `Presensi_model.php`
+   - `application/models/Karyawan_model.php` - Deprecated, diganti `Tendik_model.php`
 
 ---
 

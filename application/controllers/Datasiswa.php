@@ -1,10 +1,5 @@
 <?php
 
-/*   ________________________________________
-    |                 GarudaCBT              |
-    |    https://github.com/garudacbt/cbt    |
-    |________________________________________|
-*/
 defined("BASEPATH") or exit("No direct script access allowed");
 use alhimik1986\PhpExcelTemplator\PhpExcelTemplator;
 
