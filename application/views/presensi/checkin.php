@@ -29,14 +29,20 @@
                             </p>
                         </div>
                         
-                        <?php if (!$existing_log->jam_pulang): ?>
-                            <div class="text-center mt-4">
-                                <h5>Anda belum Check-Out</h5>
-                                <button type="button" class="btn btn-warning btn-lg" onclick="doCheckout()">
-                                    <i class="fas fa-sign-out-alt"></i> Check-Out
-                                </button>
-                            </div>
-                        <?php else: ?>
+	                        <?php if (!$existing_log->jam_pulang): ?>
+	                            <div class="text-center mt-4">
+	                                <h5>Anda belum Check-Out</h5>
+	                                <?php if (in_array($config->validation_mode, ['qr', 'gps_or_qr', 'any'], true)): ?>
+	                                    <div class="form-group mt-3 text-left">
+	                                        <label>QR Token<?= $config->validation_mode === 'qr' ? ' *' : '' ?></label>
+	                                        <input type="text" class="form-control form-control-lg" id="qr-token" placeholder="Masukkan QR token">
+	                                    </div>
+	                                <?php endif; ?>
+	                                <button type="button" class="btn btn-warning btn-lg" onclick="doCheckout()">
+	                                    <i class="fas fa-sign-out-alt"></i> Check-Out
+	                                </button>
+	                            </div>
+	                        <?php else: ?>
                             <div class="alert alert-info text-center">
                                 <h4><i class="fas fa-check-circle"></i> Sudah Check-Out</h4>
                                 <p class="mb-0">
@@ -51,12 +57,12 @@
                             </div>
                         <?php endif; ?>
                         
-                    <?php elseif (!$shift): ?>
-                        <div class="alert alert-warning text-center">
-                            <i class="fas fa-calendar-times fa-3x mb-3"></i>
-                            <h4>Hari Ini Bukan Hari Kerja</h4>
-                            <p class="mb-0">Silakan cek jadwal kerja Anda</p>
-                        </div>
+	                    <?php elseif (!$shift): ?>
+	                        <div class="alert alert-warning text-center">
+	                            <i class="fas fa-calendar-times fa-3x mb-3"></i>
+	                            <h4>Hari Ini Bukan Hari Kerja</h4>
+	                            <p class="mb-0">Silakan cek jadwal presensi Anda</p>
+	                        </div>
                         
                         <?php if ($config->allow_bypass): ?>
                             <div class="text-center mt-3">
@@ -68,6 +74,16 @@
                         
                     <?php else: ?>
                         <div class="text-center">
+                            <?php if ($config->require_photo): ?>
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-camera mr-2"></i>Foto selfie wajib untuk check-in.
+                                </div>
+                                <div class="form-group">
+                                    <label>Foto Selfie *</label>
+                                    <input type="file" class="form-control form-control-lg" id="photo-file" accept="image/*" capture="user">
+                                </div>
+                            <?php endif; ?>
+
                             <?php switch ($config->validation_mode) {
                                 case 'gps': ?>
                                     <div class="alert alert-info">
@@ -237,6 +253,20 @@
 <script>
 var currentLat = null;
 var currentLng = null;
+var validationMode = '<?= $config->validation_mode ?>';
+var requirePhoto = <?= (int) $config->require_photo ?>;
+var allowBypass = <?= (int) $config->allow_bypass ?>;
+var isSiswa = <?= (isset($this->ion_auth) && $this->ion_auth->in_group('siswa')) ? 'true' : 'false' ?>;
+var csrfName = '<?= $this->security->get_csrf_token_name() ?>';
+var csrfHash = '<?= $this->security->get_csrf_hash() ?>';
+
+function getPhotoFile() {
+    var el = document.getElementById('photo-file');
+    if (!el || !el.files || !el.files.length) {
+        return null;
+    }
+    return el.files[0];
+}
 
 function getGPSAndCheckIn() {
     if (navigator.geolocation) {
@@ -272,16 +302,36 @@ function getGPSAndCheckIn() {
 
 function doCheckIn(lat, lng, qrToken) {
     qrToken = qrToken || null;
-    var data = {
-        lat: lat,
-        lng: lng,
-        qr_token: qrToken
-    };
+    var photoFile = getPhotoFile();
+
+    if (requirePhoto && !photoFile) {
+        alert('Foto selfie wajib untuk check-in');
+        var btn = document.getElementById('btn-checkin');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-location-arrow"></i> Ambil Lokasi & Check-In';
+        }
+        return;
+    }
+
+    var data = new FormData();
+    if (lat !== null && lat !== undefined) {
+        data.append('lat', lat);
+    }
+    if (lng !== null && lng !== undefined) {
+        data.append('lng', lng);
+    }
+    if (qrToken) {
+        data.append('qr_token', qrToken);
+    }
+    if (photoFile) {
+        data.append('photo_file', photoFile);
+    }
+    data.append(csrfName, csrfHash);
     
     fetch('<?= base_url('presensi/do_checkin') ?>', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams(data)
+        body: data
     })
     .then(function(response) { return response.json(); })
     .then(function(result) {
@@ -293,7 +343,7 @@ function doCheckIn(lat, lng, qrToken) {
             
             if (result.show_bypass) {
                 if (confirm('Gagal validasi. Apakah Anda ingin request bypass?')) {
-                    showBypassForm();
+                    showBypassForm('checkin');
                 }
             }
             
@@ -318,10 +368,10 @@ function doCheckIn(lat, lng, qrToken) {
 function checkInWithQR() {
     var qrToken = document.getElementById('qr-token').value;
     
-    if (!qrToken.trim()) {
-        alert('Silakan masukkan QR token');
-        return;
-    }
+        if (!qrToken.trim()) {
+            alert('Silakan masukkan QR token');
+            return;
+        }
     
     doCheckIn(null, null, qrToken);
 }
@@ -332,16 +382,73 @@ function doManualCheckIn() {
 
 function doCheckout() {
     var qrTokenEl = document.getElementById('qr-token');
-    var data = {
-        lat: currentLat,
-        lng: currentLng,
-        qr_token: qrTokenEl ? qrTokenEl.value : null
-    };
-    
+    var qrToken = qrTokenEl ? (qrTokenEl.value || '').trim() : '';
+
+    if (validationMode === 'qr') {
+        if (!qrToken) {
+            alert('Silakan masukkan QR token');
+            return;
+        }
+        submitCheckout(null, null, qrToken);
+        return;
+    }
+
+    if (validationMode === 'manual') {
+        submitCheckout(null, null, null);
+        return;
+    }
+
+    if (validationMode === 'gps_or_qr' && qrToken) {
+        submitCheckout(null, null, qrToken);
+        return;
+    }
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                currentLat = position.coords.latitude;
+                currentLng = position.coords.longitude;
+                var tokenToSend = (validationMode === 'any') ? (qrToken || null) : null;
+                submitCheckout(currentLat, currentLng, tokenToSend);
+            },
+            function(error) {
+                if (validationMode === 'any') {
+                    submitCheckout(null, null, qrToken || null);
+                    return;
+                }
+                alert('Gagal mengambil lokasi GPS: ' + error.message);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+        return;
+    }
+
+    if (validationMode === 'any') {
+        submitCheckout(null, null, qrToken || null);
+        return;
+    }
+
+    alert('Browser tidak mendukung geolocation');
+}
+
+function submitCheckout(lat, lng, qrToken) {
+    qrToken = qrToken || null;
+    var data = new FormData();
+    if (lat !== null && lat !== undefined) {
+        data.append('lat', lat);
+    }
+    if (lng !== null && lng !== undefined) {
+        data.append('lng', lng);
+    }
+    if (qrToken) {
+        data.append('qr_token', qrToken);
+    }
+
+    data.append(csrfName, csrfHash);
+
     fetch('<?= base_url('presensi/do_checkout') ?>', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams(data)
+        body: data
     })
     .then(function(response) { return response.json(); })
     .then(function(result) {
@@ -350,6 +457,12 @@ function doCheckout() {
             location.reload();
         } else {
             alert('Check-Out gagal: ' + result.message);
+
+            if (result.show_bypass || allowBypass) {
+                if (confirm('Gagal validasi. Apakah Anda ingin request bypass?')) {
+                    showBypassForm('checkout');
+                }
+            }
         }
     })
     .catch(function(error) {
@@ -357,8 +470,20 @@ function doCheckout() {
     });
 }
 
-function showBypassForm() {
+function showBypassForm(tipe) {
+    tipe = tipe || 'checkin';
+
+    if (isSiswa) {
+        window.location.href = base_url + 'presensi/bypass_request?tipe=' + encodeURIComponent(tipe);
+        return;
+    }
+
     $('#bypassModal').modal('show');
+
+    var tipeEl = document.querySelector('#bypassForm select[name="tipe"]');
+    if (tipeEl && ['checkin', 'checkout', 'both'].indexOf(tipe) !== -1) {
+        tipeEl.value = tipe;
+    }
     
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -377,6 +502,7 @@ function showBypassForm() {
 function submitBypass() {
     var form = document.getElementById('bypassForm');
     var formData = new FormData(form);
+    formData.append(csrfName, csrfHash);
     
     fetch('<?= base_url('presensi/do_bypass_request') ?>', {
         method: 'POST',

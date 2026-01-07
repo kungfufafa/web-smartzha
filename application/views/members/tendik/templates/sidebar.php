@@ -1,5 +1,9 @@
 <?php
 defined('BASEPATH') or exit('No direct script access allowed');
+
+$controller = $this->uri->segment(1);
+$method = $this->uri->segment(2) ?? '';
+$is_tendik = ($controller === 'tendik');
 ?>
 
 <!-- Main Sidebar Container -->
@@ -27,13 +31,13 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
         <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
             <li class="nav-item">
-                <a href="<?= base_url('absensi') ?>" class="nav-link <?= in_array($page, ['absensi', 'riwayat']) ? 'active' : '' ?>">
+                <a href="<?= base_url('tendik#presensi') ?>" class="nav-link <?= $is_tendik && in_array($method, ['', 'presensi', 'absensi'], true) ? 'active' : '' ?>">
                     <i class="nav-icon fas fa-calendar-alt"></i>
-                    <p>Check-in / Check-out</p>
+                    <p>Presensi</p>
                 </a>
             </li>
             <li class="nav-item">
-                <a href="<?= base_url('absensi/riwayat') ?>" class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) === 'riwayat' ? 'active' : '' ?>">
+                <a href="<?= base_url('tendik/riwayat') ?>" class="nav-link <?= $is_tendik && $method === 'riwayat' ? 'active' : '' ?>">
                     <i class="nav-icon fas fa-history"></i>
                     <p>Riwayat</p>
                 </a>

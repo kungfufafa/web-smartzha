@@ -60,27 +60,56 @@ class Tendik extends CI_Controller
 
     public function index()
     {
+        $this->load->model('Presensi_model', 'presensi');
+
         $data = $this->getCommonData();
         $data['judul'] = 'Dashboard Tenaga Kependidikan';
         $data['subjudul'] = $this->tendik_data ? $this->tendik_data->nama_tendik : '';
+
+        $today = date('Y-m-d');
+        $data['today_log'] = $this->presensi->getTodayLog($this->user->id, $today);
+        $data['shift'] = $this->presensi->getUserShiftForDate($this->user->id, $today);
+        $data['open_log'] = $this->presensi->getOpenAttendanceLog($this->user->id);
+        $data['open_shift'] = $data['open_log'] && $data['open_log']->id_shift
+            ? $this->presensi->getShiftById($data['open_log']->id_shift)
+            : null;
+        $data['presensi_config'] = $this->presensi->getResolvedConfig($this->user->id);
 
         $this->load_view('members/tendik/dashboard', $data);
     }
 
     public function absensi()
     {
+        redirect(base_url('tendik') . '#presensi');
+    }
+
+    public function presensi()
+    {
+        redirect(base_url('tendik') . '#presensi');
+    }
+
+    public function bypass_request()
+    {
         $this->load->model('Presensi_model', 'presensi');
-        $this->load->model('Shift_model', 'shift');
-        
+
+        $tipe = $this->input->get('tipe', true);
+        if (!in_array($tipe, ['checkin', 'checkout', 'both'], true)) {
+            $tipe = 'checkin';
+        }
+
+        $config = $this->presensi->getResolvedConfig($this->user->id);
+        if (!$config || !(int) $config->allow_bypass) {
+            $this->session->set_flashdata('error', 'Bypass tidak diizinkan');
+            redirect(base_url('tendik') . '#presensi');
+            return;
+        }
+
         $data = $this->getCommonData();
-        $data['judul'] = 'Absensi';
-        $data['subjudul'] = 'Check-in / Check-out';
-        
-        $today = date('Y-m-d');
-        $data['today_log'] = $this->presensi->getTodayLog($this->user->id, $today);
-        $data['shift'] = $this->shift->getShiftForUser($this->user->id, $today);
-        
-        $this->load_view('members/tendik/absensi', $data);
+        $data['judul'] = 'Presensi';
+        $data['subjudul'] = 'Request Bypass';
+        $data['tipe_default'] = $tipe;
+
+        $this->load_view('members/tendik/bypass_request', $data);
     }
 
     public function riwayat()
@@ -88,7 +117,7 @@ class Tendik extends CI_Controller
         $this->load->model('Presensi_model', 'presensi');
         
         $data = $this->getCommonData();
-        $data['judul'] = 'Riwayat Absensi';
+        $data['judul'] = 'Riwayat Presensi';
         $data['subjudul'] = 'Rekap Kehadiran';
         
         $month = $this->input->get('month') ?: date('m');
@@ -103,13 +132,13 @@ class Tendik extends CI_Controller
 
     public function jadwal()
     {
-        $this->load->model('Shift_model', 'shift');
+        $this->load->model('Presensi_model', 'presensi');
         
         $data = $this->getCommonData();
-        $data['judul'] = 'Jadwal Kerja';
+        $data['judul'] = 'Jadwal Presensi';
         $data['subjudul'] = 'Jadwal Shift';
         
-        $data['jadwal'] = $this->shift->getWeeklyScheduleForUser($this->user->id);
+        $data['jadwal'] = $this->presensi->getWeeklyScheduleForUser($this->user->id);
         
         $this->load_view('members/tendik/jadwal', $data);
     }
@@ -135,5 +164,48 @@ class Tendik extends CI_Controller
         $data['subjudul'] = 'Informasi Akun';
         
         $this->load_view('members/tendik/profil', $data);
+    }
+
+    public function change_password()
+    {
+        if ($this->input->method() !== 'post') {
+            $this->output->set_status_header(405);
+            $this->output_json(['status' => false, 'message' => 'Method not allowed']);
+            return;
+        }
+
+        $this->load->library('form_validation');
+
+        $min_password_length = (int) $this->config->item('min_password_length', 'ion_auth');
+        if ($min_password_length <= 0) {
+            $min_password_length = 6;
+        }
+
+        $this->form_validation->set_rules('old', 'Password Lama', 'required|trim');
+        $this->form_validation->set_rules('new', 'Password Baru', 'required|trim|min_length[' . $min_password_length . ']|matches[new_confirm]');
+        $this->form_validation->set_rules('new_confirm', 'Konfirmasi Password Baru', 'required|trim');
+
+        if ($this->form_validation->run() === FALSE) {
+            $errors = [
+                'old' => strip_tags((string) form_error('old')),
+                'new' => strip_tags((string) form_error('new')),
+                'new_confirm' => strip_tags((string) form_error('new_confirm'))
+            ];
+
+            $this->output_json(['status' => false, 'errors' => $errors, 'message' => 'Validasi gagal']);
+            return;
+        }
+
+        $identity = $this->session->userdata('identity');
+        $old_password = $this->input->post('old', true);
+        $new_password = $this->input->post('new', true);
+
+        $change = $this->ion_auth->change_password($identity, $old_password, $new_password);
+        if ($change) {
+            $this->output_json(['status' => true, 'message' => 'Password berhasil diubah']);
+            return;
+        }
+
+        $this->output_json(['status' => false, 'message' => strip_tags((string) $this->ion_auth->errors())]);
     }
 }

@@ -6,7 +6,7 @@
             <!-- Profile Card -->
             <div class="info-box bg-transparent shadow-none">
                 <?php 
-                $foto = isset($tendik) && $tendik && $tendik->foto ? $tendik->foto : 'assets/adminlte/dist/img/avatar5.png';
+                $foto = 'assets/adminlte/dist/img/avatar5.png';
                 ?>
                 <img class="avatar rounded-circle" src="<?= base_url($foto) ?>" width="80" height="80" style="object-fit: cover;">
                 <div class="info-box-content">

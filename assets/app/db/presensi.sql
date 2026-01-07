@@ -114,7 +114,8 @@ CREATE TABLE `presensi_hari_libur` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
--- PART 2: CONFIGURATION HIERARCHY (Global → Group → User)
+-- PART 2: CONFIGURATION (Global → Group)
+-- Notes: Per-user overrides sengaja dihindari untuk menjaga aturan tetap sederhana.
 -- ============================================================
 
 -- -----------------------------------------------------------
@@ -150,7 +151,7 @@ CREATE TABLE `presensi_config_group` (
     `validation_mode` ENUM('gps', 'qr', 'gps_or_qr', 'manual', 'any') DEFAULT 'gps',
 
     -- Feature overrides (NULL = inherit from global)
-    `require_photo` TINYINT(1) DEFAULT NULL,
+    `require_photo` TINYINT(1) DEFAULT 0,
     `require_checkout` TINYINT(1) DEFAULT NULL,
     `allow_bypass` TINYINT(1) DEFAULT NULL,
     `enable_overtime` TINYINT(1) DEFAULT NULL,
@@ -176,7 +177,7 @@ CREATE TABLE `presensi_config_group` (
 
 -- -----------------------------------------------------------
 -- Table: presensi_config_user
--- Description: Per-user overrides (rare, mostly NULL)
+-- Description: Optional per-user overrides (hindari jika tidak benar-benar dibutuhkan)
 -- -----------------------------------------------------------
 CREATE TABLE `presensi_config_user` (
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -186,7 +187,7 @@ CREATE TABLE `presensi_config_user` (
     `validation_mode` ENUM('gps', 'qr', 'gps_or_qr', 'manual', 'any') DEFAULT NULL,
 
     -- Override features
-    `require_photo` TINYINT(1) DEFAULT NULL,
+    `require_photo` TINYINT(1) DEFAULT 0,
     `require_checkout` TINYINT(1) DEFAULT NULL,
     `allow_bypass` TINYINT(1) DEFAULT NULL,
 
@@ -221,6 +222,46 @@ CREATE TABLE `presensi_jadwal_kerja` (
 
     CONSTRAINT `fk_jadwal_group` FOREIGN KEY (`id_group`) REFERENCES `groups` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_jadwal_shift` FOREIGN KEY (`id_shift`) REFERENCES `presensi_shift` (`id_shift`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- -----------------------------------------------------------
+-- Table: presensi_jadwal_tendik
+-- Description: Explicit working days per tipe_tendik (edge cases within Tendik group)
+-- Notes: Satpam/TU/penjaga/dll tetap 1 group 'tendik', bedanya di tipe_tendik.
+-- -----------------------------------------------------------
+CREATE TABLE `presensi_jadwal_tendik` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `tipe_tendik` VARCHAR(20) NOT NULL COMMENT 'Matches master_tendik.tipe_tendik',
+    `day_of_week` TINYINT(1) NOT NULL COMMENT '1=Monday, 7=Sunday',
+    `id_shift` INT UNSIGNED NOT NULL COMMENT 'Shift for this day',
+    `is_active` TINYINT(1) DEFAULT 1,
+
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_tipe_day` (`tipe_tendik`, `day_of_week`),
+    KEY `fk_jadwal_tendik_shift` (`id_shift`),
+
+    CONSTRAINT `fk_jadwal_tendik_shift` FOREIGN KEY (`id_shift`) REFERENCES `presensi_shift` (`id_shift`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- -----------------------------------------------------------
+-- Table: presensi_jadwal_user
+-- Description: Weekly schedule overrides per user (works for guru/siswa/tendik)
+-- Notes: Use this for edge cases (satpam pagi vs satpam malam, guru panggilan, siswa sesi 1/2, dll).
+--        NULL id_shift means explicit day off for that day.
+-- -----------------------------------------------------------
+CREATE TABLE `presensi_jadwal_user` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `id_user` INT UNSIGNED NOT NULL COMMENT 'FK to users table',
+    `day_of_week` TINYINT(1) NOT NULL COMMENT '1=Monday, 7=Sunday',
+    `id_shift` INT UNSIGNED DEFAULT NULL COMMENT 'NULL = day off',
+    `is_active` TINYINT(1) DEFAULT 1,
+
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_user_day` (`id_user`, `day_of_week`),
+    KEY `fk_jadwal_user_shift` (`id_shift`),
+
+    CONSTRAINT `fk_jadwal_user_user` FOREIGN KEY (`id_user`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_jadwal_user_shift` FOREIGN KEY (`id_shift`) REFERENCES `presensi_shift` (`id_shift`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- -----------------------------------------------------------
@@ -450,7 +491,7 @@ INSERT INTO `presensi_shift` (`kode_shift`, `nama_shift`, `jam_masuk`, `jam_pula
 
 -- Default location (Jakarta Monas as placeholder)
 INSERT INTO `presensi_lokasi` (`kode_lokasi`, `nama_lokasi`, `alamat`, `latitude`, `longitude`, `radius_meter`, `is_default`) VALUES
-('SEKOLAH', 'Gedung Utama Sekolah', 'Jl. Pendidikan No. 1', -6.175392, 106.827153, 100, 1);
+('SEKOLAH', 'SMA Islam Al Azhar 5', 'Jalan Pilang Setrayasa No.31, Sukapura, Kec. Kejaksan, Kota Cirebon, Jawa Barat 45122', -6.698278097737746, 108.54418499259577, 1000, 1);
 
 -- Default leave types
 INSERT INTO `presensi_jenis_izin` (`nama_izin`, `kode_izin`, `kurangi_cuti`, `butuh_file`, `max_hari`, `status_presensi`) VALUES
@@ -461,12 +502,8 @@ INSERT INTO `presensi_jenis_izin` (`nama_izin`, `kode_izin`, `kurangi_cuti`, `bu
 ('Cuti Melahirkan', 'MELAHIRKAN', 0, 1, 90, 'Cuti'),
 ('Cuti Menikah', 'NIKAH', 0, 1, 3, 'Cuti');
 
--- Global configuration
+-- Global configuration (system-level only)
 INSERT INTO `presensi_config_global` (`config_key`, `config_value`, `config_type`, `description`) VALUES
-('validation_mode', 'gps', 'string', 'Default validation mode: gps|qr|manual|gps_or_qr|any'),
-('require_photo', '1', 'boolean', 'Require selfie on check-in'),
-('require_checkout', '1', 'boolean', 'Require check-out'),
-('allow_bypass', '1', 'boolean', 'Allow location bypass requests'),
 ('max_bypass_per_month', '3', 'int', 'Maximum bypass requests per user per month'),
 ('bypass_auto_approve', '0', 'boolean', 'Auto-approve bypass requests'),
 ('qr_validity_minutes', '5', 'int', 'QR code validity duration in minutes'),
@@ -480,28 +517,28 @@ INSERT INTO `presensi_config_global` (`config_key`, `config_value`, `config_type
 
 -- Default group configurations (if groups exist)
 INSERT INTO `presensi_config_group` (`id_group`, `nama_konfigurasi`, `id_shift_default`, `validation_mode`, `holiday_mode`, `follow_academic_calendar`)
-SELECT g.id, 'Guru', 1, 'gps_or_qr', 'all', 1
+SELECT g.id, 'Guru', 1, 'manual', 'all', 1
 FROM `groups` g
 WHERE g.name = 'guru'
 LIMIT 1;
 
 INSERT INTO `presensi_config_group` (`id_group`, `nama_konfigurasi`, `id_shift_default`, `validation_mode`, `holiday_mode`, `follow_academic_calendar`)
-SELECT g.id, 'Tendik', 1, 'gps_or_qr', 'all', 0
+SELECT g.id, 'Tendik', 1, 'manual', 'all', 0
 FROM `groups` g
 WHERE g.name = 'tendik'
 LIMIT 1;
 
 INSERT INTO `presensi_config_group` (`id_group`, `nama_konfigurasi`, `id_shift_default`, `validation_mode`, `holiday_mode`, `follow_academic_calendar`)
-SELECT g.id, 'Siswa', 1, 'gps_or_qr', 'national_only', 1
+SELECT g.id, 'Siswa', 1, 'manual', 'national_only', 1
 FROM `groups` g
 WHERE g.name = 'siswa'
 LIMIT 1;
 
--- Default working schedules (Mon-Fri for guru)
+-- Default presensi schedules (Mon-Fri)
 INSERT INTO `presensi_jadwal_kerja` (`id_group`, `day_of_week`, `id_shift`)
 SELECT g.id, d.day_num, 1
 FROM `groups` g
 CROSS JOIN (SELECT 1 AS day_num UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5) d
-WHERE g.name = 'guru';
+WHERE g.name IN ('guru', 'tendik', 'siswa');
 
 SET FOREIGN_KEY_CHECKS = 1;

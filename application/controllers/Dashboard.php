@@ -1,10 +1,5 @@
 <?php
 
-/*   ________________________________________
-    |                 GarudaCBT              |
-    |    https://github.com/garudacbt/cbt    |
-    |________________________________________|
-*/
 defined("BASEPATH") or exit("No direct script access allowed");
 
 class Dashboard extends CI_Controller
@@ -59,8 +54,7 @@ class Dashboard extends CI_Controller
 
     public function menu_siswa_box()
     {
-        // Note: "Tagihan Saya" removed from siswa menu - tagihan now accessed via parent portal only
-        $box = [["title" => "Jadwal Pelajaran", "icon" => "ic_online.png", "link" => "siswa/jadwalpelajaran"], ["title" => "Materi", "icon" => "ic_elearning.png", "link" => "siswa/materi"], ["title" => "Tugas", "icon" => "ic_questions.png", "link" => "siswa/tugas"], ["title" => "Ujian / Ulangan", "icon" => "ic_question.png", "link" => "siswa/cbt"], ["title" => "Nilai Hasil", "icon" => "ic_exam.png", "link" => "siswa/hasil"], ["title" => "Absensi", "icon" => "ic_clipboard.png", "link" => "siswa/kehadiran"], ["title" => "Catatan Guru", "icon" => "ic_student.png", "link" => "siswa/catatan"]];
+        $box = [["title" => "Jadwal Pelajaran", "icon" => "ic_online.png", "link" => "siswa/jadwalpelajaran"], ["title" => "Materi", "icon" => "ic_elearning.png", "link" => "siswa/materi"], ["title" => "Tugas", "icon" => "ic_questions.png", "link" => "siswa/tugas"], ["title" => "Ujian / Ulangan", "icon" => "ic_question.png", "link" => "siswa/cbt"], ["title" => "Nilai Hasil", "icon" => "ic_exam.png", "link" => "siswa/hasil"], ["title" => "KBM", "icon" => "ic_clipboard.png", "link" => "siswa/kehadiran"], ["title" => "Riwayat Presensi", "icon" => "ic_document.png", "link" => "siswa/riwayat_presensi"], ["title" => "Catatan Guru", "icon" => "ic_student.png", "link" => "siswa/catatan"]];
         $info_box = json_decode(json_encode($box), FALSE);
         return $info_box;
     }
@@ -113,6 +107,15 @@ class Dashboard extends CI_Controller
                 $data["kbms"] = $arrKbm[$siswa->id_kelas] ?? null;
                 $data["jadwals"] = $arrJadwalKelas[$siswa->id_kelas] ?? [];
                 $data["running_text"] = $this->dashboard->getRunningText();
+                $this->load->model("Presensi_model", "presensi");
+                $today = date("Y-m-d");
+                $data["today_log"] = $this->presensi->getTodayLog($user->id, $today);
+                $data["shift"] = $this->presensi->getUserShiftForDate($user->id, $today);
+                $data["open_log"] = $this->presensi->getOpenAttendanceLog($user->id);
+                $data["open_shift"] = $data["open_log"] && $data["open_log"]->id_shift
+                    ? $this->presensi->getShiftById($data["open_log"]->id_shift)
+                    : null;
+                $data["presensi_config"] = $this->presensi->getResolvedConfig($user->id);
                 $this->load->view("members/siswa/templates/header", $data);
                 $this->load->view("members/siswa/dashboard");
                 $this->load->view("members/siswa/templates/footer");
@@ -291,4 +294,3 @@ class Dashboard extends CI_Controller
         $this->output_json($this->dashboard->getRunningText());
     }
 }
-

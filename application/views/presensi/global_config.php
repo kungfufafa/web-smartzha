@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
-<div class="content-wrapper bg-white">
+<div class="content-wrapper bg-white pt-4">
     <section class="content-header">
         <div class="container-fluid">
             <div class="row mb-2">
@@ -12,62 +12,32 @@
     </section>
 
     <section class="content">
-        <div class="container-fluid">
-            <div class="card card-default my-shadow mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="card-title"><?= $subjudul ?></h6>
-                    <button type="button" class="btn btn-sm btn-primary" onclick="saveGlobalConfig()">
-                        <i class="fas fa-save"></i> Simpan Perubahan
-                    </button>
-                </div>
-                <div class="card-body">
+	        <div class="container-fluid">
+	            <div class="card">
+	                <div class="card-header">
+	                    <h3 class="card-title"><i class="fas fa-sliders-h mr-1"></i> <?= $subjudul ?></h3>
+	                </div>
+	                <div class="card-body">
                     <?php if (empty($configs)): ?>
                         <div class="alert alert-warning text-center">
                             <i class="fas fa-cog fa-3x mb-3"></i>
                             <h4>Tidak Ada Konfigurasi</h4>
-                            <p class="mb-0">Belum ada konfigurasi global yang dibuat</p>
+                            <p class="mb-0">Belum ada konfigurasi sistem yang dibuat</p>
                         </div>
                     <?php else: ?>
                         <form id="globalConfigForm">
                             <div class="row">
                                 <div class="col-md-6">
-                                    <h5 class="mb-3">Validasi</h5>
-                                    
-                                    <div class="form-group">
-                                        <label>Mode Validasi Default</label>
-                                        <select class="form-control" name="config[validation_mode]">
-                                            <option value="gps" <?= isset($configs['validation_mode']) && $configs['validation_mode'] === 'gps' ? 'selected' : '' ?>>GPS Only</option>
-                                            <option value="qr" <?= isset($configs['validation_mode']) && $configs['validation_mode'] === 'qr' ? 'selected' : '' ?>>QR Only</option>
-                                            <option value="gps_or_qr" <?= isset($configs['validation_mode']) && $configs['validation_mode'] === 'gps_or_qr' ? 'selected' : '' ?>>GPS OR QR</option>
-                                            <option value="manual" <?= isset($configs['validation_mode']) && $configs['validation_mode'] === 'manual' ? 'selected' : '' ?>>Manual</option>
-                                            <option value="any" <?= isset($configs['validation_mode']) && $configs['validation_mode'] === 'any' ? 'selected' : '' ?>>Any</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label>
-                                            <input type="checkbox" name="config[require_photo]" <?= isset($configs['require_photo']) && $configs['require_photo'] ? 'checked' : '' ?>>
-                                            Wajib Foto Selfie
-                                        </label>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label>
-                                            <input type="checkbox" name="config[require_checkout]" <?= isset($configs['require_checkout']) && $configs['require_checkout'] ? 'checked' : '' ?>>
-                                            Wajib Check-Out
-                                        </label>
+                                    <h5 class="mb-3">Catatan</h5>
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        Pengaturan Sistem hanya untuk hal sistem yang tidak diatur di bawahnya (QR, Auto-Alpha, Timezone, limit bypass, dll).
+                                        <small class="d-block text-muted mt-1">Mode validasi, wajib selfie, wajib checkout, dan izin bypass sekarang diatur di <a href="<?= base_url('presensi/group_config') ?>"><strong>Konfigurasi Group</strong></a>.</small>
                                     </div>
                                 </div>
                                 
                                 <div class="col-md-6">
-                                    <h5 class="mb-3">Bypass</h5>
-                                    
-                                    <div class="form-group">
-                                        <label>
-                                            <input type="checkbox" name="config[allow_bypass]" <?= isset($configs['allow_bypass']) && $configs['allow_bypass'] ? 'checked' : '' ?>>
-                                            Izinkan Request Bypass
-                                        </label>
-                                    </div>
+                                    <h5 class="mb-3">Limit Bypass (Sistem)</h5>
                                     
                                     <div class="form-group">
                                         <label>Max Bypass per Bulan</label>
@@ -137,11 +107,12 @@
                                         </label>
                                     </div>
                                     
-                                    <div class="form-group">
-                                        <label>Auto-Alpha Time</label>
-                                        <input type="time" class="form-control" name="config[auto_alpha_time]" value="<?= $configs['auto_alpha_time'] ?? '23:00' ?>">
-                                    </div>
-                                </div>
+	                                    <div class="form-group">
+	                                        <label>Auto-Alpha Time</label>
+	                                        <input type="time" class="form-control" name="config[auto_alpha_time]" value="<?= $configs['auto_alpha_time'] ?? '23:00' ?>">
+	                                        <small class="text-muted d-block mt-1">Tanpa cronjob: Auto-Alpha dijalankan saat admin membuka menu Presensi setelah jam ini.</small>
+	                                    </div>
+	                                </div>
                                 
                                 <div class="col-md-6">
                                     <h5 class="mb-3">System</h5>
@@ -156,18 +127,54 @@
                                     </div>
                                 </div>
                             </div>
-                        </form>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-    </section>
+	                        </form>
+	                    <?php endif; ?>
+	                </div>
+	                <?php if (!empty($configs)): ?>
+	                    <div class="card-footer bg-light text-right">
+	                        <button type="button" class="btn btn-primary btn-lg px-5" onclick="saveGlobalConfig()">
+	                            <i class="fas fa-save mr-2"></i> Simpan Perubahan
+	                        </button>
+	                    </div>
+	                <?php endif; ?>
+	            </div>
+	        </div>
+	    </section>
 </div>
 
 <script>
+var csrfName = '<?= $this->security->get_csrf_token_name() ?>';
+var csrfHash = '<?= $this->security->get_csrf_hash() ?>';
+
+function appendCsrf(formData) {
+    formData.append(csrfName, csrfHash);
+    return formData;
+}
+
 function saveGlobalConfig() {
     var form = document.getElementById('globalConfigForm');
+
+    if (!form) {
+        alert('Tidak ada konfigurasi untuk disimpan');
+        return;
+    }
+
     var formData = new FormData(form);
+
+    [
+        'bypass_auto_approve',
+        'enable_overtime',
+        'overtime_require_approval',
+        'auto_alpha_enabled'
+    ].forEach(function(key) {
+        var checkbox = form.querySelector('input[name="config[' + key + ']"]');
+
+        if (checkbox) {
+            formData.set('config[' + key + ']', checkbox.checked ? '1' : '0');
+        }
+    });
+
+    appendCsrf(formData);
     
     fetch('<?= base_url('presensi/save_global_config') ?>', {
         method: 'POST',

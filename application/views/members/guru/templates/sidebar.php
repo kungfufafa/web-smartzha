@@ -53,37 +53,37 @@
                         <p>Pengumuman</p>
                     </a>
                 </li>
-                <?php $absensi = ["absensi", "pengajuan"]; ?>
-                <li class="nav-item has-treeview <?= in_array($page, $absensi) ? "menu-open" : "" ?>">
-                    <a href="#" class="nav-link <?= in_array($page, $absensi) ? "active" : "" ?>">
-                        <i class="nav-icon fas fa-clock"></i>
-                        <p>
-                            Absensi
-                            <i class="right fas fa-angle-left"></i>
-                        </p>
-                    </a>
-                    <ul class="nav nav-treeview">
-                        <li class="nav-item">
-                            <a href="<?= base_url('absensi') ?>"
-                               class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) == '' ? "active" : "" ?>">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>Check-in / Check-out</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?= base_url('absensi/riwayat') ?>"
-                               class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) === 'riwayat' ? "active" : "" ?>">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>Riwayat Absensi</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?= base_url('absensi/jadwal') ?>"
-                               class="nav-link <?= $page === 'absensi' && $this->uri->segment(2) === 'jadwal' ? "active" : "" ?>">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>Jadwal Shift Saya</p>
-                            </a>
-                        </li>
+	                <?php $presensi = ["presensi", "pengajuan"]; ?>
+	                <li class="nav-item has-treeview <?= in_array($page, $presensi) ? "menu-open" : "" ?>">
+	                    <a href="#" class="nav-link <?= in_array($page, $presensi) ? "active" : "" ?>">
+	                        <i class="nav-icon fas fa-clock"></i>
+	                        <p>
+	                            Presensi
+	                            <i class="right fas fa-angle-left"></i>
+	                        </p>
+	                    </a>
+	                    <ul class="nav nav-treeview">
+	                        <li class="nav-item">
+	                            <a href="<?= base_url('presensi') ?>"
+	                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == '' ? "active" : "" ?>">
+	                                <i class="far fa-circle nav-icon"></i>
+	                                <p>Check-in / Check-out</p>
+	                            </a>
+	                        </li>
+	                        <li class="nav-item">
+	                            <a href="<?= base_url('presensi/history') ?>"
+	                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) === 'history' ? "active" : "" ?>">
+	                                <i class="far fa-circle nav-icon"></i>
+	                                <p>Riwayat Presensi</p>
+	                            </a>
+	                        </li>
+		                        <li class="nav-item">
+		                            <a href="<?= base_url('presensi/jadwal') ?>"
+		                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) === 'jadwal' ? "active" : "" ?>">
+		                                <i class="far fa-circle nav-icon"></i>
+		                                <p>Jadwal Presensi</p>
+		                            </a>
+		                        </li>
                         <li class="nav-item">
                             <a href="<?= base_url('pengajuan') ?>"
                                class="nav-link <?= $page === 'pengajuan' ? "active" : "" ?>">

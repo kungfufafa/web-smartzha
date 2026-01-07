@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
-<div class="content-wrapper bg-white">
+<div class="content-wrapper bg-white pt-4">
     <section class="content-header">
         <div class="container-fluid">
             <div class="row mb-2">
@@ -32,11 +32,11 @@
                 </div>
             <?php endif; ?>
 
-            <div class="card card-default my-shadow mb-4">
-                <div class="card-header">
-                    <h6 class="card-title"><?= $subjudul ?></h6>
-                </div>
-                <div class="card-body">
+	            <div class="card">
+	                <div class="card-header">
+	                    <h3 class="card-title"><i class="fas fa-clipboard-check mr-1"></i> <?= $subjudul ?></h3>
+	                </div>
+	                <div class="card-body">
                     <div class="table-responsive">
                         <table class="table table-bordered table-striped" id="tbl-pengajuan">
                             <thead class="bg-light">
@@ -148,7 +148,7 @@ $(document).ready(function() {
     });
 
     // Approve
-    $('.btn-approve').on('click', function() {
+    $('#tbl-pengajuan').on('click', '.btn-approve', function() {
         var id = $(this).data('id');
         var nama = $(this).data('nama');
         var tipe = $(this).data('tipe');
@@ -163,7 +163,7 @@ $(document).ready(function() {
             confirmButtonText: 'Ya, Setujui',
             cancelButtonText: 'Batal'
         }).then((result) => {
-            if (result.isConfirmed) {
+            if (result.value || result.isConfirmed) {
                 $.ajax({
                     url: '<?= base_url('pengajuan/approve') ?>',
                     type: 'POST',
@@ -191,7 +191,7 @@ $(document).ready(function() {
     });
 
     // Reject - show modal
-    $('.btn-reject').on('click', function() {
+    $('#tbl-pengajuan').on('click', '.btn-reject', function() {
         $('#reject_id_pengajuan').val($(this).data('id'));
         $('#reject_nama').text($(this).data('nama') + ' (' + $(this).data('tipe') + ')');
         $('#alasan_tolak').val('');

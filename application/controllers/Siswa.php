@@ -1,10 +1,5 @@
 <?php
 
-/*   ________________________________________
-    |                 GarudaCBT              |
-    |    https://github.com/garudacbt/cbt    |
-    |________________________________________|
-*/
 class Siswa extends CI_Controller
 {
     public function __construct()
@@ -206,6 +201,51 @@ class Siswa extends CI_Controller
         $data["running_text"] = $this->dashboard->getRunningText();
         $this->load->view("members/siswa/templates/header", $data);
         $this->load->view("members/siswa/absensi/data");
+        $this->load->view("members/siswa/templates/footer");
+    }
+    public function riwayat_presensi()
+    {
+        if (!$this->ion_auth->in_group("siswa")) {
+            show_error("Halaman ini hanya untuk Siswa.", 403, "Akses Ditolak");
+        }
+
+        $this->load->model("Dashboard_model", "dashboard");
+        $this->load->model("Cbt_model", "cbt");
+        $this->load->model("Presensi_model", "presensi");
+
+        $tp = $this->dashboard->getTahunActive();
+        $smt = $this->dashboard->getSemesterActive();
+        $user = $this->ion_auth->user()->row();
+        $siswa = $this->cbt->getDataSiswa($user->username, $tp->id_tp, $smt->id_smt);
+
+        $data = [
+            "user" => $user,
+            "siswa" => $siswa,
+            "judul" => "Riwayat Presensi",
+            "subjudul" => "Riwayat Presensi",
+            "setting" => $this->dashboard->getSetting()
+        ];
+
+        if ($siswa == null) {
+            $this->load->view("disable_login", $data);
+            return;
+        }
+
+        $month = $this->input->get("month", true) ?: date("m");
+        $year = $this->input->get("year", true) ?: date("Y");
+
+        $data["month"] = $month;
+        $data["year"] = $year;
+        $data["logs"] = $this->presensi->getMonthlyLogs($user->id, $month, $year);
+
+        $data["tp"] = $this->dashboard->getTahun();
+        $data["tp_active"] = $tp;
+        $data["smt"] = $this->dashboard->getSemester();
+        $data["smt_active"] = $smt;
+        $data["running_text"] = $this->dashboard->getRunningText();
+
+        $this->load->view("members/siswa/templates/header", $data);
+        $this->load->view("members/siswa/presensi/riwayat", $data);
         $this->load->view("members/siswa/templates/footer");
     }
     public function materi()

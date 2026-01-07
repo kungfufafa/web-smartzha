@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
-<div class="content-wrapper bg-white">
+<div class="content-wrapper bg-white pt-4">
     <section class="content-header">
         <div class="container-fluid">
             <div class="row mb-2">
@@ -13,12 +13,14 @@
 
     <section class="content">
         <div class="container-fluid">
-            <div class="card card-default my-shadow mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="card-title"><?= $subjudul ?></h6>
-                    <button type="button" class="btn btn-sm btn-primary" data-toggle="modal" data-target="#lokasiModal" onclick="clearLokasiForm()">
-                        <i class="fas fa-plus"></i> Tambah Lokasi
-                    </button>
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-map-marker-alt mr-1"></i> <?= $subjudul ?></h3>
+                    <div class="card-tools">
+                        <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#lokasiModal" onclick="clearLokasiForm()">
+                            <i class="fas fa-plus"></i> Tambah Lokasi
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
                     <?php if (empty($lokasi)): ?>
@@ -136,6 +138,15 @@
 </div>
 
 <script>
+var lokasiData = <?= json_encode($lokasi) ?>;
+var csrfName = '<?= $this->security->get_csrf_token_name() ?>';
+var csrfHash = '<?= $this->security->get_csrf_hash() ?>';
+
+function appendCsrf(formData) {
+    formData.append(csrfName, csrfHash);
+    return formData;
+}
+
 function clearLokasiForm() {
     document.getElementById('lokasi-id').value = '';
     document.getElementById('lokasi-nama').value = '';
@@ -149,7 +160,7 @@ function clearLokasiForm() {
 }
 
 function editLokasi(id) {
-    var lokasi = <?= json_encode($lokasi) ?>.find(l => l.id_lokasi === id);
+    var lokasi = lokasiData.find(function(l) { return String(l.id_lokasi) === String(id); });
     
     if (lokasi) {
         document.getElementById('lokasi-id').value = lokasi.id_lokasi;
@@ -159,7 +170,7 @@ function editLokasi(id) {
         document.getElementById('lokasi-lat').value = lokasi.latitude;
         document.getElementById('lokasi-lng').value = lokasi.longitude;
         document.getElementById('lokasi-radius').value = lokasi.radius_meter;
-        document.getElementById('lokasi-default').checked = lokasi.is_default === 1;
+        document.getElementById('lokasi-default').checked = String(lokasi.is_default) === '1';
         document.getElementById('lokasiModalTitle').textContent = 'Edit Lokasi';
         
         $('#lokasiModal').modal('show');
@@ -168,7 +179,7 @@ function editLokasi(id) {
 
 function saveLokasi() {
     var form = document.getElementById('lokasiForm');
-    var formData = new FormData(form);
+    var formData = appendCsrf(new FormData(form));
     
     fetch('<?= base_url('presensi/save_location') ?>', {
         method: 'POST',
@@ -193,6 +204,7 @@ function deleteLokasi(id) {
     if (confirm('Apakah Anda yakin ingin menghapus lokasi ini?')) {
         var formData = new FormData();
         formData.append('id_lokasi', id);
+        appendCsrf(formData);
         
         fetch('<?= base_url('presensi/delete_location') ?>', {
             method: 'POST',

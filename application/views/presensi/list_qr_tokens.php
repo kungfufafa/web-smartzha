@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
-<div class="content-wrapper bg-white">
+<div class="content-wrapper bg-white pt-4">
     <section class="content-header">
         <div class="container-fluid">
             <div class="row mb-2">
@@ -13,12 +13,14 @@
 
     <section class="content">
         <div class="container-fluid">
-            <div class="card card-default my-shadow mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="card-title"><?= $subjudul ?></h6>
-                    <button type="button" class="btn btn-sm btn-primary" data-toggle="modal" data-target="#qrTokenModal" onclick="clearQRTokenForm()">
-                        <i class="fas fa-plus"></i> Generate QR Token Baru
-                    </button>
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-qrcode mr-1"></i> <?= $subjudul ?></h3>
+                    <div class="card-tools">
+                        <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#qrTokenModal" onclick="clearQRTokenForm()">
+                            <i class="fas fa-plus"></i> Generate QR Token Baru
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
                     <?php if (empty($tokens)): ?>
@@ -137,6 +139,13 @@
 
 <script>
 var currentQRToken = '';
+var csrfName = '<?= $this->security->get_csrf_token_name() ?>';
+var csrfHash = '<?= $this->security->get_csrf_hash() ?>';
+
+function appendCsrf(formData) {
+    formData.append(csrfName, csrfHash);
+    return formData;
+}
 
 function clearQRTokenForm() {
     document.getElementById('qr-token-type').value = 'both';
@@ -147,7 +156,7 @@ function clearQRTokenForm() {
 
 function generateQRToken() {
     var form = document.getElementById('qrTokenForm');
-    var formData = new FormData(form);
+    var formData = appendCsrf(new FormData(form));
     
     fetch('<?= base_url('presensi/generate_qr_token') ?>', {
         method: 'POST',
@@ -174,11 +183,21 @@ function showQRCode(token) {
     
     var qrContainer = document.getElementById('qr-code-display');
     qrContainer.innerHTML = '';
-    
-    new QRCode(qrContainer, {
-        text: token,
-        width: 256,
-        height: 256
+
+    if (typeof QRCode === 'undefined' || typeof QRCode.toCanvas !== 'function') {
+        qrContainer.innerHTML = '<div class="alert alert-danger mb-0">Library QR code tidak tersedia</div>';
+        $('#qrDisplayModal').modal('show');
+        return;
+    }
+
+    var canvas = document.createElement('canvas');
+    qrContainer.appendChild(canvas);
+
+    QRCode.toCanvas(canvas, token, { width: 256, margin: 1 }, function(error) {
+        if (error) {
+            console.error(error);
+            qrContainer.innerHTML = '<div class="alert alert-danger mb-0">Gagal membuat QR code</div>';
+        }
     });
     
     $('#qrDisplayModal').modal('show');

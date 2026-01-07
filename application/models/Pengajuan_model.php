@@ -137,8 +137,8 @@ class Pengajuan_model extends CI_Model
             return false;
         }
 
-        $this->load->model('shift_model', 'shift');
-        $shift = $this->shift->getShiftById($existing->id_shift);
+        $this->load->model('Presensi_model', 'presensi');
+        $shift = $this->presensi->getShiftById($existing->id_shift);
         
         $pulang_awal_menit = 0;
         if ($shift && $jam_keluar) {

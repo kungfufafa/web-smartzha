@@ -24,7 +24,7 @@
                 <i class="fas fa-user-circle"></i>
             </a>
             <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-                <a href="<?= base_url('auth/change_password') ?>" class="dropdown-item">
+                <a href="<?= base_url('tendik/profil#change-password') ?>" class="dropdown-item">
                     <i class="fas fa-lock mr-2"></i>Ganti Password
                 </a>
                 <div class="dropdown-divider"></div>

@@ -371,12 +371,13 @@
                             Presensi
                             <i class="right fas fa-angle-left"></i>
                         </p>
-                    </a>
-                    <ul class="nav nav-treeview">
-                        <li class="nav-item">
-                            <a href="<?= base_url('presensi') ?>"
-                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == '' ? "active" : "" ?>">
-                                <i class="fas fa-clock nav-icon"></i>
+	                    </a>
+	                    <ul class="nav nav-treeview">
+	                        <?php if (!$this->ion_auth->is_admin()): ?>
+	                        <li class="nav-item">
+	                            <a href="<?= base_url('presensi') ?>"
+	                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == '' ? "active" : "" ?>">
+	                                <i class="fas fa-clock nav-icon"></i>
                                 <p>Check-In/Out</p>
                             </a>
                         </li>
@@ -385,21 +386,36 @@
                                class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'history' ? "active" : "" ?>">
                                 <i class="fas fa-history nav-icon"></i>
                                 <p>Riwayat Presensi</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?= base_url('pengajuan') ?>"
-                               class="nav-link <?= $page === 'pengajuan' ? "active" : "" ?>">
-                                <i class="fas fa-file-alt nav-icon"></i>
-                                <p>Pengajuan Izin/Cuti</p>
-                            </a>
-                        </li>
-                        <?php if ($this->ion_auth->is_admin()): ?>
-                        <li class="nav-item">
-                            <a href="<?= base_url('presensi/dashboard_admin') ?>"
-                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'dashboard_admin' ? "active" : "" ?>">
+	                            </a>
+	                        </li>
+	                        <li class="nav-item">
+	                            <a href="<?= base_url('pengajuan') ?>"
+	                               class="nav-link <?= $page === 'pengajuan' ? "active" : "" ?>">
+	                                <i class="fas fa-file-alt nav-icon"></i>
+	                                <p>Pengajuan Izin/Cuti</p>
+	                            </a>
+	                        </li>
+	                        <?php endif; ?>
+	                        <?php if ($this->ion_auth->is_admin()): ?>
+	                        <li class="nav-item">
+	                            <a href="<?= base_url('presensi/dashboard_admin') ?>"
+	                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'dashboard_admin' ? "active" : "" ?>">
                                 <i class="fas fa-tachometer-alt nav-icon"></i>
                                 <p>Dashboard Admin</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('presensi/rekap') ?>"
+                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'rekap' ? "active" : "" ?>">
+                                <i class="fas fa-chart-bar nav-icon"></i>
+                                <p>Rekap Presensi</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?= base_url('presensi/bypass_manage') ?>"
+                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'bypass_manage' ? "active" : "" ?>">
+                                <i class="fas fa-user-shield nav-icon"></i>
+                                <p>Approval Bypass</p>
                             </a>
                         </li>
                         <li class="nav-item">
@@ -423,17 +439,24 @@
                                 <p>Konfigurasi Group</p>
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a href="<?= base_url('presensi/jadwal_kerja') ?>"
-                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'jadwal_kerja' ? "active" : "" ?>">
-                                <i class="fas fa-calendar-alt nav-icon"></i>
-                                <p>Jadwal Kerja</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?= base_url('presensi/list_qr_tokens') ?>"
-                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'list_qr_tokens' ? "active" : "" ?>">
-                                <i class="fas fa-qrcode nav-icon"></i>
+		                        <li class="nav-item">
+		                            <a href="<?= base_url('presensi/jadwal_kerja') ?>"
+		                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'jadwal_kerja' ? "active" : "" ?>">
+		                                <i class="fas fa-calendar-alt nav-icon"></i>
+		                                <p>Jadwal Presensi</p>
+		                            </a>
+		                        </li>
+	                        <li class="nav-item">
+	                            <a href="<?= base_url('presensi/hari_libur') ?>"
+	                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'hari_libur' ? "active" : "" ?>">
+	                                <i class="fas fa-calendar-times nav-icon"></i>
+	                                <p>Hari Libur</p>
+	                            </a>
+	                        </li>
+	                        <li class="nav-item">
+	                            <a href="<?= base_url('presensi/list_qr_tokens') ?>"
+	                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'list_qr_tokens' ? "active" : "" ?>">
+	                                <i class="fas fa-qrcode nav-icon"></i>
                                 <p>QR Token</p>
                             </a>
                         </li>
@@ -441,7 +464,7 @@
                             <a href="<?= base_url('presensi/global_config') ?>"
                                class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == 'global_config' ? "active" : "" ?>">
                                 <i class="fas fa-cogs nav-icon"></i>
-                                <p>Pengaturan Global</p>
+                                <p>Pengaturan Sistem</p>
                             </a>
                         </li>
                         <li class="nav-item">

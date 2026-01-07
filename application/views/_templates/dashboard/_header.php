@@ -136,10 +136,10 @@
 </script>
 <script src="<?= base_url() ?>/assets/app/js/generate.js"></script>
 <script type="text/javascript">
-    let tp_active = '<?= $tp_active->tahun ?>';
-    let smt_active = '<?= $smt_active->smt ?>';
-    let id_tp_active = '<?= $tp_active->id_tp ?>';
-    let id_smt_active = '<?= $smt_active->id_smt ?>';
+    let tp_active = <?= json_encode(isset($tp_active) && $tp_active ? $tp_active->tahun : '') ?>;
+    let smt_active = <?= json_encode(isset($smt_active) && $smt_active ? $smt_active->smt : '') ?>;
+    let id_tp_active = <?= json_encode(isset($tp_active) && $tp_active ? $tp_active->id_tp : '') ?>;
+    let id_smt_active = <?= json_encode(isset($smt_active) && $smt_active ? $smt_active->id_smt : '') ?>;
 
     function startTime() {
         var today = new Date();

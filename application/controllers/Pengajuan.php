@@ -66,6 +66,11 @@ class Pengajuan extends CI_Controller
 
     public function index()
     {
+        if ($this->ion_auth->in_group('tendik')) {
+            redirect('tendik/pengajuan');
+            return;
+        }
+
         $user = $this->ion_auth->user()->row();
         $setting = $this->dashboard->getSetting();
         $data = [
@@ -83,6 +88,11 @@ class Pengajuan extends CI_Controller
 
     public function create()
     {
+        $redirect_target = 'pengajuan';
+        if ($this->ion_auth->in_group('tendik')) {
+            $redirect_target = 'tendik/pengajuan';
+        }
+
         $this->form_validation->set_rules('tipe_pengajuan', 'Tipe Pengajuan', 'required|in_list[Izin,Sakit,Cuti,Dinas,Lembur]');
         $this->form_validation->set_rules('tgl_mulai', 'Tanggal Mulai', 'required');
         $this->form_validation->set_rules('tgl_selesai', 'Tanggal Selesai', 'required');
@@ -90,7 +100,7 @@ class Pengajuan extends CI_Controller
 
         if ($this->form_validation->run() == FALSE) {
             $this->session->set_flashdata('error', validation_errors());
-            redirect('pengajuan');
+            redirect($redirect_target);
             return;
         }
 
@@ -122,7 +132,7 @@ class Pengajuan extends CI_Controller
         
         $this->pengajuan->create($data);
         $this->session->set_flashdata('success', 'Pengajuan berhasil dikirim');
-        redirect('pengajuan');
+        redirect($redirect_target);
     }
 
     public function manage()

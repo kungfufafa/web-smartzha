@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
-<div class="content-wrapper bg-white">
+<div class="content-wrapper bg-white pt-4">
     <section class="content-header">
         <div class="container-fluid">
             <div class="row mb-2">
@@ -13,14 +13,21 @@
 
     <section class="content">
         <div class="container-fluid">
-            <div class="card card-default my-shadow mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="card-title"><?= $subjudul ?></h6>
-                    <button type="button" class="btn btn-sm btn-primary" data-toggle="modal" data-target="#groupConfigModal" onclick="clearGroupConfigForm()">
-                        <i class="fas fa-plus"></i> Tambah Konfigurasi
-                    </button>
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-users-cog mr-1"></i> <?= $subjudul ?></h3>
+                    <div class="card-tools">
+                        <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#groupConfigModal" onclick="clearGroupConfigForm()">
+                            <i class="fas fa-plus"></i> Tambah Konfigurasi
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
+		                    <div class="alert alert-info">
+		                        <i class="fas fa-info-circle mr-1"></i>
+		                        Konfigurasi group presensi hanya untuk <strong>Guru</strong>, <strong>Siswa</strong>, dan <strong>Tendik</strong>.
+		                        <small class="d-block text-muted mt-1">Catatan: Satpam termasuk Tendik (tipe tendik), bukan group terpisah. Untuk beda jam kerja antar orang (mis. satpam pagi vs malam), atur di <strong>Jadwal User</strong>. Untuk pola per tipe tendik (opsional), gunakan <strong>Jadwal Tendik (Per Tipe)</strong>. Hari kerja ditentukan di <strong>Jadwal Presensi</strong>; jika tidak ada jadwal maka dianggap <strong>Libur</strong>. Admin/Orangtua tidak perlu jadwal presensi.</small>
+		                    </div>
                     <?php if (empty($configs)): ?>
                         <div class="alert alert-warning text-center">
                             <i class="fas fa-users-cog fa-3x mb-3"></i>
@@ -44,8 +51,14 @@
                                 </thead>
                                 <tbody>
                                     <?php foreach ($configs as $config): ?>
+                                    <?php $is_allowed_group = empty($allowed_group_names) ? true : in_array($config->group_name, $allowed_group_names, true); ?>
                                     <tr>
-                                        <td><strong><?= $config->group_name ?></strong></td>
+                                        <td>
+                                            <strong><?= $config->group_name ?></strong>
+                                            <?php if (!$is_allowed_group): ?>
+                                                <span class="badge badge-secondary ml-1">Tidak digunakan</span>
+                                            <?php endif; ?>
+                                        </td>
                                         <td><?= $config->nama_konfigurasi ?></td>
                                         <td>
                                             <span class="badge badge-info">
@@ -66,12 +79,24 @@
                                             echo $default_lokasi ? $default_lokasi->nama_lokasi : '-';
                                             ?>
                                         </td>
-                                        <td><?= $config->require_photo ? '<span class="badge badge-success">Ya</span>' : '<span class="badge badge-secondary">Tidak</span>' ?></td>
+                                        <td>
+                                            <?php
+                                            if ($config->require_photo === null) {
+                                                echo '<span class="badge badge-secondary">Default Sistem</span>';
+                                            } elseif ($config->require_photo == 1) {
+                                                echo '<span class="badge badge-success">Ya</span>';
+                                            } else {
+                                                echo '<span class="badge badge-danger">Tidak</span>';
+                                            }
+                                            ?>
+                                        </td>
                                         <td><?= $config->holiday_mode ?></td>
                                         <td>
-                                            <button type="button" class="btn btn-sm btn-info" onclick="editGroupConfig(<?= $config->id ?>)">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
+                                            <?php if ($is_allowed_group): ?>
+                                                <button type="button" class="btn btn-sm btn-info" onclick="editGroupConfig(<?= $config->id ?>)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                            <?php endif; ?>
                                             <button type="button" class="btn btn-sm btn-danger" onclick="deleteGroupConfig(<?= $config->id ?>)">
                                                 <i class="fas fa-trash"></i>
                                             </button>
@@ -100,17 +125,17 @@
                 <form id="groupConfigForm">
                     <input type="hidden" name="id" id="group-config-id">
                     
-                    <div class="form-group">
-                        <label>Group *</label>
-                        <select class="form-control" name="id_group" id="group-config-group" required>
-                            <option value="">Pilih Group</option>
-                            <?php if (!empty($configs)): ?>
-                                <?php foreach ($configs as $c): ?>
-                                <option value="<?= $c->id_group ?>"><?= $c->group_name ?></option>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </select>
-                    </div>
+	                    <div class="form-group">
+	                        <label>Group *</label>
+	                        <select class="form-control" name="id_group" id="group-config-group" required>
+	                            <option value="">Pilih Group</option>
+	                            <?php if (!empty($groups)): ?>
+	                                <?php foreach ($groups as $g): ?>
+	                                <option value="<?= $g->id ?>"><?= $g->name ?></option>
+	                                <?php endforeach; ?>
+	                            <?php endif; ?>
+	                        </select>
+	                    </div>
                     
                     <div class="form-group">
                         <label>Nama Konfigurasi</label>
@@ -131,17 +156,18 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Shift Default</label>
-                                <select class="form-control" name="id_shift_default" id="group-config-shift">
-                                    <option value="">-- Pilih Shift --</option>
-                                    <?php if (!empty($shifts)): ?>
-                                        <?php foreach ($shifts as $s): ?>
-                                        <option value="<?= $s->id_shift ?>"><?= $s->nama_shift ?> (<?= $s->kode_shift ?>)</option>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
-                                </select>
-                            </div>
-                        </div>
+	                                <label>Shift Default (Opsional)</label>
+		                                <select class="form-control" name="id_shift_default" id="group-config-shift">
+		                                    <option value="">-- Pilih Shift --</option>
+		                                    <?php if (!empty($shifts)): ?>
+		                                        <?php foreach ($shifts as $s): ?>
+		                                        <option value="<?= $s->id_shift ?>"><?= $s->nama_shift ?> (<?= $s->kode_shift ?>)</option>
+		                                        <?php endforeach; ?>
+		                                    <?php endif; ?>
+		                                </select>
+		                                <small class="text-muted">Tidak menentukan hari kerja; hari kerja diatur di menu Jadwal Presensi.</small>
+		                            </div>
+	                        </div>
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label>Lokasi Default</label>
@@ -181,26 +207,29 @@
                     <div class="row">
                         <div class="col-md-4">
                             <div class="form-group">
-                                <label>
-                                    <input type="checkbox" name="require_photo" id="group-config-photo">
-                                    Wajib Foto
-                                </label>
+                                <label>Wajib Foto</label>
+                                <select class="form-control form-control-sm" name="require_photo" id="group-config-photo">
+                                    <option value="1">Ya (Wajib)</option>
+                                    <option value="0">Tidak (Opsional)</option>
+                                </select>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="form-group">
-                                <label>
-                                    <input type="checkbox" name="require_checkout" id="group-config-checkout">
-                                    Wajib Checkout
-                                </label>
+                                <label>Wajib Checkout</label>
+                                <select class="form-control form-control-sm" name="require_checkout" id="group-config-checkout">
+                                    <option value="1">Ya (Wajib)</option>
+                                    <option value="0">Tidak (Opsional)</option>
+                                </select>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="form-group">
-                                <label>
-                                    <input type="checkbox" name="allow_bypass" id="group-config-bypass">
-                                    Izinkan Bypass
-                                </label>
+                                <label>Izinkan Bypass</label>
+                                <select class="form-control form-control-sm" name="allow_bypass" id="group-config-bypass">
+                                    <option value="1">Ya (Izinkan)</option>
+                                    <option value="0">Tidak (Tolak)</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -215,9 +244,16 @@
 </div>
 
 <script>
-var groupsData = <?= json_encode($configs) ?>;
+var configsData = <?= json_encode($configs) ?>;
 var shiftsData = <?= json_encode($shifts) ?>;
 var lokasiData = <?= json_encode($lokasi) ?>;
+var csrfName = '<?= $this->security->get_csrf_token_name() ?>';
+var csrfHash = '<?= $this->security->get_csrf_hash() ?>';
+
+function appendCsrf(formData) {
+    formData.append(csrfName, csrfHash);
+    return formData;
+}
 
 function clearGroupConfigForm() {
     document.getElementById('group-config-id').value = '';
@@ -228,14 +264,31 @@ function clearGroupConfigForm() {
     document.getElementById('group-config-lokasi').value = '';
     document.getElementById('group-config-holiday').value = 'all';
     document.getElementById('group-config-calendar').checked = false;
-    document.getElementById('group-config-photo').checked = true;
-    document.getElementById('group-config-checkout').checked = true;
-    document.getElementById('group-config-bypass').checked = true;
+    // Default toggles
+    document.getElementById('group-config-photo').value = '1';
+    document.getElementById('group-config-checkout').value = '1';
+    document.getElementById('group-config-bypass').value = '1';
     document.getElementById('groupConfigModalTitle').textContent = 'Tambah Konfigurasi Group';
 }
 
+function findConfigById(id) {
+    var target = String(id);
+
+    if (!Array.isArray(configsData)) {
+        return null;
+    }
+
+    for (var i = 0; i < configsData.length; i++) {
+        if (String(configsData[i].id) === target) {
+            return configsData[i];
+        }
+    }
+
+    return null;
+}
+
 function editGroupConfig(id) {
-    var config = groupsData.find(c => c.id === id);
+    var config = findConfigById(id);
     
     if (config) {
         document.getElementById('group-config-id').value = config.id;
@@ -245,19 +298,23 @@ function editGroupConfig(id) {
         document.getElementById('group-config-shift').value = config.id_shift_default || '';
         document.getElementById('group-config-lokasi').value = config.id_lokasi_default || '';
         document.getElementById('group-config-holiday').value = config.holiday_mode;
-        document.getElementById('group-config-calendar').checked = config.follow_academic_calendar === 1;
-        document.getElementById('group-config-photo').checked = config.require_photo === 1;
-        document.getElementById('group-config-checkout').checked = config.require_checkout === 1;
-        document.getElementById('group-config-bypass').checked = config.allow_bypass === 1;
+        document.getElementById('group-config-calendar').checked = String(config.follow_academic_calendar) === '1';
+        // NULL = default system
+        document.getElementById('group-config-photo').value = config.require_photo === null ? '1' : String(config.require_photo);
+        document.getElementById('group-config-checkout').value = config.require_checkout === null ? '1' : String(config.require_checkout);
+        document.getElementById('group-config-bypass').value = config.allow_bypass === null ? '1' : String(config.allow_bypass);
         document.getElementById('groupConfigModalTitle').textContent = 'Edit Konfigurasi Group';
         
         $('#groupConfigModal').modal('show');
+    }
+    else {
+        alert('Data konfigurasi tidak ditemukan');
     }
 }
 
 function saveGroupConfig() {
     var form = document.getElementById('groupConfigForm');
-    var formData = new FormData(form);
+    var formData = appendCsrf(new FormData(form));
     
     fetch('<?= base_url('presensi/save_group_config') ?>', {
         method: 'POST',
