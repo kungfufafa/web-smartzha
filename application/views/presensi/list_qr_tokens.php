@@ -88,9 +88,9 @@
                     <div class="form-group">
                         <label>Tipe Token</label>
                         <select class="form-control" name="token_type" id="qr-token-type">
-                            <option value="checkin">Check-In Only</option>
-                            <option value="checkout">Check-Out Only</option>
-                            <option value="both">Check-In & Check-Out</option>
+                            <option value="checkin">Masuk Saja</option>
+                            <option value="checkout">Pulang Saja</option>
+                            <option value="both">Masuk & Pulang</option>
                         </select>
                     </div>
                     

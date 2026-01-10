@@ -31,12 +31,11 @@ class Master_model extends CI_Model
 
     public function delete($table, $data, $pk)
     {
-        $ids = ci_where_in_values($data);
-        if (empty($ids)) {
+        $this->db->query("SET FOREIGN_KEY_CHECKS=0");
+        if ( ! safe_where_in($this->db, $pk, $data)) {
+            $this->db->query("SET FOREIGN_KEY_CHECKS=1");
             return false;
         }
-        $this->db->query("SET FOREIGN_KEY_CHECKS=0");
-        $this->db->where_in($pk, $ids);
         $deleted = $this->db->delete($table);
         $this->db->query("SET FOREIGN_KEY_CHECKS=1");
         return $deleted;
@@ -44,11 +43,9 @@ class Master_model extends CI_Model
 
     public function delete_not($table, $data, $pk, $col, $not)
     {
-        $ids = ci_where_in_values($data);
-        if (empty($ids)) {
+        if ( ! safe_where_in($this->db, $pk, $data)) {
             return false;
         }
-        $this->db->where_in($pk, $ids);
         $this->db->where($col . "!=" . $not);
         return $this->db->delete($table);
     }
@@ -84,11 +81,9 @@ class Master_model extends CI_Model
     {
         $this->db->select("id_mapel, nama_mapel");
         $this->db->from("master_mapel");
-        $ids = ci_where_in_values($arrIds);
-        if (empty($ids)) {
+        if ( ! safe_where_in($this->db, "id_mapel", $arrIds)) {
             return [];
         }
-        $this->db->where_in("id_mapel", $ids);
         $result = $this->db->get()->result();
         $ret = [];
         if ($result) {
@@ -109,11 +104,9 @@ class Master_model extends CI_Model
 
     public function getJurusanById($id)
     {
-        $ids = ci_where_in_values($id);
-        if (empty($ids)) {
+        if ( ! safe_where_in($this->db, "id_jurusan", $id)) {
             return [];
         }
-        $this->db->where_in("id_jurusan", $ids);
         $this->db->order_by("nama_jurusan");
         $query = $this->db->get("master_jurusan")->result();
         return $query;
@@ -283,37 +276,38 @@ class Master_model extends CI_Model
     {
         $this->db->select("id_siswa, nama, nisn, nis, username");
         $this->db->from("master_siswa");
-        $nisn_ids = ci_where_in_values($arr_nisn);
-        $nis_ids = ci_where_in_values($arr_nis);
-        $username_ids = ci_where_in_values($arr_username);
+
+        $has_nisn = has_where_in_values($arr_nisn);
+        $has_nis = has_where_in_values($arr_nis);
+        $has_username = has_where_in_values($arr_username);
+
+        if (!$has_nisn && !$has_nis && !$has_username) {
+            return [];
+        }
 
         $has_any = false;
         $this->db->group_start();
-        if (!empty($nisn_ids)) {
-            $this->db->where_in("nisn", $nisn_ids);
+        if ($has_nisn) {
+            safe_where_in($this->db, "nisn", $arr_nisn);
             $has_any = true;
         }
-        if (!empty($nis_ids)) {
+        if ($has_nis) {
             if ($has_any) {
-                $this->db->or_where_in("nis", $nis_ids);
+                safe_or_where_in($this->db, "nis", $arr_nis);
             } else {
-                $this->db->where_in("nis", $nis_ids);
+                safe_where_in($this->db, "nis", $arr_nis);
                 $has_any = true;
             }
         }
-        if (!empty($username_ids)) {
+        if ($has_username) {
             if ($has_any) {
-                $this->db->or_where_in("username", $username_ids);
+                safe_or_where_in($this->db, "username", $arr_username);
             } else {
-                $this->db->where_in("username", $username_ids);
-                $has_any = true;
+                safe_where_in($this->db, "username", $arr_username);
             }
         }
         $this->db->group_end();
 
-        if (!$has_any) {
-            return [];
-        }
         return $this->db->get()->result();
     }
 
@@ -403,7 +397,7 @@ class Master_model extends CI_Model
         $this->db->select("*");
         $this->db->from("master_jurusan");
         if ($id_jurusan !== null) {
-            $this->db->where_not_in("id_jurusan", ci_where_in_values($id_jurusan));
+            safe_where_in($this->db, "id_jurusan", $id_jurusan, TRUE);
         }
         $mapel = $this->db->get()->result();
         return $mapel;
@@ -461,10 +455,7 @@ class Master_model extends CI_Model
     {
         $this->db->select("nama_guru, nip");
         $this->db->from("master_guru");
-        $ids = ci_where_in_values($arr_id);
-        if (!empty($ids)) {
-            $this->db->where_in("id_guru", $ids);
-        }
+        safe_where_in($this->db, "id_guru", $arr_id);
         return $this->db->get()->result();
     }
 
@@ -579,20 +570,19 @@ class Master_model extends CI_Model
 
     public function getAllMapel($arrKelompok = null, $arrMapel = null)
     {
-        $kelompok_ids = ci_where_in_values($arrKelompok);
-        $mapel_ids = ci_where_in_values($arrMapel);
+        $has_kelompok = has_where_in_values($arrKelompok);
+        $has_mapel = has_where_in_values($arrMapel);
 
         $has_filter = false;
-        if (!empty($kelompok_ids)) {
-            $this->db->where_in("kelompok", $kelompok_ids);
+        if ($has_kelompok) {
+            safe_where_in($this->db, "kelompok", $arrKelompok);
             $has_filter = true;
         }
-        if (!empty($mapel_ids)) {
+        if ($has_mapel) {
             if ($has_filter) {
-                $this->db->or_where_in("id_mapel", $mapel_ids);
+                safe_or_where_in($this->db, "id_mapel", $arrMapel);
             } else {
-                $this->db->where_in("id_mapel", $mapel_ids);
-                $has_filter = true;
+                safe_where_in($this->db, "id_mapel", $arrMapel);
             }
         }
         $this->db->where("status", "1");
@@ -602,20 +592,19 @@ class Master_model extends CI_Model
 
     public function getAllStatusMapel($arrKelompok = null, $arrMapel = null)
     {
-        $kelompok_ids = ci_where_in_values($arrKelompok);
-        $mapel_ids = ci_where_in_values($arrMapel);
+        $has_kelompok = has_where_in_values($arrKelompok);
+        $has_mapel = has_where_in_values($arrMapel);
 
         $has_filter = false;
-        if (!empty($kelompok_ids)) {
-            $this->db->where_in("kelompok", $kelompok_ids);
+        if ($has_kelompok) {
+            safe_where_in($this->db, "kelompok", $arrKelompok);
             $has_filter = true;
         }
-        if (!empty($mapel_ids)) {
+        if ($has_mapel) {
             if ($has_filter) {
-                $this->db->or_where_in("id_mapel", $mapel_ids);
+                safe_or_where_in($this->db, "id_mapel", $arrMapel);
             } else {
-                $this->db->where_in("id_mapel", $mapel_ids);
-                $has_filter = true;
+                safe_where_in($this->db, "id_mapel", $arrMapel);
             }
         }
         $this->db->order_by("urutan_tampil");
@@ -644,11 +633,9 @@ class Master_model extends CI_Model
     public function getMapelById($id, $single = false)
     {
         if ($single === false) {
-            $ids = ci_where_in_values($id);
-            if (empty($ids)) {
+            if ( ! safe_where_in($this->db, "id_mapel", $id)) {
                 return [];
             }
-            $this->db->where_in("id_mapel", $ids);
             $this->db->order_by("nama_mapel");
             $query = $this->db->get("master_mapel")->result();
         } else {
@@ -684,11 +671,9 @@ class Master_model extends CI_Model
     public function getEkstraById($id, $single = false)
     {
         if ($single === false) {
-            $ids = ci_where_in_values($id);
-            if (empty($ids)) {
+            if ( ! safe_where_in($this->db, "id_ekstra", $id)) {
                 return [];
             }
-            $this->db->where_in("id_ekstra", $ids);
             $this->db->order_by("nama_ekstra");
             $query = $this->db->get("master_ekstra")->result();
         } else {
@@ -770,10 +755,7 @@ class Master_model extends CI_Model
         $this->db->select("id_mapel, nama_mapel");
         $this->db->from("master_mapel");
         if ($id_mapel !== null) {
-            $ids = ci_where_in_values($id_mapel);
-            if (!empty($ids)) {
-                $this->db->where_not_in("id_mapel", $ids);
-            }
+            safe_where_in($this->db, "id_mapel", $id_mapel, TRUE);
         }
         return $this->db->get()->result();
     }

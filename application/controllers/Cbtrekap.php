@@ -391,17 +391,21 @@ class Cbtrekap extends CI_Controller
     }
     public function hapusRekap()
     {
-        $ids = ci_where_in_values(json_decode($this->input->post("ids", true)));
+        $raw_ids = json_decode($this->input->post("ids", true));
+        if ( ! has_where_in_values($raw_ids)) {
+            $this->output_json(["success" => false, "total" => 0]);
+            return;
+        }
+        $ids = ci_where_in_values($raw_ids);
         sleep(1);
         $data["total"] = count($ids);
-        if (empty($ids)) {
+        if ( ! safe_where_in($this->db, "id_jadwal", $ids)) {
             $data["success"] = false;
             $this->output_json($data);
             return;
         }
-        $this->db->where_in("id_jadwal", $ids);
         $delRekap = $this->db->delete("cbt_rekap");
-        $this->db->where_in("id_jadwal", $ids);
+        safe_where_in($this->db, "id_jadwal", $ids);
         $delNilai = $this->db->delete("cbt_rekap_nilai");
         if ($delNilai && $delRekap) {
             $this->session->set_flashdata("rekapnilai", "<div id=\"flashdata\" class=\"alert alert-default-success align-content-center w-100\" role=\"alert\"> Berhasil menghapus <b>" . count($ids) . "</b> nilai </div>");

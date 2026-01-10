@@ -112,7 +112,7 @@ class Dropdown_model extends CI_Model
         }
         $ret = [];
         if (count($ress) > 0) {
-            $this->db->where_in("kelompok", ci_where_in_values($ress));
+            safe_where_in($this->db, "kelompok", $ress);
             $this->db->order_by("urutan_tampil");
             $result = $this->db->get("master_mapel")->result();
             if ($result) {
@@ -209,10 +209,13 @@ class Dropdown_model extends CI_Model
 
     public function getAllKelasByArrayId($tp, $smt, $arrId)
     {
+        if ( ! has_where_in_values($arrId)) {
+            return [];
+        }
         $this->db->select("*");
         $this->db->from("master_kelas");
         $this->db->where("id_tp", $tp);
-        $this->db->where_in("id_kelas", ci_where_in_values($arrId));
+        safe_where_in($this->db, "id_kelas", $arrId);
         $result = $this->db->get()->result();
         $ret = [];
         if ($result) {

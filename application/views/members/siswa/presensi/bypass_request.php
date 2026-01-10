@@ -33,8 +33,8 @@ $back_url = base_url('dashboard') . '#presensi';
                                 <div class="form-group">
                                     <label>Tipe Bypass *</label>
                                     <select class="form-control" name="tipe" required>
-                                        <option value="checkin" <?= $tipe_default === 'checkin' ? 'selected' : '' ?>>Check-In</option>
-                                        <option value="checkout" <?= $tipe_default === 'checkout' ? 'selected' : '' ?>>Check-Out</option>
+                                        <option value="checkin" <?= $tipe_default === 'checkin' ? 'selected' : '' ?>>Masuk</option>
+                                        <option value="checkout" <?= $tipe_default === 'checkout' ? 'selected' : '' ?>>Pulang</option>
                                         <option value="both" <?= $tipe_default === 'both' ? 'selected' : '' ?>>Keduanya</option>
                                     </select>
                                 </div>

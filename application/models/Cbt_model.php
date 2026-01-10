@@ -102,11 +102,9 @@ class Cbt_model extends CI_Model
     {
         $this->db->select("id_kelas, kode_kelas");
         $this->db->where("level_id", $level);
-        $kelas_ids = ci_where_in_values($arrKelas);
-        if (empty($kelas_ids)) {
+        if ( ! safe_where_in($this->db, "id_kelas", $arrKelas)) {
             return [];
         }
-        $this->db->where_in("id_kelas", $kelas_ids);
         $result = $this->db->get("master_kelas")->result();
         return $result;
     }
@@ -184,10 +182,7 @@ class Cbt_model extends CI_Model
         $this->db->from("cbt_sesi_siswa a");
         $this->db->join("cbt_ruang b", "b.id_ruang=a.ruang_id");
         $this->db->join("cbt_sesi c", "c.id_sesi=a.sesi_id");
-        $kelas_ids = ci_where_in_values($arrKelas);
-        if (!empty($kelas_ids)) {
-            $this->db->where_in("kelas_id", $kelas_ids);
-        }
+        safe_where_in($this->db, "kelas_id", $arrKelas);
         $this->db->order_by("b.nama_ruang", "ASC");
         $this->db->order_by("c.nama_sesi", "ASC");
         $result = $this->db->get()->result();
@@ -220,11 +215,9 @@ class Cbt_model extends CI_Model
         $this->db->from("master_kelas");
         $this->db->where("id_tp", $tp);
         $this->db->where("id_smt", $smt);
-        $level_ids = ci_where_in_values($arrLevel);
-        if (empty($level_ids)) {
+        if ( ! safe_where_in($this->db, "level_id", $arrLevel)) {
             return [];
         }
-        $this->db->where_in("level_id", $level_ids);
         $result = $this->db->get()->result();
         return $result;
     }
@@ -243,11 +236,9 @@ class Cbt_model extends CI_Model
     public function getAllJenisUjianByArrJenis($arrJenis)
     {
         $ret[''] = "Jenis Penilaian :";
-        $jenis_ids = ci_where_in_values($arrJenis);
-        if (empty($jenis_ids)) {
+        if ( ! safe_where_in($this->db, "id_jenis", $arrJenis)) {
             return $ret;
         }
-        $this->db->where_in("id_jenis", $jenis_ids);
         $result = $this->db->get("cbt_jenis")->result();
         if ($result) {
             foreach ($result as $key => $row) {
@@ -551,11 +542,9 @@ class Cbt_model extends CI_Model
         $this->db->where("c.siswa_id is NOT NULL", NULL, FALSE);
         $this->db->where("f.siswa_id is NOT NULL", NULL, FALSE);
         $this->db->where("g.id_siswa is NOT NULL", NULL, FALSE);
-        $kelas_ids = ci_where_in_values($id_kelas);
-        if (empty($kelas_ids)) {
+        if ( ! safe_where_in($this->db, "a.id_kelas", $id_kelas)) {
             return [];
         }
-        $this->db->where_in("a.id_kelas", $kelas_ids);
         $this->db->order_by("b.nama", "ASC");
         return $this->db->get()->result();
     }
@@ -652,11 +641,9 @@ class Cbt_model extends CI_Model
         $this->db->join("kelas_siswa c", "c.id_siswa=b.id_siswa AND c.id_tp=" . $id_tp . " AND c.id_smt=" . $id_smt . '');
         $this->db->join("master_kelas f", "f.id_kelas=c.id_kelas");
         $this->db->join("buku_induk i", "i.id_siswa=b.id_siswa AND =i.status=1");
-        $kelas_ids = ci_where_in_values($kelas);
-        if (empty($kelas_ids)) {
+        if ( ! safe_where_in($this->db, "a.kelas_id", $kelas)) {
             return [];
         }
-        $this->db->where_in("a.kelas_id", $kelas_ids);
         if ($sesi != null) {
             $this->db->where("a.sesi_id", $sesi);
         }
@@ -672,13 +659,13 @@ class Cbt_model extends CI_Model
         $this->db->join("level_kelas l", "l.id_level=f.level_id");
         $this->db->join("cbt_nomor_peserta g", "g.id_siswa=a.id_siswa AND g.id_tp=" . $id_tp, "left");
         $this->db->join("buku_induk i", "i.id_siswa=a.id_siswa AND =i.status=1");
-        $kelas_ids = ci_where_in_values($arr_kelas);
-        if (empty($kelas_ids)) {
+        if ( ! has_where_in_values($arr_kelas)) {
             return [];
         }
+        $kelas_ids = ci_where_in_values($arr_kelas);
         $is_semua = in_array("Semua", $kelas_ids, true);
         if (!$is_semua) {
-            $this->db->where_in("a.id_kelas", $kelas_ids);
+            safe_where_in($this->db, "a.id_kelas", $kelas_ids);
         }
         $this->db->where("a.id_tp", $id_tp);
         $this->db->where("a.id_smt", $id_smt);
@@ -842,11 +829,9 @@ class Cbt_model extends CI_Model
     public function getNomorSoalByArrIdBank($arr_id_bank, $jenis = null)
     {
         $this->db->select("id_soal, jenis, nomor_soal, jawaban");
-        $bank_ids = ci_where_in_values($arr_id_bank);
-        if (empty($bank_ids)) {
+        if ( ! safe_where_in($this->db, "bank_id", $arr_id_bank)) {
             return [];
         }
-        $this->db->where_in("bank_id", $bank_ids);
         if ($jenis != null) {
             $this->db->where("jenis", $jenis);
         }
@@ -1011,9 +996,8 @@ class Cbt_model extends CI_Model
         $this->db->select("id_bank,id_soal,id_siswa");
         $this->db->from("cbt_soal_siswa");
         if ($id_banks != null) {
-            $bank_ids = ci_where_in_values($id_banks);
-            if (!empty($bank_ids)) {
-                $this->db->where_in("id_bank", $bank_ids);
+            if (has_where_in_values($id_banks)) {
+                safe_where_in($this->db, "id_bank", $id_banks);
             }
         }
         $result = $this->db->get()->result();
@@ -1163,11 +1147,9 @@ class Cbt_model extends CI_Model
             $this->db->join("cbt_sesi e", "e.id_sesi=" . $sesi, "left");
         }
         $this->db->join("master_guru f", "f.id_guru=b.bank_guru_id", "left");
-        $jadwal_ids = ci_where_in_values($arr_id_jadwal);
-        if (empty($jadwal_ids)) {
+        if ( ! safe_where_in($this->db, "a.id_jadwal", $arr_id_jadwal)) {
             return [];
         }
-        $this->db->where_in("a.id_jadwal", $jadwal_ids);
         $query = $this->db->get()->result();
         return $query;
     }
@@ -1175,11 +1157,9 @@ class Cbt_model extends CI_Model
     {
         $this->db->select("id_bank");
         $this->db->from("cbt_jadwal");
-        $bank_ids = ci_where_in_values($id_bank);
-        if (empty($bank_ids)) {
+        if ( ! safe_where_in($this->db, "id_bank", $id_bank)) {
             return 0;
         }
-        $this->db->where_in("id_bank", $bank_ids);
         $query = $this->db->get()->num_rows();
         return $query;
     }
@@ -1509,11 +1489,9 @@ class Cbt_model extends CI_Model
     public function getFilterJawabanSiswa($jadwal, $arrIdSiswa)
     {
         $this->db->where("id_jadwal", $jadwal);
-        $siswa_ids = ci_where_in_values($arrIdSiswa);
-        if (empty($siswa_ids)) {
+        if ( ! safe_where_in($this->db, "id_siswa", $arrIdSiswa)) {
             return [];
         }
-        $this->db->where_in("id_siswa", $siswa_ids);
         return $this->db->get("cbt_soal_siswa")->result();
     }
     public function getFilterDurasiSiswa($jadwal, $arrIdSiswa)
@@ -1551,11 +1529,9 @@ class Cbt_model extends CI_Model
         $this->db->from("cbt_soal_siswa a");
         $this->db->join("cbt_soal b", "b.id_soal=a.id_soal");
         if ($id_siswa != null) {
-            $siswa_ids = ci_where_in_values($id_siswa);
-            if (empty($siswa_ids)) {
+            if ( ! safe_where_in($this->db, "a.id_siswa", $id_siswa)) {
                 return [];
             }
-            $this->db->where_in("a.id_siswa", $siswa_ids);
         }
         $this->db->where("a.id_jadwal=", $id_jadwal);
         $this->db->where("b.tampilkan", "1");
@@ -1611,11 +1587,9 @@ class Cbt_model extends CI_Model
     {
         $this->db->select("*");
         $this->db->from("cbt_nilai");
-        $jadwal_ids = ci_where_in_values($arr_jadwal);
-        if (empty($jadwal_ids)) {
+        if ( ! safe_where_in($this->db, "id_jadwal", $arr_jadwal)) {
             return [];
         }
-        $this->db->where_in("id_jadwal", $jadwal_ids);
         $this->db->where("id_siswa", $id_siswa);
         $result = $this->db->get()->result();
         $retur = [];
@@ -1637,13 +1611,12 @@ class Cbt_model extends CI_Model
     {
         $this->db->select("*");
         $this->db->from("cbt_nilai");
-        $jadwal_ids = ci_where_in_values($arr_jadwal);
-        $siswa_ids = ci_where_in_values($arr_id_siswa);
-        if (empty($jadwal_ids) || empty($siswa_ids)) {
+        if ( ! safe_where_in($this->db, "id_jadwal", $arr_jadwal)) {
             return [];
         }
-        $this->db->where_in("id_jadwal", $jadwal_ids);
-        $this->db->where_in("id_siswa", $siswa_ids);
+        if ( ! safe_where_in($this->db, "id_siswa", $arr_id_siswa)) {
+            return [];
+        }
         $result = $this->db->get()->result();
         $retur = [];
         foreach ($result as $row) {

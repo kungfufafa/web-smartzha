@@ -186,12 +186,12 @@ class Datatendik extends CI_Controller
         if (!$id) {
             $this->output_json(["status" => false]);
         } else {
-            $ids = ci_where_in_values($id);
-            if (empty($ids)) {
+            if ( ! has_where_in_values($id)) {
                 $this->output_json(["status" => false]);
                 return;
             }
-            $this->db->where_in("id_tendik", $ids);
+            $ids = ci_where_in_values($id);
+            safe_where_in($this->db, "id_tendik", $ids);
             $this->db->update("master_tendik", ["is_active" => 0]);
             $this->output_json(["status" => true, "total" => count($ids)]);
         }

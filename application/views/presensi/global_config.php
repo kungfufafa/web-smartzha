@@ -32,7 +32,7 @@
                                     <div class="alert alert-info">
                                         <i class="fas fa-info-circle mr-1"></i>
                                         Pengaturan Sistem hanya untuk hal sistem yang tidak diatur di bawahnya (QR, Auto-Alpha, Timezone, limit bypass, dll).
-                                        <small class="d-block text-muted mt-1">Mode validasi, wajib selfie, wajib checkout, dan izin bypass sekarang diatur di <a href="<?= base_url('presensi/group_config') ?>"><strong>Konfigurasi Group</strong></a>.</small>
+                                        <small class="d-block text-muted mt-1">Mode validasi, wajib selfie, wajib pulang, dan izin bypass sekarang diatur di <a href="<?= base_url('presensi/group_config') ?>"><strong>Konfigurasi Group</strong></a>.</small>
                                     </div>
                                 </div>
                                 

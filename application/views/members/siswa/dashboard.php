@@ -116,7 +116,7 @@
 	                                <div class="form-group">
 	                                    <label>Foto Selfie *</label>
 	                                    <input type="file" class="form-control" id="presensi-photo" accept="image/*" capture="user">
-	                                    <small class="text-muted">Wajib untuk check-in.</small>
+	                                    <small class="text-muted">Wajib untuk absen masuk.</small>
 	                                </div>
 	                            <?php endif; ?>
 
@@ -132,7 +132,7 @@
 	                                    ?>
 	                                    <button type="button" class="btn btn-success btn-lg btn-block" <?= $can_checkin ? '' : 'disabled' ?> onclick="doCheckin()">
 	                                        <i class="fas fa-sign-in-alt fa-2x mb-2"></i><br>
-	                                        CHECK-IN
+	                                        MASUK
 	                                    </button>
 	                                </div>
 	                                <div class="col-6">
@@ -141,7 +141,7 @@
 	                                    ?>
 	                                    <button type="button" class="btn btn-danger btn-lg btn-block" <?= $can_checkout ? '' : 'disabled' ?> onclick="doCheckout()">
 	                                        <i class="fas fa-sign-out-alt fa-2x mb-2"></i><br>
-	                                        CHECK-OUT
+	                                        PULANG
 	                                    </button>
 	                                </div>
 	                            </div>
@@ -993,13 +993,13 @@
 
     function doCheckin() {
         Swal.fire({
-            title: 'Check-in',
-            text: 'Lakukan check-in sekarang?',
+            title: 'Absen Masuk',
+            text: 'Lakukan absen masuk sekarang?',
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#28a745',
             cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Ya, Check-in!',
+            confirmButtonText: 'Ya, Masuk!',
             cancelButtonText: 'Batal'
         }).then((result) => {
             if (result.value || result.isConfirmed) {
@@ -1007,7 +1007,7 @@
                 var photoFile = getPresensiPhotoFile();
 
                 if (presensiRequirePhoto && !photoFile) {
-                    Swal.fire('Gagal!', 'Foto selfie wajib untuk check-in.', 'error');
+                    Swal.fire('Gagal!', 'Foto selfie wajib untuk absen masuk.', 'error');
                     return;
                 }
 
@@ -1115,13 +1115,13 @@
 
     function doCheckout() {
         Swal.fire({
-            title: 'Check-out',
-            text: 'Lakukan check-out sekarang?',
+            title: 'Absen Pulang',
+            text: 'Lakukan absen pulang sekarang?',
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
             cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Ya, Check-out!',
+            confirmButtonText: 'Ya, Pulang!',
             cancelButtonText: 'Batal'
         }).then((result) => {
             if (result.value || result.isConfirmed) {

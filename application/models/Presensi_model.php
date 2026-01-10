@@ -1466,6 +1466,9 @@ class Presensi_model extends CI_Model
 
     private function getPresensiRoleLabelsByUserIds($user_ids)
     {
+        if ( ! has_where_in_values($user_ids)) {
+            return [];
+        }
         $user_ids = array_values(array_unique(array_map('intval', (array) ci_where_in_values($user_ids))));
         $user_ids = array_filter($user_ids);
 
@@ -1747,10 +1750,10 @@ class Presensi_model extends CI_Model
         $this->db->where_not_in('pl.status_kehadiran', ['Izin', 'Sakit', 'Cuti', 'Dinas Luar', 'Alpha']);
 
         if (!empty($groups)) {
-            $groups = ci_where_in_values($groups);
-            if (empty($groups)) {
+            if ( ! has_where_in_values($groups)) {
                 return [];
             }
+            $groups = ci_where_in_values($groups);
             $this->db->join('users_groups ug', 'u.id = ug.user_id');
             $this->db->join('groups g', 'ug.group_id = g.id');
             $this->db->where_in('g.name', $groups);
@@ -2072,10 +2075,10 @@ class Presensi_model extends CI_Model
 
     public function getRekapLogsByUsers($user_ids, $start_date, $end_date)
     {
-        $user_ids = ci_where_in_values($user_ids);
-        if (empty($user_ids)) {
+        if ( ! has_where_in_values($user_ids)) {
             return [];
         }
+        $user_ids = ci_where_in_values($user_ids);
 
         $start_parsed = strtotime((string) $start_date);
         $end_parsed = strtotime((string) $end_date);

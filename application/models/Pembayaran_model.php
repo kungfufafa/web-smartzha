@@ -133,11 +133,15 @@ class Pembayaran_model extends CI_Model
         $this->db->join('pembayaran_jenis j', 't.id_jenis = j.id_jenis');
         $this->db->where('t.id_siswa', $id_siswa);
         if ($status) {
-            $status_values = ci_where_in_values($status);
-            if (count($status_values) > 1) {
-                $this->db->where_in('t.status', $status_values);
-            } elseif (count($status_values) === 1) {
-                $this->db->where('t.status', $status_values[0]);
+            if ( ! has_where_in_values($status)) {
+                // No valid status values, skip filter
+            } else {
+                $status_values = ci_where_in_values($status);
+                if (count($status_values) > 1) {
+                    $this->db->where_in('t.status', $status_values);
+                } elseif (count($status_values) === 1) {
+                    $this->db->where('t.status', $status_values[0]);
+                }
             }
         }
         $this->db->order_by('t.jatuh_tempo', 'ASC');
@@ -176,10 +180,10 @@ class Pembayaran_model extends CI_Model
 
     public function deleteTagihan($ids)
     {
-        $ids = ci_where_in_values($ids);
-        if (empty($ids)) {
+        if ( ! has_where_in_values($ids)) {
             return false;
         }
+        $ids = ci_where_in_values($ids);
         
         // Check for dependencies
         $this->db->where_in('id_tagihan', $ids);

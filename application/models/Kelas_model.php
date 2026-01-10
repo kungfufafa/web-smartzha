@@ -252,11 +252,9 @@ class Kelas_model extends CI_Model
         $this->db->from("kelas_siswa a");
         $this->db->join("master_siswa b", "b.id_siswa=a.id_siswa");
         $this->db->join("buku_induk i", "i.id_siswa=a.id_siswa AND i.status=1");
-        $id_array = ci_where_in_values($id);
-        if (empty($id_array)) {
+        if ( ! safe_where_in($this->db, "a.id_kelas", $id)) {
             return [];
         }
-        $this->db->where_in("a.id_kelas", $id_array);
         $this->db->where("a.id_tp", $tp);
         $this->db->where("a.id_smt", $smt);
         $this->db->order_by("b.nama", "ASC");
@@ -267,11 +265,9 @@ class Kelas_model extends CI_Model
     {
         $this->db->select("a.id_siswa, a.id_kelas");
         $this->db->from("kelas_siswa a");
-        $id_array = ci_where_in_values($id);
-        if (empty($id_array)) {
+        if ( ! safe_where_in($this->db, "a.id_kelas", $id)) {
             return [];
         }
-        $this->db->where_in("a.id_kelas", $id_array);
         $this->db->where("a.id_tp", $tp);
         $this->db->where("a.id_smt", $smt);
         $result = $this->db->get()->result();
@@ -297,11 +293,9 @@ class Kelas_model extends CI_Model
         $this->db->from("kelas_jadwal_kbm");
         $this->db->where("id_tp", $tp);
         $this->db->where("id_smt", $smt);
-        $kelas_ids = ci_where_in_values($arr_kelas);
-        if (empty($kelas_ids)) {
+        if ( ! safe_where_in($this->db, "id_kelas", $arr_kelas)) {
             return [];
         }
-        $this->db->where_in("id_kelas", $kelas_ids);
         $result = $this->db->get()->result();
         $ret = [];
         foreach ($result as $key => $row) {
@@ -372,11 +366,9 @@ class Kelas_model extends CI_Model
         if ($mapel != null) {
             $this->db->where("a.id_mapel", $mapel, FALSE);
         }
-        $kelas_ids = ci_where_in_values($kelas);
-        if (empty($kelas_ids)) {
+        if ( ! safe_where_in($this->db, "a.id_kelas", $kelas)) {
             return [];
         }
-        $this->db->where_in("a.id_kelas", $kelas_ids);
         $result = $this->db->get()->result();
         return $result;
     }
@@ -387,11 +379,9 @@ class Kelas_model extends CI_Model
         $this->db->where("id_tp", $tp, FALSE);
         $this->db->where("id_smt", $smt, FALSE);
         $this->db->where("id_mapel", $mapel, FALSE);
-        $kelas_ids = ci_where_in_values($kelas);
-        if (empty($kelas_ids)) {
+        if ( ! safe_where_in($this->db, "id_kelas", $kelas)) {
             return [];
         }
-        $this->db->where_in("id_kelas", $kelas_ids);
         $result = $this->db->get()->result();
         return $result;
     }
@@ -570,11 +560,9 @@ class Kelas_model extends CI_Model
     public function getNamaKelasById($arr_id)
     {
         $this->db->select("id_kelas, nama_kelas");
-        $ids = ci_where_in_values($arr_id);
-        if (empty($ids)) {
+        if ( ! safe_where_in($this->db, "id_kelas", $arr_id)) {
             return null;
         }
-        $this->db->where_in("id_kelas", $ids);
         $result = $this->db->get("master_kelas")->result();
         $ret = null;
         foreach ($result as $key => $row) {
@@ -585,11 +573,9 @@ class Kelas_model extends CI_Model
     public function getNamaKelasByKode($arr_kode)
     {
         $this->db->select("id_kelas, nama_kelas");
-        $kodes = ci_where_in_values($arr_kode);
-        if (empty($kodes)) {
+        if ( ! safe_where_in($this->db, "kode_kelas", $arr_kode)) {
             return null;
         }
-        $this->db->where_in("kode_kelas", $kodes);
         $result = $this->db->get("master_kelas")->result();
         $ret = null;
         foreach ($result as $key => $row) {
@@ -671,11 +657,9 @@ class Kelas_model extends CI_Model
     {
         $this->db->select("*");
         $this->db->from("log_materi");
-        $materi_ids = ci_where_in_values($arr_id_kjm);
-        if (empty($materi_ids)) {
+        if ( ! safe_where_in($this->db, "id_materi", $arr_id_kjm)) {
             return [];
         }
-        $this->db->where_in("id_materi", $materi_ids);
         $this->db->where("id_siswa", $id_siswa);
         $result = $this->db->get()->result();
         $ret = [];
@@ -829,10 +813,7 @@ class Kelas_model extends CI_Model
         $this->db->join("master_guru c", "b.id_guru=c.id_guru", "left");
         $this->db->join("master_mapel d", "b.id_mapel=d.id_mapel", "left");
         $this->db->where("a.jadwal_materi", $tgl);
-        $mapel_ids = ci_where_in_values($arr_mapel);
-        if (count($mapel_ids) > 0) {
-            $this->db->where_in("a.id_mapel", $mapel_ids);
-        }
+        safe_where_in($this->db, "a.id_mapel", $arr_mapel);
         $this->db->where("a.id_kelas", $id_kelas);
         $result = $this->db->get()->result();
         $ret = [];
@@ -868,11 +849,9 @@ class Kelas_model extends CI_Model
         $this->db->join("kelas_materi c", "b.id_materi=c.id_materi", "left");
         $this->db->join("master_mapel d", "c.id_mapel=d.id_mapel", "left");
         $this->db->where("a.id_siswa", $id_siswa);
-        $materi_ids = ci_where_in_values($arr_id_kjm);
-        if (empty($materi_ids)) {
+        if ( ! safe_where_in($this->db, "a.id_materi", $arr_id_kjm)) {
             return [];
         }
-        $this->db->where_in("a.id_materi", $materi_ids);
         $query = $this->db->get()->result();
         return $query;
     }

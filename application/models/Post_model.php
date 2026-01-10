@@ -44,11 +44,9 @@ class Post_model extends CI_Model
     public function getIdReplies($id_comment)
     {
         $this->db->select("id_reply");
-        $comment_ids = ci_where_in_values($id_comment);
-        if (empty($comment_ids)) {
+        if ( ! safe_where_in($this->db, "id_comment", $id_comment)) {
             return [];
         }
-        $this->db->where_in("id_comment", $comment_ids);
         $ids = $this->db->get("post_reply")->result();
         return $ids;
     }
