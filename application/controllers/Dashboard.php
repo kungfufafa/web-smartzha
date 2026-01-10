@@ -280,8 +280,12 @@ class Dashboard extends CI_Controller
         $this->output_json($this->dashboard->loadJadwalHariIni($tp->id_tp, $smt->id_smt, $id_kelas, $id_hari));
     }
 
-    public function getJadwalKbm($id_kelas)
+    public function getJadwalKbm($id_kelas = null)
     {
+        if ($id_kelas === null) {
+            $this->output_json(array("status" => false, "message" => "id_kelas is required"));
+            return;
+        }
         $tp = $this->dashboard->getTahunActive();
         $smt = $this->dashboard->getSemesterActive();
         $jadwal = $this->dashboard->getJadwalKbm($tp->id_tp, $smt->id_smt, $id_kelas);

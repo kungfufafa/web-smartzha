@@ -112,7 +112,7 @@ class Dropdown_model extends CI_Model
         }
         $ret = [];
         if (count($ress) > 0) {
-            $this->db->where_in("kelompok", $ress);
+            $this->db->where_in("kelompok", ci_where_in_values($ress));
             $this->db->order_by("urutan_tampil");
             $result = $this->db->get("master_mapel")->result();
             if ($result) {
@@ -212,7 +212,7 @@ class Dropdown_model extends CI_Model
         $this->db->select("*");
         $this->db->from("master_kelas");
         $this->db->where("id_tp", $tp);
-        $this->db->where_in("id_kelas", $arrId);
+        $this->db->where_in("id_kelas", ci_where_in_values($arrId));
         $result = $this->db->get()->result();
         $ret = [];
         if ($result) {

@@ -140,10 +140,10 @@ class Datajurusan extends CI_Controller
             foreach ($tables as $table) {
                 if ($table != "master_jurusan") {
                     if ($table == "master_kelas") {
-                        $this->db->where_in("jurusan_id", $chk);
+                        $this->db->where_in("jurusan_id", ci_where_in_values($chk));
                         $num = $this->db->count_all_results($table);
                     } else {
-                        $this->db->where_in("id_jurusan", $chk);
+                        $this->db->where_in("id_jurusan", ci_where_in_values($chk));
                         $num = $this->db->count_all_results($table);
                     }
                     if ($num > 0) {

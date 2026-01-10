@@ -1215,7 +1215,7 @@ class Siswa extends CI_Controller
         if (count($json->reset) > 0) {
             $data["reset"] = true;
             $this->db->set("reset", 1);
-            $this->db->where_in("id_log", $json->reset);
+            $this->db->where_in("id_log", ci_where_in_values($json->reset));
             $this->db->update("log_ujian");
         }
         $data["update_selesai"] = true;
@@ -1228,19 +1228,19 @@ class Siswa extends CI_Controller
             $this->db->set("selesai", date("Y-m-d H:i:s"));
             $this->db->set("status", 2);
             $this->db->set("reset", 3);
-            $this->db->where_in("id_durasi", $json->force);
+            $this->db->where_in("id_durasi", ci_where_in_values($json->force));
             $data["update_selesai"] = $this->db->update("cbt_durasi_siswa");
         }
         $data["update_ulangi"] = true;
         if (count($json->ulang) > 0) {
             $data["ulangi"] = true;
-            $this->db->where_in("id_durasi", $json->hapus);
+            $this->db->where_in("id_durasi", ci_where_in_values($json->hapus));
             if ($this->db->delete("cbt_durasi_siswa")) {
                 $this->db->where("id_jadwal", $id_jadwal);
-                $this->db->where_in("id_siswa", $json->ulang);
+                $this->db->where_in("id_siswa", ci_where_in_values($json->ulang));
                 if ($this->db->delete("log_ujian")) {
                     $this->db->where("id_jadwal", $id_jadwal);
-                    $this->db->where_in("id_siswa", $json->ulang);
+                    $this->db->where_in("id_siswa", ci_where_in_values($json->ulang));
                     $data["update_ulangi"] = $this->db->delete("cbt_soal_siswa");
                 }
             }

@@ -330,6 +330,7 @@ class Pengajuan_model extends CI_Model
 
     public function get_approved_leaves_batch($user_ids, $date)
     {
+        $user_ids = ci_where_in_values($user_ids);
         if (empty($user_ids)) {
             return [];
         }

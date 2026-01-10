@@ -88,12 +88,12 @@ class Datamapel extends CI_Controller
         $kode = $this->input->post("kode");
         $id_parent = $this->input->post("id_parent");
         $messages = [];
-        $this->db->where_in("kelompok", $kode);
+        $this->db->where_in("kelompok", ci_where_in_values($kode));
         $numm = $this->db->count_all_results("master_mapel");
         if ($numm > 0) {
             array_push($messages, "Mata Pelajaran");
         }
-        $this->db->where_in("id_parent", $id);
+        $this->db->where_in("id_parent", ci_where_in_values($id));
         $nums = $this->db->count_all_results("master_kelompok_mapel");
         if ($nums > 0) {
             array_push($messages, "Sub Kelompok");
@@ -170,10 +170,10 @@ class Datamapel extends CI_Controller
             foreach ($tables as $table) {
                 if ($table != "master_mapel") {
                     if ($table == "cbt_soal") {
-                        $this->db->where_in("mapel_id", $chk);
+                        $this->db->where_in("mapel_id", ci_where_in_values($chk));
                         $num = $this->db->count_all_results($table);
                     } else {
-                        $this->db->where_in("id_mapel", $chk);
+                        $this->db->where_in("id_mapel", ci_where_in_values($chk));
                         $num = $this->db->count_all_results($table);
                     }
                     if ($num > 0) {

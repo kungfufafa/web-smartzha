@@ -27,7 +27,11 @@ class Rapor_model extends CI_Model
 
     public function getArrKkm($ids)
     {
-        $this->db->where_in("id_kkm", $ids);
+        $kkm_ids = ci_where_in_values($ids);
+        if (empty($kkm_ids)) {
+            return [];
+        }
+        $this->db->where_in("id_kkm", $kkm_ids);
         $result = $this->db->get("rapor_kkm")->result();
         $ret = [];
         if ($result) {
@@ -116,7 +120,11 @@ class Rapor_model extends CI_Model
     {
         $this->db->select("id_nilai_pts");
         $this->db->from("rapor_nilai_pts");
-        $this->db->where_in("id_nilai_pts", $arr_id);
+        $ids = ci_where_in_values($arr_id);
+        if (empty($ids)) {
+            return [];
+        }
+        $this->db->where_in("id_nilai_pts", $ids);
         $result = $this->db->get()->result();
         $ret = [];
         if ($result) {
@@ -405,8 +413,13 @@ class Rapor_model extends CI_Model
     {
         $this->db->select("p1,p2,p3,p4,p5,k1,k2,k3,k4,k5,id_mapel,id_siswa");
         $this->db->from("rapor_nilai_harian");
-        $this->db->where_in("id_mapel", $ids_mapel);
-        $this->db->where_in("id_siswa", $ids_siswa);
+        $mapel_ids = ci_where_in_values($ids_mapel);
+        $siswa_ids = ci_where_in_values($ids_siswa);
+        if (empty($mapel_ids) || empty($siswa_ids)) {
+            return [];
+        }
+        $this->db->where_in("id_mapel", $mapel_ids);
+        $this->db->where_in("id_siswa", $siswa_ids);
         $this->db->where("id_tp", $id_tp);
         $this->db->where("id_smt", $id_smt);
         $nilais = $this->db->get()->result();
@@ -432,8 +445,13 @@ class Rapor_model extends CI_Model
     {
         $this->db->select("nilai, id_mapel, id_siswa");
         $this->db->from("rapor_nilai_pts");
-        $this->db->where_in("id_mapel", $ids_mapel);
-        $this->db->where_in("id_siswa", $ids_siswa);
+        $mapel_ids = ci_where_in_values($ids_mapel);
+        $siswa_ids = ci_where_in_values($ids_siswa);
+        if (empty($mapel_ids) || empty($siswa_ids)) {
+            return [];
+        }
+        $this->db->where_in("id_mapel", $mapel_ids);
+        $this->db->where_in("id_siswa", $siswa_ids);
         $this->db->where("id_tp", $id_tp);
         $this->db->where("id_smt", $id_smt);
         $nilais = $this->db->get()->result();
@@ -783,7 +801,11 @@ class Rapor_model extends CI_Model
         $this->db->join("rapor_fisik n", "a.id_siswa=n.id_siswa AND a.id_tp=n.id_tp AND a.id_smt=n.id_smt", "left");
         $this->db->join("master_mapel p", "a.id_mapel=p.id_mapel", "left");
         if ($ids_siswa != null) {
-            $this->db->where_in("a.id_siswa", $ids_siswa);
+            $siswa_ids = ci_where_in_values($ids_siswa);
+            if (empty($siswa_ids)) {
+                return [];
+            }
+            $this->db->where_in("a.id_siswa", $siswa_ids);
         }
         $result = $this->db->get()->result();
         return $result;
@@ -809,7 +831,11 @@ class Rapor_model extends CI_Model
         $this->db->from("rapor_nilai_ekstra a");
         $this->db->join("master_ekstra b", "a.id_ekstra=b.id_ekstra", "left");
         if ($ids_siswa != null) {
-            $this->db->where_in("a.id_siswa", $ids_siswa);
+            $siswa_ids = ci_where_in_values($ids_siswa);
+            if (empty($siswa_ids)) {
+                return [];
+            }
+            $this->db->where_in("a.id_siswa", $siswa_ids);
         }
         $result = $this->db->get()->result();
         $ret = [];
@@ -824,7 +850,11 @@ class Rapor_model extends CI_Model
         $this->db->select("*");
         $this->db->from("rapor_nilai_sikap");
         if ($ids_siswa != null) {
-            $this->db->where_in("id_siswa", $ids_siswa);
+            $siswa_ids = ci_where_in_values($ids_siswa);
+            if (empty($siswa_ids)) {
+                return [];
+            }
+            $this->db->where_in("id_siswa", $siswa_ids);
         }
         $result = $this->db->get()->result();
         $ret = [];
@@ -839,7 +869,11 @@ class Rapor_model extends CI_Model
         $this->db->select("id_tp, id_smt, id_siswa, kondisi, tinggi, berat");
         $this->db->from("rapor_fisik");
         if ($ids_siswa != null) {
-            $this->db->where_in("id_siswa", $ids_siswa);
+            $siswa_ids = ci_where_in_values($ids_siswa);
+            if (empty($siswa_ids)) {
+                return [];
+            }
+            $this->db->where_in("id_siswa", $siswa_ids);
         }
         $result = $this->db->get()->result();
         $ret = [];

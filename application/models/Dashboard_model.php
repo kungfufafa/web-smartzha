@@ -30,7 +30,11 @@ class Dashboard_model extends CI_Model
 
     public function hapus($table, $data, $pk)
     {
-        $this->db->where_in($pk, $data);
+        $ids = ci_where_in_values($data);
+        if (empty($ids)) {
+            return false;
+        }
+        $this->db->where_in($pk, $ids);
         return $this->db->delete($table);
     }
 

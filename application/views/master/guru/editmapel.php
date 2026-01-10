@@ -348,14 +348,16 @@
 
 <?php
 $ekstra_guru = $guru->ekstra_kelas == null ? [] : unserialize($guru->ekstra_kelas);
+$mapel_guru = $guru->mapel_kelas == null ? [] : unserialize($guru->mapel_kelas);
+$js_encode_flags = JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
 ?>
 <script type="text/javascript">
     var guru_id = '<?=$guru->id_guru?>';
     var kelas_id = '<?=$guru->id_kelas?>';
     var level_id = '<?=$guru->id_level?>';
-    var mapel_guru = '<?= json_encode(unserialize($guru->mapel_kelas)) ?>';
-    var ekstra_guru = '<?= json_encode($ekstra_guru) ?>';
-    var guru_before = JSON.parse('<?= str_replace("'", "\'", json_encode($guru2)) ?>');
+    var mapel_guru = '<?= json_encode($mapel_guru, $js_encode_flags) ?>';
+    var ekstra_guru = '<?= json_encode($ekstra_guru, $js_encode_flags) ?>';
+    var guru_before = JSON.parse('<?= json_encode($guru2, $js_encode_flags) ?>');
 </script>
 <script src="<?= base_url() ?>/assets/app/js/master/guru/editmapel.js"></script>
 <script>

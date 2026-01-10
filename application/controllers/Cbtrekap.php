@@ -391,9 +391,14 @@ class Cbtrekap extends CI_Controller
     }
     public function hapusRekap()
     {
-        $ids = json_decode($this->input->post("ids", true));
+        $ids = ci_where_in_values(json_decode($this->input->post("ids", true)));
         sleep(1);
         $data["total"] = count($ids);
+        if (empty($ids)) {
+            $data["success"] = false;
+            $this->output_json($data);
+            return;
+        }
         $this->db->where_in("id_jadwal", $ids);
         $delRekap = $this->db->delete("cbt_rekap");
         $this->db->where_in("id_jadwal", $ids);

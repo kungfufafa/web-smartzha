@@ -35,16 +35,23 @@ class Auth extends CI_Controller
         }
 
         if ($this->ion_auth->logged_in()) {
-            $user_id = $this->ion_auth->user()->row()->id;
-            $group = $this->ion_auth->get_users_groups($user_id)->row()->name;
-            
-            // Redirect orangtua to their own dashboard
-            if ($group === 'orangtua') {
-                redirect("orangtua");
-            } elseif ($group === 'tendik') {
-                redirect("tendik");
+            $user = $this->ion_auth->user()->row();
+            if ($user === null) {
+                // User session exists but user data not found, logout and show login
+                $this->ion_auth->logout();
             } else {
-                redirect("dashboard");
+                $user_id = $user->id;
+                $group_row = $this->ion_auth->get_users_groups($user_id)->row();
+                $group = $group_row ? $group_row->name : '';
+            
+                // Redirect orangtua to their own dashboard
+                if ($group === 'orangtua') {
+                redirect("orangtua");
+                } elseif ($group === 'tendik') {
+                    redirect("tendik");
+                } else {
+                    redirect("dashboard");
+                }
             }
         }
 
