@@ -211,7 +211,7 @@ class Pengajuan extends CI_Controller
         $existing = $this->presensi->getTodayLog($id_siswa, $tanggal);
 
         if (!$existing || !$existing->jam_masuk) {
-            $this->output_json(['status' => false, 'message' => 'Siswa belum check-in hari ini']);
+            $this->output_json(['status' => false, 'message' => 'Siswa belum absen masuk hari ini']);
             return;
         }
 

@@ -145,11 +145,11 @@
                     <div class="form-group">
                         <label>Mode Validasi</label>
                         <select class="form-control" name="validation_mode" id="group-config-validation">
-                            <option value="gps">GPS Only</option>
-                            <option value="qr">QR Only</option>
-                            <option value="gps_or_qr">GPS OR QR</option>
+                            <option value="gps">GPS Saja</option>
+                            <option value="qr">QR Saja</option>
+                            <option value="gps_or_qr">GPS atau QR</option>
                             <option value="manual">Manual</option>
-                            <option value="any">Any</option>
+                            <option value="any">Apa saja</option>
                         </select>
                     </div>
                     
@@ -216,7 +216,7 @@
                         </div>
                         <div class="col-md-4">
                             <div class="form-group">
-                                <label>Wajib Checkout</label>
+                                <label>Wajib Pulang</label>
                                 <select class="form-control form-control-sm" name="require_checkout" id="group-config-checkout">
                                     <option value="1">Ya (Wajib)</option>
                                     <option value="0">Tidak (Opsional)</option>

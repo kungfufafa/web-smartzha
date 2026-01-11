@@ -63,13 +63,13 @@
 	                        </p>
 	                    </a>
 	                    <ul class="nav nav-treeview">
-	                        <li class="nav-item">
-	                            <a href="<?= base_url('presensi') ?>"
-	                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == '' ? "active" : "" ?>">
-	                                <i class="far fa-circle nav-icon"></i>
-	                                <p>Check-in / Check-out</p>
-	                            </a>
-	                        </li>
+ 	                        <li class="nav-item">
+ 	                            <a href="<?= base_url('presensi') ?>"
+ 	                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == '' ? "active" : "" ?>">
+ 	                                <i class="far fa-circle nav-icon"></i>
+ 	                                <p>Masuk / Pulang</p>
+ 	                            </a>
+ 	                        </li>
 	                        <li class="nav-item">
 	                            <a href="<?= base_url('presensi/history') ?>"
 	                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) === 'history' ? "active" : "" ?>">

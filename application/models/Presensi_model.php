@@ -185,6 +185,7 @@ class Presensi_model extends CI_Model
             if ($override) {
                 if ($override->id_shift) {
                     return $this->db->where('id_shift', $override->id_shift)
+                        ->where('is_active', 1)
                         ->get('presensi_shift')
                         ->row();
                 }
@@ -203,6 +204,7 @@ class Presensi_model extends CI_Model
                 if ($group_override) {
                     if ($group_override->id_shift) {
                         return $this->db->where('id_shift', $group_override->id_shift)
+                            ->where('is_active', 1)
                             ->get('presensi_shift')
                             ->row();
                     }
@@ -224,6 +226,7 @@ class Presensi_model extends CI_Model
             if ($user_schedule) {
                 if ($user_schedule->id_shift !== null) {
                     return $this->db->where('id_shift', $user_schedule->id_shift)
+                        ->where('is_active', 1)
                         ->get('presensi_shift')
                         ->row();
                 }
@@ -264,6 +267,18 @@ class Presensi_model extends CI_Model
 
             if ($schedule) {
                 return $schedule;
+            }
+        }
+
+        // Fallback: Use group's default shift if configured
+        $config = $this->getResolvedConfig($id_user);
+        if ($config && $config->id_shift_default) {
+            $default_shift = $this->db->where('id_shift', $config->id_shift_default)
+                ->where('is_active', 1)
+                ->get('presensi_shift')
+                ->row();
+            if ($default_shift) {
+                return $default_shift;
             }
         }
 
@@ -347,7 +362,7 @@ class Presensi_model extends CI_Model
         $this->db->where('is_recurring', 1)
             ->where('is_active', 1)
             ->where_in('tipe_libur', $allowed_types);
-        $this->db->where('DATE_FORMAT(tanggal, "%m-%d") = "' . $month_day . '"', null, false);
+        $this->db->where("DATE_FORMAT(tanggal, '%m-%d') = '" . $this->db->escape_str($month_day) . "'", null, false);
 
         return $this->db->count_all_results() > 0;
     }
@@ -383,7 +398,7 @@ class Presensi_model extends CI_Model
             if ($open_log && $open_log->tanggal !== $today) {
                 return [
                     'success' => false,
-                    'message' => 'Anda masih memiliki presensi yang belum check-out (tanggal ' . date('d F Y', strtotime($open_log->tanggal)) . ')'
+                    'message' => 'Anda masih memiliki presensi yang belum absen pulang (tanggal ' . date('d F Y', strtotime($open_log->tanggal)) . ')'
                 ];
             }
         }
@@ -394,7 +409,7 @@ class Presensi_model extends CI_Model
             ->row();
 
         if ($existing_log && $existing_log->jam_masuk) {
-            return ['success' => false, 'message' => 'Anda sudah check-in hari ini'];
+            return ['success' => false, 'message' => 'Anda sudah absen masuk hari ini'];
         }
 
         if ($existing_log && in_array($existing_log->status_kehadiran, ['Izin', 'Sakit', 'Cuti', 'Dinas Luar'])) {
@@ -410,7 +425,7 @@ class Presensi_model extends CI_Model
             if ($approved_bypass && !empty($approved_bypass->foto_bukti)) {
                 $data_effective['photo'] = $approved_bypass->foto_bukti;
             } else {
-            return ['success' => false, 'message' => 'Foto selfie diperlukan untuk check-in'];
+            return ['success' => false, 'message' => 'Foto selfie diperlukan untuk absen masuk'];
             }
         }
 
@@ -474,6 +489,7 @@ class Presensi_model extends CI_Model
 
             case 'any':
                 $errors = [];
+                $hasProof = false;
 
                 if (!empty($data['lat']) && !empty($data['lng'])) {
                     $gps = $this->validateGPS($data['lat'], $data['lng'], $id_lokasi_default);
@@ -481,6 +497,7 @@ class Presensi_model extends CI_Model
                         return $gps;
                     }
                     $errors[] = $gps['message'] ?? 'Validasi GPS gagal';
+                    $hasProof = true;
                 }
 
                 if (!empty($data['qr_token'])) {
@@ -489,6 +506,12 @@ class Presensi_model extends CI_Model
                         return $qr;
                     }
                     $errors[] = $qr['message'] ?? 'Validasi QR Code gagal';
+                    $hasProof = true;
+                }
+
+                // Require at least one proof (GPS or QR)
+                if (!$hasProof) {
+                    return ['valid' => false, 'message' => 'GPS atau QR Code diperlukan'];
                 }
 
                 if (empty($errors)) {
@@ -504,7 +527,7 @@ class Presensi_model extends CI_Model
 
     public function validateGPS($lat, $lng, $id_lokasi_default = null)
     {
-        if (empty($lat) || empty($lng)) {
+        if (!isset($lat) || !is_numeric($lat) || !isset($lng) || !is_numeric($lng)) {
             return ['valid' => false, 'message' => 'Koordinat GPS diperlukan', 'method' => 'gps'];
         }
 
@@ -527,7 +550,7 @@ class Presensi_model extends CI_Model
         }
 
         if (!$lokasi) {
-            return ['valid' => true, 'message' => 'OK', 'id_lokasi' => null, 'method' => 'gps'];
+            return ['valid' => false, 'message' => 'Lokasi belum dikonfigurasi. Silakan hubungi admin.', 'method' => 'gps'];
         }
 
         $distance = $this->calculateDistance($lat, $lng, $lokasi->latitude, $lokasi->longitude);
@@ -561,11 +584,11 @@ class Presensi_model extends CI_Model
         }
 
         if ($action === 'checkin' && $token->token_type === 'checkout') {
-            return ['valid' => false, 'message' => 'QR Code ini hanya untuk Check-Out', 'method' => 'qr'];
+            return ['valid' => false, 'message' => 'QR Code ini hanya untuk Absen Pulang', 'method' => 'qr'];
         }
 
         if ($action === 'checkout' && $token->token_type === 'checkin') {
-            return ['valid' => false, 'message' => 'QR Code ini hanya untuk Check-In', 'method' => 'qr'];
+            return ['valid' => false, 'message' => 'QR Code ini hanya untuk Absen Masuk', 'method' => 'qr'];
         }
 
         if ($token->max_usage && $token->used_count >= $token->max_usage) {
@@ -710,7 +733,7 @@ class Presensi_model extends CI_Model
 
         if ($method === 'qr' && !empty($data['qr_token'])) {
             $this->db->where('token_code', $data['qr_token'])
-                ->set('used_count', 'used_count + 1', FALSE)
+                ->where('used_count < max_usage', null, false)
                 ->update('presensi_qr_token');
         }
 
@@ -738,11 +761,12 @@ class Presensi_model extends CI_Model
                     $this->db->where('id_log', $existing_log->id_log)
                         ->update('presensi_logs', $update_data);
 
-                    if ($method === 'qr' && !empty($data['qr_token'])) {
-                        $this->db->where('token_code', $data['qr_token'])
-                            ->set('used_count', 'used_count + 1', FALSE)
-                            ->update('presensi_qr_token');
-                    }
+        if ($method === 'qr' && !empty($data['qr_token'])) {
+            $this->db->where('token_code', $data['qr_token'])
+                ->where('used_count < max_usage', null, false)
+                ->where('used_count < max_usage', null, false)
+                ->update('presensi_qr_token');
+        }
 
                     if ($this->db->trans_status() !== FALSE) {
                         $this->db->trans_commit();
@@ -1103,11 +1127,11 @@ class Presensi_model extends CI_Model
         $log = $this->getOpenAttendanceLog($id_user);
 
         if (!$log) {
-            return ['success' => false, 'message' => 'Tidak ada check-in yang belum di-checkout'];
+            return ['success' => false, 'message' => 'Tidak ada presensi yang belum absen pulang'];
         }
 
         if ($log->jam_pulang) {
-            return ['success' => false, 'message' => 'Anda sudah check-out'];
+            return ['success' => false, 'message' => 'Anda sudah absen pulang'];
         }
 
         $checkout_validation = $this->validateCheckOut($id_user, $data, $log->tanggal ?? null);
@@ -1191,13 +1215,13 @@ class Presensi_model extends CI_Model
 
         if ($method === 'qr' && !empty($data['qr_token'])) {
             $this->db->where('token_code', $data['qr_token'])
-                ->set('used_count', 'used_count + 1', FALSE)
+                ->where('used_count < max_usage', null, false)
                 ->update('presensi_qr_token');
         }
 
         if ($this->db->trans_status() === FALSE) {
             $this->db->trans_rollback();
-            return ['success' => false, 'message' => 'Gagal menyimpan data check-out'];
+            return ['success' => false, 'message' => 'Gagal menyimpan data absen pulang'];
         }
 
         $this->db->trans_commit();
@@ -1332,14 +1356,29 @@ class Presensi_model extends CI_Model
         $month_start = date('Y-m-01 00:00:00');
         $next_month_start = date('Y-m-01 00:00:00', strtotime('+1 month'));
 
+        // Count all relevant bypasses that contribute to the limit
+        // Include pending, approved, and used statuses
         $bypass_count = $this->db->where('id_user', $id_user)
             ->where('created_at >=', $month_start)
             ->where('created_at <', $next_month_start)
-            ->where('status', 'pending')
+            ->where_in('status', ['pending', 'approved', 'used'])
+            ->count_all_results('presensi_bypass');
+
+        // Also check for duplicate bypass requests for same date and type
+        $duplicate_count = $this->db->where('id_user', $id_user)
+            ->where('tanggal', date('Y-m-d'))
+            ->where('tipe_bypass', $data['tipe'] ?? 'checkin')
+            ->where('created_at >=', $month_start)
+            ->where('created_at <', $next_month_start)
+            ->where_in('status', ['pending', 'approved', 'used'])
             ->count_all_results('presensi_bypass');
 
         if ($bypass_count >= $config->max_bypass_per_month ?? 3) {
             return ['success' => false, 'message' => 'Batas bypass bulanan telah tercapai'];
+        }
+
+        if ($duplicate_count > 0) {
+            return ['success' => false, 'message' => 'Anda sudah memiliki pengajuan bypass untuk hari ini'];
         }
 
         $insert_data = [

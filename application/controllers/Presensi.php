@@ -149,7 +149,7 @@ class Presensi extends CI_Controller
             'config' => $this->Presensi_model->getResolvedConfig($user_id),
             'shift' => $this->Presensi_model->getUserShiftForDate($user_id, $today),
             'judul' => 'Presensi',
-            'subjudul' => 'Check-In / Check-Out'
+            'subjudul' => 'Masuk / Pulang'
         ];
 
         $this->load_view('presensi/checkin', $data);

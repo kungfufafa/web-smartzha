@@ -64,10 +64,10 @@
 	                            <p class="mb-0">Silakan cek jadwal presensi Anda</p>
 	                        </div>
                         
-                        <?php if ($config->allow_bypass): ?>
+                         <?php if ($config->allow_bypass): ?>
                             <div class="text-center mt-3">
                                 <button type="button" class="btn btn-secondary" onclick="showBypassForm()">
-                                    <i class="fas fa-exclamation-circle"></i> Request Bypass
+                                    <i class="fas fa-exclamation-circle"></i> Ajukan Bypass
                                 </button>
                             </div>
                         <?php endif; ?>
@@ -187,9 +187,9 @@
                         </div>
                         
                         <?php if ($config->allow_bypass): ?>
-                            <div class="text-center mt-3">
+                             <div class="text-center mt-3">
                                 <button type="button" class="btn btn-sm btn-secondary" onclick="showBypassForm()">
-                                    <i class="fas fa-exclamation-circle"></i> Request Bypass
+                                    <i class="fas fa-exclamation-circle"></i> Ajukan Bypass
                                 </button>
                             </div>
                         <?php endif; ?>
@@ -204,9 +204,9 @@
 <div class="modal fade" id="bypassModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header bg-warning">
-                <h5 class="modal-title">Request Bypass Presensi</h5>
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                             <div class="modal-header bg-warning">
+                 <h5 class="modal-title">Ajukan Bypass Presensi</h5>
+                 <button type="button" class="close" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="bypassForm">

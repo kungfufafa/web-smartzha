@@ -175,32 +175,6 @@ CREATE TABLE `presensi_config_group` (
     CONSTRAINT `fk_cfg_lokasi` FOREIGN KEY (`id_lokasi_default`) REFERENCES `presensi_lokasi` (`id_lokasi`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- -----------------------------------------------------------
--- Table: presensi_config_user
--- Description: Optional per-user overrides (hindari jika tidak benar-benar dibutuhkan)
--- -----------------------------------------------------------
-CREATE TABLE `presensi_config_user` (
-    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `id_user` INT UNSIGNED NOT NULL COMMENT 'FK to users table',
-
-    -- Override validation
-    `validation_mode` ENUM('gps', 'qr', 'gps_or_qr', 'manual', 'any') DEFAULT NULL,
-
-    -- Override features
-    `require_photo` TINYINT(1) DEFAULT 0,
-    `require_checkout` TINYINT(1) DEFAULT NULL,
-    `allow_bypass` TINYINT(1) DEFAULT NULL,
-
-    `is_active` TINYINT(1) DEFAULT 1,
-    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_user` (`id_user`),
-
-    CONSTRAINT `fk_cfg_user` FOREIGN KEY (`id_user`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 -- ============================================================
 -- PART 3: WORKING SCHEDULE (Explicit, not JSON)
 -- ============================================================

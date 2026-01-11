@@ -54,15 +54,15 @@
 
 	                            <div class="alert alert-info">
 	                                <h5><i class="fas fa-info-circle mr-2"></i>Status - <?= date('d F Y') ?></h5>
-	                                <?php if ($log_display): ?>
-	                                    <p class="mb-1">
-	                                        <strong>Check-in:</strong>
-	                                        <?= $log_display->jam_masuk ? date('H:i', strtotime($log_display->jam_masuk)) : '<span class="text-danger">Belum</span>' ?>
-	                                    </p>
-	                                    <p class="mb-1">
-	                                        <strong>Check-out:</strong>
-	                                        <?= $log_display->jam_pulang ? date('H:i', strtotime($log_display->jam_pulang)) : '<span class="text-warning">Belum</span>' ?>
-	                                    </p>
+ 	                                <?php if ($log_display): ?>
+ 	                                    <p class="mb-1">
+ 	                                        <strong>Masuk:</strong>
+ 	                                        <?= $log_display->jam_masuk ? date('H:i', strtotime($log_display->jam_masuk)) : '<span class="text-danger">Belum</span>' ?>
+ 	                                    </p>
+ 	                                    <p class="mb-1">
+ 	                                        <strong>Pulang:</strong>
+ 	                                        <?= $log_display->jam_pulang ? date('H:i', strtotime($log_display->jam_pulang)) : '<span class="text-warning">Belum</span>' ?>
+ 	                                    </p>
 	                                    <p class="mb-0">
 	                                        <strong>Status:</strong>
 	                                        <span class="badge badge-<?= $log_display->status_kehadiran == 'Hadir' ? 'success' : ($log_display->status_kehadiran == 'Terlambat' ? 'warning' : 'secondary') ?>">
@@ -361,7 +361,7 @@ function submitCheckin(lat, lng, qrToken, photoFile) {
         dataType: 'json',
         success: function(res) {
             if (res.success) {
-                var msg = 'Check-in berhasil';
+                var msg = 'Absen Masuk berhasil';
                 if (res.status) {
                     msg += ' (' + res.status;
                     if (res.terlambat_menit && parseInt(res.terlambat_menit, 10) > 0) {
@@ -474,7 +474,7 @@ function submitCheckout(lat, lng, qrToken) {
         dataType: 'json',
         success: function(res) {
             if (res.success) {
-                var msg = 'Check-out berhasil';
+                var msg = 'Absen Pulang berhasil';
                 if (res.status) {
                     msg += ' (' + res.status + ')';
                 }
@@ -485,7 +485,7 @@ function submitCheckout(lat, lng, qrToken) {
                 if (res.show_bypass) {
                     Swal.fire({
                         title: 'Gagal!',
-                        text: (res.message || 'Check-out gagal.') + ' Ajukan bypass?',
+                        text: (res.message || 'Absen Pulang gagal.') + ' Ajukan bypass?',
                         icon: 'error',
                         showCancelButton: true,
                         confirmButtonText: 'Ajukan Bypass',
@@ -497,7 +497,7 @@ function submitCheckout(lat, lng, qrToken) {
 	                    });
 	                    return;
 	                }
-                Swal.fire('Gagal!', res.message || 'Check-out gagal.', 'error');
+                Swal.fire('Gagal!', res.message || 'Absen Pulang gagal.', 'error');
             }
         },
         error: function() {

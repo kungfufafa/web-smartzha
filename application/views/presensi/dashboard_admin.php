@@ -127,7 +127,7 @@
 		                            </ol>
 		                            <div class="alert alert-light border mt-3 mb-0">
 		                                <small class="text-muted">
-		                                    Konfigurasi utama (validasi/selfie/checkout/bypass): <strong>Konfigurasi Group</strong>. Pengaturan Sistem: QR, Auto-Alpha (jalan saat admin buka menu), Timezone, limit bypass.
+		                                    Konfigurasi utama (validasi/selfie/pulang/bypass): <strong>Konfigurasi Group</strong>. Pengaturan Sistem: QR, Auto-Alpha (jalan saat admin buka menu), Timezone, limit bypass.
 		                                    Prioritas shift: <strong>Override Tanggal</strong> → <strong>Jadwal User</strong> → <strong>Jadwal Tendik (Per Tipe)</strong> → <strong>Jadwal Presensi</strong>. Jika tidak ada jadwal: <strong>Libur</strong>.
 		                                    Jadwal presensi tidak diperlukan untuk group <strong>Admin</strong> / <strong>Orangtua</strong>.
 		                                    Jika mode QR dipakai, pastikan admin men-generate token di menu <strong>QR Token</strong>.

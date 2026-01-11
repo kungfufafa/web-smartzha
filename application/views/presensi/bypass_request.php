@@ -31,7 +31,7 @@ if (!in_array($tipe_default, ['checkin', 'checkout', 'both'], true)) {
                 </div>
                 <div class="card-body">
                     <div class="alert alert-info">
-                        <i class="fas fa-info-circle mr-2"></i>Request bypass digunakan jika presensi gagal divalidasi (mis. GPS/QR).
+                        <i class="fas fa-info-circle mr-2"></i>Ajukan bypass digunakan jika presensi gagal divalidasi (mis. GPS/QR).
                     </div>
 
                     <form id="bypassForm" enctype="multipart/form-data">
@@ -46,7 +46,7 @@ if (!in_array($tipe_default, ['checkin', 'checkout', 'both'], true)) {
 
                         <div class="form-group">
                             <label>Alasan *</label>
-                            <textarea class="form-control" name="alasan" rows="3" required placeholder="Jelaskan alasan request bypass"></textarea>
+                            <textarea class="form-control" name="alasan" rows="3" required placeholder="Jelaskan alasan ajukan bypass"></textarea>
                         </div>
 
                         <div class="form-group">

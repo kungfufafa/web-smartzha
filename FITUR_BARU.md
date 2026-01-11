@@ -16,7 +16,7 @@ Target dokumen ini adalah teknis dan _traceable_ (bisa ditelusuri ke kode + DB),
 		 - Orang Tua: `assets/app/db/orangtua.sql`
 		 - Tendik: `assets/app/db/tendik.sql`
 		 - Presensi + Pengajuan: `assets/app/db/presensi.sql`
-	 - `presensi.sql` bersifat "idempotent-ish" (buat tabel yang belum ada + seed/upsert data).
+	 > **Catatan**: `presensi.sql` BUKAN idempotent (menggunakan `CREATE TABLE` tanpa `IF NOT EXISTS`). Gunakan `assets/app/db/fitur_orangtua_tendik_presensi_pembayaran.sql` untuk script yang aman di-rerun.
 
 2. **Folder upload**
 	 - Pastikan folder berikut writable oleh web server:
@@ -35,15 +35,15 @@ Target dokumen ini adalah teknis dan _traceable_ (bisa ditelusuri ke kode + DB),
 
 ## Ringkasan Modul
 
-| No | Modul | Aktor | Deskripsi Singkat |
-|----|-------|-------|-------------------|
-| 1 | Pembayaran/Tagihan | Admin + Siswa + Orang Tua | Invoice & verifikasi bukti bayar |
-| 2 | Portal Orang Tua | Orang Tua | Switch anak + nilai/absensi/tagihan |
-| 3 | Portal Tendik | Tendik | Dashboard + integrasi Presensi |
-| 4 | Presensi | Multi-role | Shift, GPS/QR, bypass, audit |
-| 5 | Pengajuan Izin/Cuti | Multi-role | Workflow izin + sinkron log |
-| 6 | API Mobile App | Siswa | JSON endpoint untuk Flutter |
-| 7 | LuckySheet | Admin/Guru | UI spreadsheet input nilai |
+| No | Modul | Aktor | Deskripsi Singkat | Status |
+|----|-------|-------|-------------------|--------|
+| 1 | Pembayaran/Tagihan | Admin + Siswa + Orang Tua | Invoice & verifikasi bukti bayar | ✅ Berfungsi |
+| 2 | Portal Orang Tua | Orang Tua | Switch anak + nilai/absensi/tagihan | ✅ Berfungsi |
+| 3 | Portal Tendik | Tendik | Dashboard + integrasi Presensi | ✅ Berfungsi |
+| 4 | Presensi | Multi-role | Shift, GPS/QR, bypass, audit | ✅ Berfungsi |
+| 5 | Pengajuan Izin/Cuti | Multi-role | Workflow izin + sinkron log | ⚠️ Izin Keluar tidak lengkap |
+| 6 | API Mobile App | Siswa | JSON endpoint untuk Flutter | ✅ Berfungsi |
+| 7 | LuckySheet | Admin/Guru | UI spreadsheet input nilai | ❌ Assets vendor tidak ada |
 
 ---
 
@@ -151,7 +151,7 @@ Sumber: `assets/app/db/pembayaran.sql`
 |--------|-------|-----------|
 | GET | `/tagihanku` | Daftar tagihan |
 | GET | `/tagihanku/bayar/{id}` | Form bayar |
-| GET | `/tagihanku/qris/{id}` | Halaman QRIS |
+| GET | `/tagihanku/qris/{id}` | Dynamic QR image (image/png) |
 | POST | `/tagihanku/uploadBukti` | Upload bukti |
 | GET | `/tagihanku/riwayat` | Riwayat |
 | GET | `/tagihanku/detailTransaksi/{id}` | Detail transaksi |
@@ -161,7 +161,7 @@ Sumber: `assets/app/db/pembayaran.sql`
 |--------|-------|-----------|
 | GET | `/orangtua/tagihan` | Daftar tagihan anak |
 | GET | `/orangtua/bayar/{id}` | Form bayar |
-| GET | `/orangtua/qris/{id}` | Halaman QRIS |
+| GET | `/orangtua/qris/{id}` | Dynamic QR image (image/png) |
 | POST | `/orangtua/uploadBukti` | Upload bukti |
 | GET | `/orangtua/riwayat` | Riwayat |
 | GET | `/orangtua/detailTransaksi/{id}` | Detail transaksi |
@@ -356,7 +356,7 @@ Sumber: `assets/app/db/tendik.sql`
 |--------|-------|-----------|
 | GET | `/tendik` | Dashboard |
 | GET | `/tendik/absensi` | Redirect ke presensi |
-| GET | `/tendik/presensi` | Halaman presensi |
+| GET | `/tendik/presensi` | Redirect ke anchor presensi di dashboard |
 | GET | `/tendik/bypass_request` | Form bypass request |
 | GET | `/tendik/riwayat` | Riwayat presensi |
 | GET | `/tendik/jadwal` | Jadwal kerja |
@@ -460,7 +460,6 @@ Sumber: `assets/app/db/presensi.sql`
 |-------|-----------|
 | `presensi_config_global` | Konfigurasi sistem global |
 | `presensi_config_group` | Konfigurasi per group (guru/tendik/siswa) |
-| `presensi_config_user` | Override per user (opsional) |
 
 #### Tabel Jadwal Kerja
 | Tabel | Deskripsi |
@@ -576,7 +575,7 @@ Sumber: `assets/app/db/presensi.sql`
 `Pending | Disetujui | Ditolak | Dibatalkan`
 
 **Sinkronisasi:**
-- Saat status berubah menjadi `Disetujui`, model memanggil `Pengajuan_model::syncToPresensiLogs()`.
+- Saat status berubah menjadi `Disetujui`, model memanggil `Pengajuan_model::syncToAbsensiLogs($id_pengajuan)`.
 - Untuk pengajuan harian/rentang, model melakukan upsert ke `presensi_logs` untuk setiap tanggal.
 - Untuk `IzinKeluar`, model mengisi `presensi_logs.jam_pulang`, `pulang_awal_menit`.
 
@@ -590,6 +589,11 @@ Sumber: `assets/app/db/presensi.sql`
 | POST | `/pengajuan/approve` | Approve/reject pengajuan |
 | GET | `/pengajuan/formIzinKeluar` | Form izin keluar |
 | POST | `/pengajuan/izinKeluar` | Submit izin keluar |
+
+> **⚠️ CATATAN**: Fitur Izin Keluar saat ini **TIDAK LENGKAP**:
+> - View `application/views/presensi/pengajuan/izin_keluar.php` tidak ada
+> - Controller memanggil method `syncIzinKeluarToPresensiLog()` tapi model mengimplementasikan `syncIzinKeluarToAbsensiLog()`
+> - Fitur akan fatal error jika diakses sebelum perbaikan.
 
 ---
 
@@ -614,7 +618,16 @@ Menyediakan endpoint JSON untuk Flutter Mobile App.
 - Validasi klien:
 	- Ada pemeriksaan _user-agent_ (`SIMS-ALZ-...`) / fallback bukan "unknown".
 
-> Catatan: Karena `Api.php` sangat besar dan berisi banyak endpoint (CBT, jadwal, absensi, dll), dokumentasi endpoint sebaiknya dipisah per domain bila diperlukan.
+### Endpoint/Route Teknis - API Pembayaran
+
+| Method | Route | Deskripsi |
+|--------|-------|-----------|
+| GET | `/api/pembayaran` | Daftar tagihan siswa |
+| GET | `/api/pembayaran/history` | Riwayat transaksi |
+| GET | `/api/pembayaran/detail/{id}` | Detail transaksi |
+| POST | `/api/pembayaran/upload` | Upload bukti bayar |
+
+> Catatan: Karena `Api.php` sangat besar dan berisi banyak endpoint (CBT, jadwal, absensi, dll), dokumentasi endpoint lain sebaiknya dipisah per domain bila diperlukan.
 
 ---
 
@@ -623,13 +636,15 @@ Menyediakan endpoint JSON untuk Flutter Mobile App.
 ### Tujuan
 Integrasi UI spreadsheet (LuckySheet) untuk kebutuhan input/rekap berbasis web.
 
+> **⚠️ CATATAN**: Fitur ini saat ini **NON-FUNCTIONAL** karena assets vendor LuckySheet belum disertakan (`assets/plugins/luckysheet/` tidak ada). Includes CSS/JS di `application/views/members/guru/templates/header.php` juga masih dalam kondisi commented out.
+
 ### Lokasi Implementasi
 
 | File | Deskripsi |
 |------|-----------|
 | `application/controllers/Luckysheet.php` | Controller LuckySheet |
-| `application/views/members/guru/luckyview.php` | View spreadsheet |
-| `assets/plugins/luckysheet/` | Plugin assets |
+| `application/views/members/guru/luckyview.php` | View spreadsheet (mereferensikan assets yang belum ada) |
+| `assets/plugins/luckysheet/` | ⚠️ Plugin assets - BELUM ada |
 
 ### Kontrol Akses
 - Hanya Admin atau Guru (`ion_auth->is_admin()` atau `in_group('guru')`).
