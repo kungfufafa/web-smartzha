@@ -686,7 +686,7 @@ class Pembayaran_model extends CI_Model
             $this->db->where('ks.id_kelas', $id_kelas);
         }
 
-        $this->db->order_by('k.nama_kelas', 'ASC');
+        $this->db->order_by('MAX(k.nama_kelas)', 'ASC', false);
         $this->db->order_by('s.nama', 'ASC');
         $this->db->order_by('t.jatuh_tempo', 'ASC');
         return $this->db->get()->result();
@@ -702,7 +702,8 @@ class Pembayaran_model extends CI_Model
     public function getTotalTunggakanPerKelas($id_tp, $id_smt)
     {
         $this->db->select("
-            k.id_kelas, k.nama_kelas,
+            k.id_kelas,
+            MAX(k.nama_kelas) as nama_kelas,
             COUNT(t.id_tagihan) as jumlah_tagihan,
             SUM(t.total) as total_tunggakan
         ");
@@ -715,6 +716,12 @@ class Pembayaran_model extends CI_Model
         $this->db->where_in('t.status', ['belum_bayar', 'ditolak']);
         $this->db->group_by('k.id_kelas');
         $this->db->order_by('k.nama_kelas', 'ASC');
-        return $this->db->get()->result();
+        $query = $this->db->get();
+        if ($query === FALSE) {
+            $error = $this->db->error();
+            log_message('error', 'getTotalTunggakanPerKelas() failed: ' . ($error['message'] ?? 'unknown error'));
+            return [];
+        }
+        return $query->result();
     }
 }

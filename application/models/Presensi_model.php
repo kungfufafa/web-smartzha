@@ -394,11 +394,18 @@ class Presensi_model extends CI_Model
 
         if ($config->require_checkout) {
             $open_log = $this->getOpenAttendanceLog($id_user);
+            $yesterday = date('Y-m-d', strtotime('-1 day'));
 
-            if ($open_log && $open_log->tanggal !== $today) {
+            // Block jika ada open log HARI INI ATAU shift lintas hari dari kemarin
+            // Shift lintas hari: open log dari kemarin dengan is_overnight=1
+            $is_open_overnight = ($open_log && $open_log->tanggal === $yesterday && (int)($open_log->is_overnight ?? 0) === 1);
+
+            if ($open_log && ($open_log->tanggal === $today || $is_open_overnight)) {
                 return [
                     'success' => false,
-                    'message' => 'Anda masih memiliki presensi yang belum absen pulang (tanggal ' . date('d F Y', strtotime($open_log->tanggal)) . ')'
+                    'message' => $is_open_overnight
+                        ? 'Anda memiliki shift lintas hari yang belum ditutup (dari tanggal ' . date('d F Y', strtotime($open_log->tanggal)) . ')'
+                        : 'Anda belum absen pulang hari ini'
                 ];
             }
         }
@@ -1125,6 +1132,8 @@ class Presensi_model extends CI_Model
         // Find open attendance log (handles overnight shifts)
         // Look for most recent log with jam_pulang IS NULL within last 2 days
         $log = $this->getOpenAttendanceLog($id_user);
+        $today = date('Y-m-d');
+        $yesterday = date('Y-m-d', strtotime('-1 day'));
 
         if (!$log) {
             return ['success' => false, 'message' => 'Tidak ada presensi yang belum absen pulang'];
@@ -1132,6 +1141,15 @@ class Presensi_model extends CI_Model
 
         if ($log->jam_pulang) {
             return ['success' => false, 'message' => 'Anda sudah absen pulang'];
+        }
+
+        // Reject checkout jika open log dari kemarin BUKAN shift lintas hari
+        // Ini untuk membedakan "lupa checkout" vs "legitimate overnight shift"
+        if ($log->tanggal === $yesterday && !(int)($log->is_overnight ?? 0) === 1) {
+            return [
+                'success' => false,
+                'message' => 'Anda memiliki presensi yang belum absen pulang dari tanggal ' . date('d F Y', strtotime($log->tanggal)) . '. Silakan absen pulang hari ini terlebih dahulu.'
+            ];
         }
 
         $checkout_validation = $this->validateCheckOut($id_user, $data, $log->tanggal ?? null);

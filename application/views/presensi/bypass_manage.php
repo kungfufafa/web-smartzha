@@ -239,7 +239,7 @@ $(document).ready(function() {
                     },
                     dataType: 'json',
                     success: function(res) {
-                        if (res.status) {
+                        if (res.success) {
                             Swal.fire('Berhasil!', 'Bypass berhasil di-approve.', 'success').then(() => {
                                 location.reload();
                             });
@@ -283,7 +283,7 @@ $(document).ready(function() {
             dataType: 'json',
             success: function(res) {
                 $('#modalReject').modal('hide');
-                if (res.status) {
+                if (res.success) {
                     Swal.fire('Berhasil!', 'Bypass berhasil ditolak.', 'success').then(() => {
                         location.reload();
                     });
@@ -298,4 +298,3 @@ $(document).ready(function() {
     });
 });
 </script>
-

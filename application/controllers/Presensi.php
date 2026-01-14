@@ -22,6 +22,7 @@ class Presensi extends CI_Controller
     {
         parent::__construct();
         $this->load->model(['Presensi_model', 'ion_auth_model', 'Dashboard_model']);
+        $this->load->model('Presensi_admin_model', 'presensi_admin');
         $this->load->library(['ion_auth', 'form_validation']);
         $this->load->helper(['url', 'file']);
 
@@ -80,6 +81,16 @@ class Presensi extends CI_Controller
         $this->load->view('_templates/dashboard/_header', $data);
         $this->load->view($view, $data);
         $this->load->view('_templates/dashboard/_footer');
+    }
+
+    private function output_json($data, $encode = true)
+    {
+        if ($encode) {
+            $data = json_encode($data);
+        }
+
+        $this->output->set_content_type('application/json')
+            ->set_output($data);
     }
 
     private function get_presensi_work_group_names()
@@ -538,14 +549,14 @@ class Presensi extends CI_Controller
         if (!$this->ion_auth->logged_in() || !$this->ion_auth->is_admin()) {
             $this->output->set_status_header(403)
                 ->set_content_type('application/json')
-                ->set_output(json_encode(['status' => false, 'message' => 'Akses ditolak']));
+                ->set_output(json_encode(['success' => false, 'message' => 'Akses ditolak']));
             return;
         }
 
         if ($this->input->method() !== 'post') {
             $this->output->set_status_header(405)
                 ->set_content_type('application/json')
-                ->set_output(json_encode(['status' => false, 'message' => 'Method not allowed']));
+                ->set_output(json_encode(['success' => false, 'message' => 'Method not allowed']));
             return;
         }
 
@@ -555,7 +566,7 @@ class Presensi extends CI_Controller
 
         if ($this->form_validation->run() === FALSE) {
             $this->output->set_content_type('application/json')
-                ->set_output(json_encode(['status' => false, 'message' => strip_tags(validation_errors())]));
+                ->set_output(json_encode(['success' => false, 'message' => strip_tags(validation_errors())]));
             return;
         }
 
@@ -567,10 +578,12 @@ class Presensi extends CI_Controller
 
         $result = $this->Presensi_model->updateBypassRequestStatus($id_bypass, $status, $admin_id, $note);
 
+        $success = (bool) ($result['success'] ?? false);
+
         $this->output->set_content_type('application/json')
             ->set_output(json_encode([
-                'status' => (bool) ($result['success'] ?? false),
-                'message' => $result['message'] ?? 'OK'
+                'success' => $success,
+                'message' => $result['message'] ?? ($success ? 'OK' : 'Gagal memperbarui status')
             ]));
     }
 
@@ -907,7 +920,7 @@ class Presensi extends CI_Controller
             return;
         }
 
-        $shifts = $this->db->get('presensi_shift')->result();
+        $shifts = $this->presensi_admin->get_shifts();
 
         $data = [
             'shifts' => $shifts,
@@ -921,59 +934,61 @@ class Presensi extends CI_Controller
     public function save_shift()
     {
         if (!$this->ion_auth->logged_in() || !$this->ion_auth->is_admin()) {
-            $this->output->set_status_header(403)
-                ->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'Akses ditolak']));
+            $this->output->set_status_header(403);
+            $this->output_json(['status' => false, 'msg' => 'Akses ditolak']);
             return;
         }
 
-        $this->form_validation->set_rules('nama_shift', 'Nama Shift', 'required|trim');
-        $this->form_validation->set_rules('kode_shift', 'Kode Shift', 'required|trim|callback_kode_shift_check');
-        $this->form_validation->set_rules('jam_masuk', 'Jam Masuk', 'required');
-        $this->form_validation->set_rules('jam_pulang', 'Jam Pulang', 'required');
-        $this->form_validation->set_rules('toleransi_masuk_menit', 'Toleransi Masuk', 'numeric');
-        $this->form_validation->set_rules('toleransi_pulang_menit', 'Toleransi Pulang', 'numeric');
-        $this->form_validation->set_rules('is_lintas_hari', 'Lintas Hari', 'integer');
+        $id_shift = (int) $this->input->post('id_shift', TRUE);
+        $nama_shift = trim((string) $this->input->post('nama_shift', TRUE));
+        $kode_shift = trim((string) $this->input->post('kode_shift', TRUE));
+        $jam_masuk = trim((string) $this->input->post('jam_masuk', TRUE));
+        $jam_pulang = trim((string) $this->input->post('jam_pulang', TRUE));
 
-        if ($this->form_validation->run() === FALSE) {
-            $this->output->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => validation_errors()]));
+        if ($nama_shift === '' || $kode_shift === '' || $jam_masuk === '' || $jam_pulang === '') {
+            $this->output_json(['status' => false, 'msg' => 'Nama shift, kode shift, jam masuk, dan jam pulang wajib diisi']);
             return;
         }
 
-        $id_shift = $this->input->post('id_shift');
+        $toleransi_masuk = $this->input->post('toleransi_masuk_menit', TRUE);
+        $toleransi_pulang = $this->input->post('toleransi_pulang_menit', TRUE);
+        $is_lintas_hari = $this->input->post('is_lintas_hari', TRUE) ? 1 : 0;
+        $is_active = $this->input->post('is_active', TRUE);
+
+        $toleransi_masuk = ($toleransi_masuk === '' || $toleransi_masuk === null) ? 15 : (int) $toleransi_masuk;
+        $toleransi_pulang = ($toleransi_pulang === '' || $toleransi_pulang === null) ? 0 : (int) $toleransi_pulang;
+        $is_active = ($is_active === '' || $is_active === null) ? 1 : (int) $is_active;
+
+        $earliest_checkin = trim((string) $this->input->post('earliest_checkin', TRUE));
+        $latest_checkin = trim((string) $this->input->post('latest_checkin', TRUE));
+        $earliest_checkout = trim((string) $this->input->post('earliest_checkout', TRUE));
 
         $shift_data = [
-            'nama_shift' => $this->input->post('nama_shift'),
-            'kode_shift' => $this->input->post('kode_shift'),
-            'jam_masuk' => $this->input->post('jam_masuk'),
-            'jam_pulang' => $this->input->post('jam_pulang'),
-            'toleransi_masuk_menit' => $this->input->post('toleransi_masuk_menit') ?: 15,
-            'toleransi_pulang_menit' => $this->input->post('toleransi_pulang_menit') ?: 0,
-            'is_lintas_hari' => $this->input->post('is_lintas_hari') ?: 0,
-            'is_active' => 1
+            'nama_shift' => $nama_shift,
+            'kode_shift' => $kode_shift,
+            'deskripsi' => trim((string) $this->input->post('deskripsi', TRUE)),
+            'jam_masuk' => $jam_masuk,
+            'jam_pulang' => $jam_pulang,
+            'is_lintas_hari' => $is_lintas_hari,
+            'toleransi_masuk_menit' => $toleransi_masuk,
+            'toleransi_pulang_menit' => $toleransi_pulang,
+            'earliest_checkin' => $earliest_checkin !== '' ? $earliest_checkin : null,
+            'latest_checkin' => $latest_checkin !== '' ? $latest_checkin : null,
+            'earliest_checkout' => $earliest_checkout !== '' ? $earliest_checkout : null,
+            'is_active' => $is_active
         ];
 
-        if ($id_shift) {
-            $this->db->where('id_shift', $id_shift)
-                ->update('presensi_shift', $shift_data);
-            $message = 'Shift berhasil diupdate';
-        } else {
-            $this->db->insert('presensi_shift', $shift_data);
-            $message = 'Shift berhasil ditambahkan';
-        }
-
-        $this->output->set_content_type('application/json')
-            ->set_output(json_encode(['success' => true, 'message' => $message]));
+        $result = $this->presensi_admin->save_shift($shift_data, $id_shift > 0 ? $id_shift : null);
+        $this->output_json($result);
     }
 
     public function kode_shift_check($kode)
     {
-        $id_shift = $this->input->post('id_shift');
+        $id_shift = (int) $this->input->post('id_shift', TRUE);
 
         $this->db->where('kode_shift', $kode);
 
-        if ($id_shift) {
+        if ($id_shift > 0) {
             $this->db->where('id_shift !=', $id_shift);
         }
 
@@ -990,25 +1005,14 @@ class Presensi extends CI_Controller
     public function delete_shift()
     {
         if (!$this->ion_auth->logged_in() || !$this->ion_auth->is_admin()) {
-            $this->output->set_status_header(403)
-                ->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'Akses ditolak']));
+            $this->output->set_status_header(403);
+            $this->output_json(['status' => false, 'msg' => 'Akses ditolak']);
             return;
         }
 
-        $id_shift = $this->input->post('id_shift');
-
-        if (!$id_shift) {
-            $this->output->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'ID shift diperlukan']));
-            return;
-        }
-
-        $this->db->where('id_shift', $id_shift)
-            ->delete('presensi_shift');
-
-        $this->output->set_content_type('application/json')
-            ->set_output(json_encode(['success' => true, 'message' => 'Shift berhasil dihapus']));
+        $id_shift = (int) $this->input->post('id_shift', TRUE);
+        $result = $this->presensi_admin->delete_shift($id_shift);
+        $this->output_json($result);
     }
 
     // =========================================================================
@@ -1022,7 +1026,7 @@ class Presensi extends CI_Controller
             return;
         }
 
-        $lokasi = $this->db->get('presensi_lokasi')->result();
+        $lokasi = $this->presensi_admin->get_locations();
 
         $data = [
             'lokasi' => $lokasi,
@@ -1036,62 +1040,51 @@ class Presensi extends CI_Controller
     public function save_location()
     {
         if (!$this->ion_auth->logged_in() || !$this->ion_auth->is_admin()) {
-            $this->output->set_status_header(403)
-                ->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'Akses ditolak']));
+            $this->output->set_status_header(403);
+            $this->output_json(['status' => false, 'msg' => 'Akses ditolak']);
             return;
         }
 
-        $this->form_validation->set_rules('nama_lokasi', 'Nama Lokasi', 'required|trim');
-        $this->form_validation->set_rules('kode_lokasi', 'Kode Lokasi', 'required|trim|callback_kode_lokasi_check');
-        $this->form_validation->set_rules('latitude', 'Latitude', 'required|numeric');
-        $this->form_validation->set_rules('longitude', 'Longitude', 'required|numeric');
-        $this->form_validation->set_rules('radius_meter', 'Radius (meter)', 'numeric');
+        $id_lokasi = (int) $this->input->post('id_lokasi', TRUE);
 
-        if ($this->form_validation->run() === FALSE) {
-            $this->output->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => validation_errors()]));
+        $nama_lokasi = trim((string) $this->input->post('nama_lokasi', TRUE));
+        $kode_lokasi = trim((string) $this->input->post('kode_lokasi', TRUE));
+        $latitude = trim((string) $this->input->post('latitude', TRUE));
+        $longitude = trim((string) $this->input->post('longitude', TRUE));
+
+        if ($nama_lokasi === '' || $kode_lokasi === '' || $latitude === '' || $longitude === '') {
+            $this->output_json(['status' => false, 'msg' => 'Nama, kode, latitude, dan longitude wajib diisi']);
             return;
         }
 
-        $id_lokasi = $this->input->post('id_lokasi');
-        $is_default = $this->input->post('is_default') ? 1 : 0;
-
-        if ($is_default) {
-            $this->db->set('is_default', 0)->update('presensi_lokasi');
-        }
+        $radius_meter = $this->input->post('radius_meter', TRUE);
+        $radius_meter = ($radius_meter === '' || $radius_meter === null) ? 100 : (int) $radius_meter;
+        $is_default = $this->input->post('is_default', TRUE) ? 1 : 0;
+        $is_active = $this->input->post('is_active', TRUE);
+        $is_active = ($is_active === '' || $is_active === null) ? 1 : (int) $is_active;
 
         $lokasi_data = [
-            'nama_lokasi' => $this->input->post('nama_lokasi'),
-            'kode_lokasi' => $this->input->post('kode_lokasi'),
-            'alamat' => $this->input->post('alamat'),
-            'latitude' => $this->input->post('latitude'),
-            'longitude' => $this->input->post('longitude'),
-            'radius_meter' => $this->input->post('radius_meter') ?: 100,
+            'nama_lokasi' => $nama_lokasi,
+            'kode_lokasi' => $kode_lokasi,
+            'alamat' => trim((string) $this->input->post('alamat', TRUE)),
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+            'radius_meter' => $radius_meter,
             'is_default' => $is_default,
-            'is_active' => 1
+            'is_active' => $is_active
         ];
 
-        if ($id_lokasi) {
-            $this->db->where('id_lokasi', $id_lokasi)
-                ->update('presensi_lokasi', $lokasi_data);
-            $message = 'Lokasi berhasil diupdate';
-        } else {
-            $this->db->insert('presensi_lokasi', $lokasi_data);
-            $message = 'Lokasi berhasil ditambahkan';
-        }
-
-        $this->output->set_content_type('application/json')
-            ->set_output(json_encode(['success' => true, 'message' => $message]));
+        $result = $this->presensi_admin->save_location($lokasi_data, $id_lokasi > 0 ? $id_lokasi : null);
+        $this->output_json($result);
     }
 
     public function kode_lokasi_check($kode)
     {
-        $id_lokasi = $this->input->post('id_lokasi');
+        $id_lokasi = (int) $this->input->post('id_lokasi', TRUE);
 
         $this->db->where('kode_lokasi', $kode);
 
-        if ($id_lokasi) {
+        if ($id_lokasi > 0) {
             $this->db->where('id_lokasi !=', $id_lokasi);
         }
 
@@ -1108,25 +1101,14 @@ class Presensi extends CI_Controller
     public function delete_location()
     {
         if (!$this->ion_auth->logged_in() || !$this->ion_auth->is_admin()) {
-            $this->output->set_status_header(403)
-                ->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'Akses ditolak']));
+            $this->output->set_status_header(403);
+            $this->output_json(['status' => false, 'msg' => 'Akses ditolak']);
             return;
         }
 
-        $id_lokasi = $this->input->post('id_lokasi');
-
-        if (!$id_lokasi) {
-            $this->output->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'ID lokasi diperlukan']));
-            return;
-        }
-
-        $this->db->where('id_lokasi', $id_lokasi)
-            ->delete('presensi_lokasi');
-
-        $this->output->set_content_type('application/json')
-            ->set_output(json_encode(['success' => true, 'message' => 'Lokasi berhasil dihapus']));
+        $id_lokasi = (int) $this->input->post('id_lokasi', TRUE);
+        $result = $this->presensi_admin->delete_location($id_lokasi);
+        $this->output_json($result);
     }
 
     // =========================================================================
@@ -1141,13 +1123,7 @@ class Presensi extends CI_Controller
         }
 
         $has_table = $this->db->table_exists('presensi_hari_libur');
-        $hari_libur = [];
-
-        if ($has_table) {
-            $hari_libur = $this->db->order_by('tanggal', 'DESC')
-                ->get('presensi_hari_libur')
-                ->result();
-        }
+        $hari_libur = $has_table ? $this->presensi_admin->get_holidays() : [];
 
         $data = [
             'hari_libur' => $hari_libur,
@@ -1162,15 +1138,8 @@ class Presensi extends CI_Controller
     public function save_hari_libur()
     {
         if (!$this->ion_auth->logged_in() || !$this->ion_auth->is_admin()) {
-            $this->output->set_status_header(403)
-                ->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'Akses ditolak']));
-            return;
-        }
-
-        if (!$this->db->table_exists('presensi_hari_libur')) {
-            $this->output->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'Tabel presensi_hari_libur belum ada. Jalankan update SQL Presensi terlebih dahulu.']));
+            $this->output->set_status_header(403);
+            $this->output_json(['status' => false, 'msg' => 'Akses ditolak']);
             return;
         }
 
@@ -1182,14 +1151,12 @@ class Presensi extends CI_Controller
         $is_active = (int) $this->input->post('is_active', true) ? 1 : 0;
 
         if (!$tanggal || !preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $tanggal)) {
-            $this->output->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'Tanggal tidak valid']));
+            $this->output_json(['status' => false, 'msg' => 'Tanggal tidak valid']);
             return;
         }
 
         if ($nama_libur === '') {
-            $this->output->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'Nama libur wajib diisi']));
+            $this->output_json(['status' => false, 'msg' => 'Nama libur wajib diisi']);
             return;
         }
 
@@ -1206,33 +1173,10 @@ class Presensi extends CI_Controller
             'is_active' => $is_active
         ];
 
-        $is_update = false;
+        $result = $this->presensi_admin->save_holiday($data_libur, $id_libur > 0 ? $id_libur : null);
 
-        if (!$id_libur) {
-            $existing = $this->db->select('id_libur')
-                ->where('tanggal', $tanggal)
-                ->get('presensi_hari_libur')
-                ->row();
-
-            if ($existing) {
-                $id_libur = (int) $existing->id_libur;
-            }
-        }
-
-        if ($id_libur) {
-            $is_update = true;
-            $success = $this->db->where('id_libur', $id_libur)
-                ->update('presensi_hari_libur', $data_libur);
-            $message = 'Hari libur berhasil diupdate';
-        } else {
-            $success = $this->db->insert('presensi_hari_libur', $data_libur);
-            $message = 'Hari libur berhasil ditambahkan';
-        }
-
-        if (!$success) {
-            $db_error = $this->db->error();
-            $this->output->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'Gagal menyimpan hari libur: ' . ($db_error['message'] ?? 'Unknown error')]));
+        if (!$result['status']) {
+            $this->output_json($result);
             return;
         }
 
@@ -1240,45 +1184,28 @@ class Presensi extends CI_Controller
         if ($is_active) {
             $cleanup = $this->Presensi_model->cleanupAutoAlphaForHolidayDate($tanggal);
             if ($cleanup && !empty($cleanup['deleted'])) {
-                $message .= ' (Auto-Alpha dibersihkan: ' . (int) $cleanup['deleted'] . ')';
+                $result['msg'] .= ' (Auto-Alpha dibersihkan: ' . (int) $cleanup['deleted'] . ')';
             }
         }
 
-        $this->output->set_content_type('application/json')
-            ->set_output(json_encode([
-                'success' => true,
-                'message' => $message,
-                'is_update' => $is_update,
-                'cleanup' => $cleanup
-            ]));
+        $this->output_json([
+            'status' => true,
+            'msg' => $result['msg'],
+            'cleanup' => $cleanup
+        ]);
     }
 
     public function delete_hari_libur()
     {
         if (!$this->ion_auth->logged_in() || !$this->ion_auth->is_admin()) {
-            $this->output->set_status_header(403)
-                ->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'Akses ditolak']));
-            return;
-        }
-
-        if (!$this->db->table_exists('presensi_hari_libur')) {
-            $this->output->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'Tabel presensi_hari_libur belum ada. Jalankan update SQL Presensi terlebih dahulu.']));
+            $this->output->set_status_header(403);
+            $this->output_json(['status' => false, 'msg' => 'Akses ditolak']);
             return;
         }
 
         $id_libur = (int) $this->input->post('id_libur', true);
-        if ($id_libur <= 0) {
-            $this->output->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'ID libur tidak valid']));
-            return;
-        }
-
-        $this->db->where('id_libur', $id_libur)->delete('presensi_hari_libur');
-
-        $this->output->set_content_type('application/json')
-            ->set_output(json_encode(['success' => true, 'message' => 'Hari libur berhasil dihapus']));
+        $result = $this->presensi_admin->delete_holiday($id_libur);
+        $this->output_json($result);
     }
 
     // =========================================================================
@@ -1292,16 +1219,12 @@ class Presensi extends CI_Controller
             return;
         }
 
-        $configs = $this->db->select('pg.*, g.name as group_name')
-            ->from('presensi_config_group pg')
-            ->join('groups g', 'pg.id_group = g.id')
-            ->get()
-            ->result();
+        $configs = $this->presensi_admin->get_group_configs();
 
         $groups = $this->get_presensi_work_groups();
 
-        $shifts = $this->db->get('presensi_shift')->result();
-        $lokasi = $this->db->get('presensi_lokasi')->result();
+        $shifts = $this->presensi_admin->get_shifts();
+        $lokasi = $this->presensi_admin->get_locations();
 
         $data = [
             'configs' => $configs,
@@ -1319,93 +1242,106 @@ class Presensi extends CI_Controller
     public function save_group_config()
     {
         if (!$this->ion_auth->logged_in() || !$this->ion_auth->is_admin()) {
-            $this->output->set_status_header(403)
-                ->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'Akses ditolak']));
+            $this->output->set_status_header(403);
+            $this->output_json(['status' => false, 'msg' => 'Akses ditolak']);
             return;
         }
 
-        $id = $this->input->post('id');
-        $id_group = $this->input->post('id_group');
+        $id = (int) $this->input->post('id', TRUE);
+        $id_group = (int) $this->input->post('id_group', TRUE);
 
-        if (!$id_group) {
-            $this->output->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'Group wajib dipilih']));
+        if ($id_group <= 0) {
+            $this->output_json(['status' => false, 'msg' => 'Group wajib dipilih']);
             return;
         }
 
         if (!$this->is_presensi_work_group($id_group)) {
-            $this->output->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'Group presensi hanya untuk Guru, Siswa, dan Tendik (Satpam termasuk Tendik).']));
+            $this->output_json(['status' => false, 'msg' => 'Group presensi hanya untuk Guru, Siswa, dan Tendik (Satpam termasuk Tendik).']);
             return;
         }
 
         // Tri-state handler: '' => NULL (inherit), '0' => 0 (disabled), '1' => 1 (enabled)
-        $require_photo = $this->input->post('require_photo');
-        $require_checkout = $this->input->post('require_checkout');
-        $allow_bypass = $this->input->post('allow_bypass');
-        $enable_overtime = $this->input->post('enable_overtime');
-        $overtime_require_approval = $this->input->post('overtime_require_approval');
+        $require_photo = $this->input->post('require_photo', TRUE);
+        $require_checkout = $this->input->post('require_checkout', TRUE);
+        $allow_bypass = $this->input->post('allow_bypass', TRUE);
+        $enable_overtime = $this->input->post('enable_overtime', TRUE);
+        $overtime_require_approval = $this->input->post('overtime_require_approval', TRUE);
+        $is_active = $this->input->post('is_active', TRUE);
+
+        $validation_mode = $this->input->post('validation_mode', TRUE);
+        $allowed_validation_modes = ['gps', 'qr', 'gps_or_qr', 'manual', 'any'];
+        if (!in_array($validation_mode, $allowed_validation_modes, true)) {
+            $validation_mode = 'gps_or_qr';
+        }
+
+        $holiday_mode = $this->input->post('holiday_mode', TRUE);
+        $allowed_holiday_modes = ['all', 'national_only', 'none'];
+        if (!in_array($holiday_mode, $allowed_holiday_modes, true)) {
+            $holiday_mode = 'all';
+        }
+
+        $id_shift_default = (int) $this->input->post('id_shift_default', TRUE);
+        $id_shift_default = $id_shift_default > 0 ? $id_shift_default : null;
+        $id_lokasi_default = (int) $this->input->post('id_lokasi_default', TRUE);
+        $id_lokasi_default = $id_lokasi_default > 0 ? $id_lokasi_default : null;
 
         $config_data = [
             'id_group' => $id_group,
-            'nama_konfigurasi' => $this->input->post('nama_konfigurasi'),
-            'id_shift_default' => $this->input->post('id_shift_default') ?: null,
-            'id_lokasi_default' => $this->input->post('id_lokasi_default') ?: null,
-            'validation_mode' => $this->input->post('validation_mode'),
+            'nama_konfigurasi' => trim((string) $this->input->post('nama_konfigurasi', TRUE)),
+            'id_shift_default' => $id_shift_default,
+            'id_lokasi_default' => $id_lokasi_default,
+            'validation_mode' => $validation_mode,
             // Tri-state: empty string = NULL (inherit), otherwise cast to int
             'require_photo' => ($require_photo === '' || $require_photo === null) ? null : (int) $require_photo,
             'require_checkout' => ($require_checkout === '' || $require_checkout === null) ? null : (int) $require_checkout,
             'allow_bypass' => ($allow_bypass === '' || $allow_bypass === null) ? null : (int) $allow_bypass,
             'enable_overtime' => ($enable_overtime === '' || $enable_overtime === null) ? null : (int) $enable_overtime,
             'overtime_require_approval' => ($overtime_require_approval === '' || $overtime_require_approval === null) ? null : (int) $overtime_require_approval,
-            'holiday_mode' => $this->input->post('holiday_mode'),
-            'follow_academic_calendar' => $this->input->post('follow_academic_calendar') ? 1 : 0,
-            'is_active' => 1
+            'holiday_mode' => $holiday_mode,
+            'follow_academic_calendar' => $this->input->post('follow_academic_calendar', TRUE) ? 1 : 0,
+            'is_active' => ($is_active === '' || $is_active === null) ? 1 : (int) $is_active
         ];
 
-        if (!$id) {
-            $existing = $this->db->select('id')
-                ->where('id_group', $id_group)
-                ->get('presensi_config_group')
-                ->row();
-
-            if ($existing) {
-                $id = $existing->id;
-            }
-        }
-
-        if ($id) {
-            $success = $this->db->where('id', $id)
-                ->update('presensi_config_group', $config_data);
-            $message = 'Konfigurasi group berhasil diupdate';
-        } else {
-            $success = $this->db->insert('presensi_config_group', $config_data);
-            $message = 'Konfigurasi group berhasil ditambahkan';
-        }
-
-        if (!$success) {
-            $db_error = $this->db->error();
-            $this->output->set_content_type('application/json')
-                ->set_output(json_encode(['success' => false, 'message' => 'Gagal menyimpan konfigurasi group: ' . ($db_error['message'] ?? 'Unknown error')]));
-            return;
-        }
-
-        $this->output->set_content_type('application/json')
-            ->set_output(json_encode(['success' => true, 'message' => $message]));
+        $result = $this->presensi_admin->save_group_config($config_data, $id > 0 ? $id : null);
+        $this->output_json($result);
     }
 
-    public function delete_group_config($id)
+    public function delete_group_config($id = null)
     {
         if (!$this->ion_auth->logged_in() || !$this->ion_auth->is_admin()) {
             show_error('Akses ditolak', 403);
             return;
         }
 
+        $id = (int) $id;
+        if ($id <= 0) {
+            show_error('ID tidak valid', 400);
+            return;
+        }
+
         $this->db->where('id', $id)
             ->delete('presensi_config_group');
 
+        if ($this->db->affected_rows() === 0) {
+            $this->session->set_flashdata('error', 'Konfigurasi group tidak ditemukan atau sudah dihapus');
+        } else {
+            $this->session->set_flashdata('success', 'Konfigurasi group berhasil dihapus');
+        }
+
         redirect('presensi/group_config');
+    }
+
+    public function delete_group_config_ajax()
+    {
+        if (!$this->ion_auth->logged_in() || !$this->ion_auth->is_admin()) {
+            $this->output->set_status_header(403);
+            $this->output_json(['status' => false, 'msg' => 'Akses ditolak']);
+            return;
+        }
+
+        $id = (int) $this->input->post('id', TRUE);
+        $result = $this->presensi_admin->delete_group_config($id);
+        $this->output_json($result);
     }
 
     // =========================================================================
@@ -1472,11 +1408,11 @@ class Presensi extends CI_Controller
             return;
         }
 
-        $id_group = $this->input->post('id_group');
-        $day_of_week = $this->input->post('day_of_week');
-        $id_shift = $this->input->post('id_shift');
+        $id_group = (int) $this->input->post('id_group', TRUE);
+        $day_of_week = (int) $this->input->post('day_of_week', TRUE);
+        $id_shift = (int) $this->input->post('id_shift', TRUE);
 
-        if (!$id_group || !$day_of_week || !$id_shift) {
+        if ($id_group <= 0 || $day_of_week < 1 || $day_of_week > 7 || $id_shift <= 0) {
             $this->output->set_content_type('application/json')
                 ->set_output(json_encode(['success' => false, 'message' => 'Group, hari, dan shift wajib diisi']));
             return;
@@ -1487,6 +1423,13 @@ class Presensi extends CI_Controller
 	                ->set_output(json_encode(['success' => false, 'message' => 'Jadwal presensi hanya untuk group Guru, Siswa, dan Tendik (Satpam termasuk Tendik).']));
 	            return;
 	        }
+
+        $shift_exists = $this->db->where('id_shift', $id_shift)->count_all_results('presensi_shift');
+        if ((int) $shift_exists <= 0) {
+            $this->output->set_content_type('application/json')
+                ->set_output(json_encode(['success' => false, 'message' => 'Shift tidak ditemukan']));
+            return;
+        }
 
         $jadwal_data = [
             'id_group' => $id_group,
@@ -1890,25 +1833,46 @@ class Presensi extends CI_Controller
         $token_code = bin2hex(random_bytes(32));
         $today = date('Y-m-d');
         $now = date('Y-m-d H:i:s');
-        $valid_minutes = $this->input->post('validity_minutes') ?: 5;
+        $valid_minutes = (int) $this->input->post('validity_minutes', TRUE);
+        if ($valid_minutes <= 0) {
+            $valid_minutes = 5;
+        }
+
+        $token_type = $this->input->post('token_type', TRUE);
+        $allowed_token_types = ['checkin', 'checkout', 'both'];
+        if (!in_array($token_type, $allowed_token_types, true)) {
+            $token_type = 'both';
+        }
+
+        $id_lokasi = (int) $this->input->post('id_lokasi', TRUE);
+        $id_lokasi = $id_lokasi > 0 ? $id_lokasi : null;
+        $id_shift = (int) $this->input->post('id_shift', TRUE);
+        $id_shift = $id_shift > 0 ? $id_shift : null;
+        $max_usage = $this->input->post('max_usage', TRUE);
+        $max_usage = ($max_usage === '' || $max_usage === null) ? null : (int) $max_usage;
+        $is_active = $this->input->post('is_active', TRUE);
+        $is_active = ($is_active === '' || $is_active === null) ? 1 : (int) $is_active;
 
         $token_data = [
             'token_code' => $token_code,
-            'token_type' => $this->input->post('token_type') ?: 'both',
-            'id_lokasi' => $this->input->post('id_lokasi') ?: null,
-            'id_shift' => $this->input->post('id_shift') ?: null,
+            'token_type' => $token_type,
+            'id_lokasi' => $id_lokasi,
+            'id_shift' => $id_shift,
             'tanggal' => $today,
             'valid_from' => $now,
             'valid_until' => date('Y-m-d H:i:s', strtotime('+' . $valid_minutes . ' minutes')),
             'created_by' => $this->ion_auth->get_user_id(),
-            'max_usage' => $this->input->post('max_usage') ?: null,
-            'is_active' => 1
+            'max_usage' => $max_usage,
+            'is_active' => $is_active
         ];
 
-        $this->db->insert('presensi_qr_token', $token_data);
+        $result = $this->presensi_admin->create_qr_token($token_data);
+        if (!$result['status']) {
+            $this->output_json($result);
+            return;
+        }
 
-        $this->output->set_content_type('application/json')
-            ->set_output(json_encode(['success' => true, 'token' => $token_code]));
+        $this->output_json(['status' => true, 'msg' => $result['msg'], 'token' => $token_code]);
     }
 
     public function list_qr_tokens()
@@ -1918,13 +1882,14 @@ class Presensi extends CI_Controller
             return;
         }
 
-        $tokens = $this->db->where('tanggal >=', date('Y-m-d'))
-            ->order_by('created_at', 'DESC')
-            ->get('presensi_qr_token')
-            ->result();
+        $tokens = $this->presensi_admin->get_qr_tokens(date('Y-m-d'));
+        $lokasi = $this->presensi_admin->get_locations();
+        $shifts = $this->presensi_admin->get_shifts();
 
         $data = [
             'tokens' => $tokens,
+            'lokasi' => $lokasi,
+            'shifts' => $shifts,
             'judul' => 'Presensi',
             'subjudul' => 'QR Token'
         ];

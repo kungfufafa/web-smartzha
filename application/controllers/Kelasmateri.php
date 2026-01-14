@@ -19,7 +19,6 @@ class Kelasmateri extends CI_Controller
         }
         $this->load->library("upload");
         $this->load->library(["datatables", "form_validation"]);
-        $this->load->helper("my");
         $this->load->model("Master_model", "master");
         $this->load->model("Dashboard_model", "dashboard");
         $this->load->model("Kelas_model", "kelas");

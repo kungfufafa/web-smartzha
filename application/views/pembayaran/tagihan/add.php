@@ -30,8 +30,15 @@
                         <select name="id_jenis" id="id_jenis" class="form-control" required>
                             <option value="">-- Pilih Jenis --</option>
                             <?php foreach ($jenis as $j): ?>
-                                <option value="<?= $j->id_jenis ?>" data-nominal="<?= $j->nominal_default ?>" data-recurring="<?= $j->is_recurring ?>">
-                                    <?= $j->nama_jenis ?>
+                                <?php
+                                $kode_jenis = trim((string) $j->kode_jenis);
+                                $nama_jenis = (string) $j->nama_jenis;
+                                $label_jenis = $kode_jenis !== '' ? $kode_jenis . ' - ' . $nama_jenis : $nama_jenis;
+                                ?>
+                                <option value="<?= (int) $j->id_jenis ?>"
+                                        data-nominal="<?= (int) $j->nominal_default ?>"
+                                        data-recurring="<?= (int) $j->is_recurring ?>">
+                                    <?= htmlspecialchars($label_jenis, ENT_QUOTES, 'UTF-8') ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>

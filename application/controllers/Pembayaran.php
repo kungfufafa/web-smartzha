@@ -227,7 +227,7 @@ class Pembayaran extends CI_Controller
 
     public function saveJenis()
     {
-        $id = $this->input->post('id_jenis');
+        $id = (int) $this->input->post('id_jenis', TRUE);
         $data = [
             'kode_jenis' => strtoupper($this->input->post('kode_jenis', true)),
             'nama_jenis' => $this->input->post('nama_jenis', true),
@@ -237,7 +237,7 @@ class Pembayaran extends CI_Controller
             'is_active' => $this->input->post('is_active') ? 1 : 0
         ];
 
-        if ($id) {
+        if ($id > 0) {
             $result = $this->pembayaran->updateJenisTagihan($id, $data);
         } else {
             $result = $this->pembayaran->createJenisTagihan($data);
@@ -255,7 +255,18 @@ class Pembayaran extends CI_Controller
     public function deleteJenis()
     {
         $ids = $this->input->post('ids');
-        $result = $this->pembayaran->deleteJenisTagihan($ids[0]);
+        if (!is_array($ids) || empty($ids)) {
+            $this->output_json(['status' => false, 'message' => 'ID tidak valid']);
+            return;
+        }
+
+        $id = (int) $ids[0];
+        if ($id <= 0) {
+            $this->output_json(['status' => false, 'message' => 'ID tidak valid']);
+            return;
+        }
+
+        $result = $this->pembayaran->deleteJenisTagihan($id);
         
         if ($result === false) {
             $this->output_json(['status' => false, 'message' => 'Gagal menghapus: Jenis tagihan sedang digunakan oleh data tagihan lain.']);
@@ -272,7 +283,12 @@ class Pembayaran extends CI_Controller
 
     public function updateTagihan()
     {
-        $id = $this->input->post('id_tagihan');
+        $id = (int) $this->input->post('id_tagihan', TRUE);
+        if ($id <= 0) {
+            $this->output_json(['status' => false, 'message' => 'ID tagihan tidak valid']);
+            return;
+        }
+
         $data = [
             'nominal' => str_replace('.', '', $this->input->post('nominal')),
             'diskon' => str_replace('.', '', $this->input->post('diskon')),
@@ -288,7 +304,26 @@ class Pembayaran extends CI_Controller
     public function deleteTagihan()
     {
         $ids = $this->input->post('ids');
-        $result = $this->pembayaran->deleteTagihan($ids);
+        if (!is_array($ids) || empty($ids)) {
+            $this->output_json(['status' => false, 'message' => 'ID tidak valid']);
+            return;
+        }
+
+        // Validate all IDs are positive integers
+        $valid_ids = [];
+        foreach ($ids as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $valid_ids[] = $id;
+            }
+        }
+
+        if (empty($valid_ids)) {
+            $this->output_json(['status' => false, 'message' => 'ID tidak valid']);
+            return;
+        }
+
+        $result = $this->pembayaran->deleteTagihan($valid_ids);
         
         if ($result === false) {
             $this->output_json(['status' => false, 'message' => 'Gagal menghapus: Salah satu tagihan sudah memiliki riwayat transaksi/pembayaran.']);

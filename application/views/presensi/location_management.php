@@ -13,12 +13,15 @@
 
     <section class="content">
         <div class="container-fluid">
-            <div class="card">
+            <div class="card card-default my-shadow mb-4">
                 <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-map-marker-alt mr-1"></i> <?= $subjudul ?></h3>
+                    <div class="card-title"><i class="fas fa-map-marker-alt mr-1"></i> <?= $subjudul ?></div>
                     <div class="card-tools">
-                        <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#lokasiModal" onclick="clearLokasiForm()">
-                            <i class="fas fa-plus"></i> Tambah Lokasi
+                        <button type="button" onclick="reloadPage()" class="btn btn-sm btn-default">
+                            <i class="fa fa-sync"></i> <span class="d-none d-sm-inline-block ml-1">Reload</span>
+                        </button>
+                        <button type="button" id="btn-add-lokasi" class="btn btn-sm bg-gradient-primary">
+                            <i class="fas fa-plus"></i><span class="d-none d-sm-inline-block ml-1">Tambah Lokasi</span>
                         </button>
                     </div>
                 </div>
@@ -30,43 +33,69 @@
                             <p class="mb-0">Belum ada lokasi yang dibuat</p>
                         </div>
                     <?php else: ?>
+                        <?= form_open('', array('id' => 'lokasiTableForm')) ?>
                         <div class="table-responsive">
-                            <table class="table table-striped table-bordered">
+                            <table id="lokasiTable" class="table table-striped table-bordered table-hover">
                                 <thead>
-                                    <tr>
-                                        <th>Kode</th>
-                                        <th>Nama Lokasi</th>
-                                        <th>Alamat</th>
-                                        <th>Latitude</th>
-                                        <th>Longitude</th>
-                                        <th>Radius (meter)</th>
-                                        <th>Default</th>
-                                        <th>Aksi</th>
-                                    </tr>
+                                <tr>
+                                    <th class="d-none">ID</th>
+                                    <th width="50" height="50" class="text-center p-0 align-middle">No.</th>
+                                    <th class="text-center p-0 align-middle">Kode</th>
+                                    <th class="text-center p-0 align-middle">Nama Lokasi</th>
+                                    <th class="text-center p-0 align-middle">Alamat</th>
+                                    <th class="text-center p-0 align-middle">Latitude</th>
+                                    <th class="text-center p-0 align-middle">Longitude</th>
+                                    <th class="text-center p-0 align-middle">Radius (meter)</th>
+                                    <th class="text-center p-0 align-middle">Default</th>
+                                    <th class="text-center p-0 align-middle">Status</th>
+                                    <th class="text-center p-0 align-middle">Aksi</th>
+                                </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($lokasi as $loc): ?>
-                                    <tr>
-                                        <td><strong><?= $loc->kode_lokasi ?></strong></td>
-                                        <td><?= $loc->nama_lokasi ?></td>
-                                        <td><?= $loc->alamat ?></td>
-                                        <td><?= $loc->latitude ?></td>
-                                        <td><?= $loc->longitude ?></td>
-                                        <td><?= $loc->radius_meter ?></td>
-                                        <td><?= $loc->is_default ? '<span class="badge badge-success">Ya</span>' : '<span class="badge badge-secondary">Tidak</span>' ?></td>
-                                        <td>
-                                            <button type="button" class="btn btn-sm btn-info" onclick="editLokasi(<?= $loc->id_lokasi ?>)">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-danger" onclick="deleteLokasi(<?= $loc->id_lokasi ?>)">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
+                                <?php foreach ($lokasi as $key => $loc): ?>
+                                    <tr data-id="<?= (int) $loc->id_lokasi ?>">
+                                        <td class="d-none row-id"><?= (int) $loc->id_lokasi ?></td>
+                                        <td class="text-center"><?= ($key + 1) ?></td>
+                                        <td class="text-center"><strong><?= htmlspecialchars((string) $loc->kode_lokasi, ENT_QUOTES, 'UTF-8') ?></strong></td>
+                                        <td><?= htmlspecialchars((string) $loc->nama_lokasi, ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) $loc->alamat, ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td class="text-center"><?= htmlspecialchars((string) $loc->latitude, ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td class="text-center"><?= htmlspecialchars((string) $loc->longitude, ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td class="text-center"><?= (int) $loc->radius_meter ?></td>
+                                        <td class="text-center">
+                                            <?= !empty($loc->is_default) ? '<span class="text-success"><i class="fa fa-check mr-1"></i>Ya</span>' : '<span class="text-muted">Tidak</span>' ?>
+                                        </td>
+                                        <td class="text-center">
+                                            <?= !empty($loc->is_active) ? '<span class="text-success"><i class="fa fa-check mr-1"></i>Aktif</span>' : '<span class="text-muted">Nonaktif</span>' ?>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="btn-group btn-group-sm">
+                                                <button type="button"
+                                                        class="btn btn-xs btn-warning btn-edit"
+                                                        data-id="<?= (int) $loc->id_lokasi ?>"
+                                                        data-nama="<?= htmlspecialchars((string) $loc->nama_lokasi, ENT_QUOTES, 'UTF-8') ?>"
+                                                        data-kode="<?= htmlspecialchars((string) $loc->kode_lokasi, ENT_QUOTES, 'UTF-8') ?>"
+                                                        data-alamat="<?= htmlspecialchars((string) $loc->alamat, ENT_QUOTES, 'UTF-8') ?>"
+                                                        data-lat="<?= htmlspecialchars((string) $loc->latitude, ENT_QUOTES, 'UTF-8') ?>"
+                                                        data-lng="<?= htmlspecialchars((string) $loc->longitude, ENT_QUOTES, 'UTF-8') ?>"
+                                                        data-radius="<?= (int) $loc->radius_meter ?>"
+                                                        data-default="<?= (int) $loc->is_default ?>"
+                                                        data-active="<?= (int) $loc->is_active ?>">
+                                                    Edit
+                                                </button>
+                                                <button type="button"
+                                                        class="btn btn-xs btn-danger btn-delete"
+                                                        data-id="<?= (int) $loc->id_lokasi ?>">
+                                                    Hapus
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
-                                    <?php endforeach; ?>
+                                <?php endforeach; ?>
                                 </tbody>
                             </table>
                         </div>
+                        <?= form_close() ?>
                     <?php endif; ?>
                 </div>
             </div>
@@ -74,154 +103,228 @@
     </section>
 </div>
 
-<!-- Lokasi Modal -->
+<?= form_open('', array('id' => 'lokasiForm')) ?>
 <div class="modal fade" id="lokasiModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header">
                 <h5 class="modal-title" id="lokasiModalTitle">Tambah Lokasi</h5>
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
-                <form id="lokasiForm">
-                    <input type="hidden" name="id_lokasi" id="lokasi-id">
-                    
-                    <div class="form-group">
-                        <label>Nama Lokasi *</label>
-                        <input type="text" class="form-control" name="nama_lokasi" id="lokasi-nama" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Kode Lokasi *</label>
-                        <input type="text" class="form-control" name="kode_lokasi" id="lokasi-kode" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Alamat</label>
-                        <textarea class="form-control" name="alamat" id="lokasi-alamat" rows="2"></textarea>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Latitude *</label>
-                                <input type="text" class="form-control" name="latitude" id="lokasi-lat" step="any" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Longitude *</label>
-                                <input type="text" class="form-control" name="longitude" id="lokasi-lng" step="any" required>
-                            </div>
+                <input type="hidden" name="id_lokasi" id="lokasi-id">
+                <input type="hidden" name="method" id="lokasi-method">
+
+                <div class="form-group">
+                    <label>Nama Lokasi *</label>
+                    <input type="text" class="form-control" name="nama_lokasi" id="lokasi-nama" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Kode Lokasi *</label>
+                    <input type="text" class="form-control" name="kode_lokasi" id="lokasi-kode" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Alamat</label>
+                    <textarea class="form-control" name="alamat" id="lokasi-alamat" rows="2"></textarea>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Latitude *</label>
+                            <input type="text" class="form-control" name="latitude" id="lokasi-lat" step="any" required>
                         </div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label>Radius (meter)</label>
-                        <input type="number" class="form-control" name="radius_meter" id="lokasi-radius" value="100">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Longitude *</label>
+                            <input type="text" class="form-control" name="longitude" id="lokasi-lng" step="any" required>
+                        </div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" name="is_default" id="lokasi-default">
-                            Jadikan Lokasi Default
-                        </label>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Radius (meter)</label>
+                            <input type="number" class="form-control" name="radius_meter" id="lokasi-radius" value="100">
+                        </div>
                     </div>
-                </form>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select class="form-control" name="is_active" id="lokasi-active">
+                                <option value="1">Aktif</option>
+                                <option value="0">Nonaktif</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="is_default" id="lokasi-default">
+                        Jadikan Lokasi Default
+                    </label>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-primary" onclick="saveLokasi()">Simpan</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa fa-plus"></i> Simpan
+                </button>
             </div>
         </div>
     </div>
 </div>
+<?= form_close() ?>
 
 <script>
-var lokasiData = <?= json_encode($lokasi) ?>;
-var csrfName = '<?= $this->security->get_csrf_token_name() ?>';
-var csrfHash = '<?= $this->security->get_csrf_hash() ?>';
-
-function appendCsrf(formData) {
-    formData.append(csrfName, csrfHash);
-    return formData;
+function reloadPage() {
+    window.location.reload();
 }
 
-function clearLokasiForm() {
-    document.getElementById('lokasi-id').value = '';
-    document.getElementById('lokasi-nama').value = '';
-    document.getElementById('lokasi-kode').value = '';
-    document.getElementById('lokasi-alamat').value = '';
-    document.getElementById('lokasi-lat').value = '';
-    document.getElementById('lokasi-lng').value = '';
-    document.getElementById('lokasi-radius').value = '100';
-    document.getElementById('lokasi-default').checked = false;
-    document.getElementById('lokasiModalTitle').textContent = 'Tambah Lokasi';
+function getLokasiId(source) {
+    var id = $(source).data('id');
+    if (!id) {
+        id = $(source).closest('tr').data('id');
+    }
+    if (!id) {
+        id = $(source).closest('tr').find('.row-id').text();
+    }
+    return id;
 }
 
-function editLokasi(id) {
-    var lokasi = lokasiData.find(function(l) { return String(l.id_lokasi) === String(id); });
-    
-    if (lokasi) {
-        document.getElementById('lokasi-id').value = lokasi.id_lokasi;
-        document.getElementById('lokasi-nama').value = lokasi.nama_lokasi;
-        document.getElementById('lokasi-kode').value = lokasi.kode_lokasi;
-        document.getElementById('lokasi-alamat').value = lokasi.alamat;
-        document.getElementById('lokasi-lat').value = lokasi.latitude;
-        document.getElementById('lokasi-lng').value = lokasi.longitude;
-        document.getElementById('lokasi-radius').value = lokasi.radius_meter;
-        document.getElementById('lokasi-default').checked = String(lokasi.is_default) === '1';
-        document.getElementById('lokasiModalTitle').textContent = 'Edit Lokasi';
-        
+function resetLokasiForm() {
+    $('#lokasiForm')[0].reset();
+    $('#lokasi-id').val('');
+    $('#lokasi-method').val('add');
+    $('#lokasiModalTitle').text('Tambah Lokasi');
+    $('#lokasi-radius').val('100');
+    $('#lokasi-default').prop('checked', false);
+    $('#lokasi-active').val('1');
+}
+
+$(document).ready(function () {
+    ajaxcsrf();
+    $('#lokasiModal').appendTo('body');
+
+    $('#btn-add-lokasi').on('click', function () {
+        resetLokasiForm();
         $('#lokasiModal').modal('show');
-    }
-}
-
-function saveLokasi() {
-    var form = document.getElementById('lokasiForm');
-    var formData = appendCsrf(new FormData(form));
-    
-    fetch('<?= base_url('presensi/save_location') ?>', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            alert(result.message);
-            $('#lokasiModal').modal('hide');
-            location.reload();
-        } else {
-            alert('Gagal menyimpan: ' + result.message);
-        }
-    })
-    .catch(error => {
-        alert('Terjadi kesalahan: ' + error.message);
     });
-}
 
-function deleteLokasi(id) {
-    if (confirm('Apakah Anda yakin ingin menghapus lokasi ini?')) {
-        var formData = new FormData();
-        formData.append('id_lokasi', id);
-        appendCsrf(formData);
-        
-        fetch('<?= base_url('presensi/delete_location') ?>', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                alert(result.message);
-                location.reload();
-            } else {
-                alert('Gagal menghapus: ' + result.message);
+    $('#lokasiTable').on('click', '.btn-edit', function () {
+        var lokasiId = getLokasiId(this);
+        if (!lokasiId) {
+            swal.fire({ title: 'Gagal', text: 'ID lokasi tidak ditemukan', icon: 'error' });
+            return;
+        }
+
+        $('#lokasi-method').val('edit');
+        $('#lokasiModalTitle').text('Edit Lokasi');
+        $('#lokasi-id').val(lokasiId);
+        $('#lokasi-nama').val($(this).data('nama'));
+        $('#lokasi-kode').val($(this).data('kode'));
+        $('#lokasi-alamat').val($(this).data('alamat'));
+        $('#lokasi-lat').val($(this).data('lat'));
+        $('#lokasi-lng').val($(this).data('lng'));
+        $('#lokasi-radius').val($(this).data('radius'));
+        $('#lokasi-default').prop('checked', String($(this).data('default')) === '1');
+        $('#lokasi-active').val(String($(this).data('active')));
+
+        $('#lokasiModal').modal('show');
+    });
+
+    $('#lokasiForm').on('submit', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        $.ajax({
+            url: base_url + 'presensi/save_location',
+            type: 'POST',
+            dataType: 'JSON',
+            data: $(this).serialize(),
+            success: function (response) {
+                var title = response.status ? 'Berhasil' : 'Gagal';
+                var type = response.status ? 'success' : 'error';
+                var message = response.msg || 'Gagal menyimpan lokasi';
+
+                swal.fire({ title: title, text: message, icon: type }).then((result) => {
+                    if (result.value) {
+                        if (response.status) {
+                            window.location.href = base_url + 'presensi/location_management';
+                        }
+                    }
+                });
+            },
+            error: function (xhr) {
+                var message = 'Terjadi kesalahan saat menyimpan lokasi';
+                if (xhr.responseText) {
+                    try {
+                        var err = JSON.parse(xhr.responseText);
+                        message = err.msg || err.message || message;
+                    } catch (e) {
+                        message = xhr.responseText;
+                    }
+                }
+                swal.fire({ title: 'Error', text: message, icon: 'error' });
             }
-        })
-        .catch(error => {
-            alert('Terjadi kesalahan: ' + error.message);
         });
-    }
-}
+    });
+
+    $('#lokasiTable').on('click', '.btn-delete', function () {
+        var id = getLokasiId(this);
+        if (!id) {
+            swal.fire({ title: 'Gagal', text: 'ID lokasi tidak ditemukan', icon: 'error' });
+            return;
+        }
+
+        swal.fire({
+            title: 'Hapus Lokasi',
+            text: 'Anda yakin akan menghapus lokasi ini?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Hapus'
+        }).then((result) => {
+            if (result.value) {
+                $.ajax({
+                    url: base_url + 'presensi/delete_location',
+                    type: 'POST',
+                    dataType: 'JSON',
+                    data: $('#lokasiTableForm').serialize() + '&id_lokasi=' + encodeURIComponent(id),
+                    success: function (response) {
+                        var title = response.status ? 'Berhasil' : 'Gagal';
+                        var type = response.status ? 'success' : 'error';
+                        var message = response.msg || 'Gagal menghapus lokasi';
+
+                        swal.fire({ title: title, text: message, icon: type }).then((result) => {
+                            if (result.value) {
+                                if (response.status) {
+                                    window.location.href = base_url + 'presensi/location_management';
+                                }
+                            }
+                        });
+                    },
+                    error: function (xhr) {
+                        var message = 'Terjadi kesalahan saat menghapus lokasi';
+                        if (xhr.responseText) {
+                            try {
+                                var err = JSON.parse(xhr.responseText);
+                                message = err.msg || err.message || message;
+                            } catch (e) {
+                                message = xhr.responseText;
+                            }
+                        }
+                        swal.fire({ title: 'Error', text: message, icon: 'error' });
+                    }
+                });
+            }
+        });
+    });
+});
 </script>

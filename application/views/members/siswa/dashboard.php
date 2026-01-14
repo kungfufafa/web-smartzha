@@ -23,8 +23,23 @@
 	                                <div class="alert alert-danger"><?= $this->session->flashdata('error') ?></div>
 	                            <?php endif; ?>
 
-		                            <?php
-		                            $log_display = (isset($open_log) && $open_log) ? $open_log : ((isset($today_log) && $today_log) ? $today_log : null);
+  		                            <?php
+                                     $today = date('Y-m-d');
+                                     $yesterday = date('Y-m-d', strtotime('-1 day'));
+                                     // Shift lintas hari: open log dari kemarin dengan flag is_overnight
+                                     $is_open_overnight = (isset($open_log) && $open_log && $open_log->tanggal === $yesterday && (int)($open_log->is_overnight ?? 0) === 1);
+
+                                     // Tampilkan open log jika hari ini ATAU shift lintas hari dari kemarin
+                                     if ($is_open_overnight) {
+                                         $log_display = $open_log;
+                                     } elseif (isset($open_log) && $open_log && $open_log->tanggal === $today) {
+                                         $log_display = $open_log;
+                                     } elseif (isset($today_log) && $today_log) {
+                                         $log_display = $today_log;
+                                     } else {
+                                         $log_display = null;
+                                     }
+
 		                            $has_shift = isset($shift) && $shift;
 		                            $validation_mode = (isset($presensi_config) && $presensi_config && $presensi_config->validation_mode) ? $presensi_config->validation_mode : 'gps';
 		                            $require_photo = (isset($presensi_config) && $presensi_config) ? (int) $presensi_config->require_photo : 0;
@@ -43,17 +58,21 @@
                                         <strong>Pulang:</strong>
                                         <?= $log_display->jam_pulang ? date('H:i', strtotime($log_display->jam_pulang)) : '<span class="text-warning">Belum</span>' ?>
                                     </p>
-	                                    <p class="mb-0">
-	                                        <strong>Status:</strong>
-	                                        <span class="badge badge-<?= $log_display->status_kehadiran == 'Hadir' ? 'success' : ($log_display->status_kehadiran == 'Terlambat' ? 'warning' : 'secondary') ?>">
-	                                            <?= $log_display->status_kehadiran ?>
-	                                        </span>
-	                                    </p>
-	                                    <?php if (isset($open_log) && $open_log && $open_log->tanggal !== date('Y-m-d')): ?>
-	                                        <small class="text-muted d-block mt-2">
-	                                            Presensi terbuka dari tanggal <strong><?= date('d F Y', strtotime($open_log->tanggal)) ?></strong>.
-	                                        </small>
-	                                    <?php endif; ?>
+                                    <p class="mb-0">
+                                        <strong>Status:</strong>
+                                        <span class="badge badge-<?= $log_display->status_kehadiran == 'Hadir' ? 'success' : ($log_display->status_kehadiran == 'Terlambat' ? 'warning' : 'secondary') ?>">
+                                            <?= $log_display->status_kehadiran ?>
+                                        </span>
+                                    </p>
+                                     <?php if (isset($open_log) && $open_log && ($open_log->tanggal === $today || $is_open_overnight)): ?>
+                                         <small class="text-muted d-block mt-2">
+                                             <?php if ($is_open_overnight): ?>
+                                                 Anda memiliki shift lintas hari yang belum ditutup (dari tanggal <?= date('d F Y', strtotime($open_log->tanggal)) ?>).
+                                             <?php else: ?>
+                                                 Anda belum absen pulang hari ini.
+                                             <?php endif; ?>
+                                         </small>
+                                    <?php endif; ?>
 		                                <?php else: ?>
 		                                    <?php if ($has_shift): ?>
 		                                        <p class="mb-0">Anda belum melakukan presensi hari ini.</p>
@@ -64,14 +83,18 @@
 		                            </div>
 
 		                            <?php
-		                            $shift_display = null;
-		                            $shift_title = 'Jadwal Presensi Hari Ini';
-		                            if (isset($open_log) && $open_log && isset($open_shift) && $open_shift) {
-		                                $shift_display = $open_shift;
-		                                $shift_title = 'Jadwal Presensi Terbuka';
-		                            } elseif (isset($shift) && $shift) {
-		                                $shift_display = $shift;
-		                            }
+                                     $shift_display = null;
+                                     $shift_title = 'Jadwal Presensi Hari Ini';
+                                     // Tampilkan shift terbuka jika open log hari ini ATAU shift lintas hari dari kemarin
+                                     if ($is_open_overnight && isset($open_shift) && $open_shift) {
+                                         $shift_display = $open_shift;
+                                         $shift_title = 'Jadwal Presensi Terbuka';
+                                     } elseif (isset($open_log) && $open_log && $open_log->tanggal === $today && isset($open_shift) && $open_shift) {
+                                         $shift_display = $open_shift;
+                                         $shift_title = 'Jadwal Presensi Terbuka';
+                                     } elseif (isset($shift) && $shift) {
+                                         $shift_display = $shift;
+                                     }
 		                            ?>
 		                            <?php if ($shift_display): ?>
 		                                <div class="card bg-light mb-3">
@@ -123,22 +146,24 @@
 	                            <div class="row">
 	                                <div class="col-6">
 	                                    <?php
-	                                    $blocked_statuses = ['Izin', 'Sakit', 'Cuti', 'Dinas Luar'];
-	                                    $status_block = isset($today_log) && $today_log && in_array($today_log->status_kehadiran, $blocked_statuses, true);
-	                                    $has_open_log = isset($open_log) && $open_log;
-	                                    $block_by_open_log = ($require_checkout === 1 && $has_open_log);
+                                    $blocked_statuses = ['Izin', 'Sakit', 'Cuti', 'Dinas Luar'];
+                                    $status_block = isset($today_log) && $today_log && in_array($today_log->status_kehadiran, $blocked_statuses, true);
+                                    $has_open_log = isset($open_log) && $open_log;
+                                    // Block jika open log hari ini ATAU shift lintas hari dari kemarin
+                                    $block_by_open_log = ($require_checkout === 1 && $has_open_log && ($open_log->tanggal === $today || $is_open_overnight));
 
-	                                    $can_checkin = isset($shift) && $shift && !$status_block && !$block_by_open_log && (!isset($today_log) || !$today_log || !$today_log->jam_masuk);
+                                    $can_checkin = isset($shift) && $shift && !$status_block && !$block_by_open_log && (!isset($today_log) || !$today_log || !$today_log->jam_masuk);
 	                                    ?>
 	                                    <button type="button" class="btn btn-success btn-lg btn-block" <?= $can_checkin ? '' : 'disabled' ?> onclick="doCheckin()">
 	                                        <i class="fas fa-sign-in-alt fa-2x mb-2"></i><br>
 	                                        MASUK
 	                                    </button>
 	                                </div>
-	                                <div class="col-6">
-	                                    <?php
-	                                    $can_checkout = isset($open_log) && $open_log && $open_log->jam_masuk && !$open_log->jam_pulang;
-	                                    ?>
+ 	                                <div class="col-6">
+ 	                                    <?php
+ 	                                    // Bisa checkout jika open log hari ini ATAU shift lintas hari dari kemarin
+ 	                                    $can_checkout = isset($open_log) && $open_log && ($open_log->tanggal === $today || $is_open_overnight) && $open_log->jam_masuk && !$open_log->jam_pulang;
+ 	                                    ?>
 	                                    <button type="button" class="btn btn-danger btn-lg btn-block" <?= $can_checkout ? '' : 'disabled' ?> onclick="doCheckout()">
 	                                        <i class="fas fa-sign-out-alt fa-2x mb-2"></i><br>
 	                                        PULANG
