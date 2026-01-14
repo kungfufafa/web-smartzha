@@ -58,8 +58,7 @@ switch (ENVIRONMENT) {
         echo 'The application environment is not set correctly.';
         exit(1); // EXIT_ERROR
 }
-// Use pocketarc/codeigniter fork for PHP 8.4+ support
-$system_path = 'vendor/pocketarc/codeigniter/system';
+$system_path = 'system';
 $application_folder = 'application';
 $view_folder = '';
 

@@ -11,7 +11,7 @@
  */
 function getDbSize() {
 
-    $CI=&get;_instance();
+    $CI = &get_instance();
     $CI->load->database();
 
     $dbName = $CI->db->database;
