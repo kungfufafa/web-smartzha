@@ -56,10 +56,10 @@ $namaBulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli'
                                                 <th>Aksi</th>
                                             </tr>
                                         </thead>
-                                        <tbody>
-                                            <?php 
+                                            <tbody>
+                                            <?php
                                             $namaBulan = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
-                                            foreach ($tagihan_belum as $t): 
+                                            foreach ($tagihan_belum as $t):
                                             ?>
                                             <tr>
                                                 <td class="align-middle"><strong><?= $t->nama_jenis ?></strong></td>

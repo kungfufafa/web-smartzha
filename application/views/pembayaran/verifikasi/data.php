@@ -25,10 +25,11 @@
                 <i class="fas fa-history"></i> Riwayat
             </a>
         </div>
-    </div>
-    <div class="card-body">
-        <table id="tableVerifikasi" class="table table-bordered table-striped">
-            <thead>
+     </div>
+     <div class="card-body">
+         <div class="table-responsive">
+             <table id="tableVerifikasi" class="table table-bordered table-striped">
+                 <thead>
                 <tr>
                     <th width="5%">No</th>
                     <th>Kode Transaksi</th>

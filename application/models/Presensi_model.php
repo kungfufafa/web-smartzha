@@ -18,8 +18,39 @@ class Presensi_model extends CI_Model
     }
 
     // =========================================================================
-    // CONFIGURATION RESOLUTION (Group → Global)
+    // DATATABLES GETTERS (Standardized)
     // =========================================================================
+
+    public function getShiftData()
+    {
+        $this->load->library('datatables');
+        $this->datatables->select('id_shift, nama_shift, kode_shift, jam_masuk, jam_pulang, toleransi_masuk_menit, toleransi_pulang_menit, is_lintas_hari, is_active');
+        $this->datatables->from('presensi_shift');
+        return $this->datatables->generate();
+    }
+
+    public function getLocationData()
+    {
+        $this->load->library('datatables');
+        $this->datatables->select('id_lokasi, nama_lokasi, kode_lokasi, alamat, latitude, longitude, radius_meter, is_default, is_active');
+        $this->datatables->from('presensi_lokasi');
+        return $this->datatables->generate();
+    }
+
+    public function getHolidayData()
+    {
+        $this->load->library('datatables');
+        $this->datatables->select('id_libur, nama_libur, tanggal, tipe_libur, is_recurring, is_active');
+        $this->datatables->from('presensi_hari_libur');
+        $this->datatables->add_column('aksi', '
+            <button type="button" class="btn btn-xs btn-warning btn-edit" data-id="$1" title="Edit">
+                <i class="fa fa-pencil-alt"></i>
+            </button>
+            <button type="button" class="btn btn-xs btn-danger btn-hapus" data-id="$1" title="Hapus">
+                <i class="fa fa-trash"></i>
+            </button>', 'id_libur');
+        return $this->datatables->generate();
+    }
 
     /**
      * Get primary presensi group for user (deterministic)
@@ -347,7 +378,7 @@ class Presensi_model extends CI_Model
         $this->db->where('is_recurring', 1)
             ->where('is_active', 1)
             ->where_in('tipe_libur', $allowed_types);
-        $this->db->where('DATE_FORMAT(tanggal, "%m-%d") = "' . $month_day . '"', null, false);
+        $this->db->where('DATE_FORMAT(tanggal, "%m-%d") =', $month_day);
 
         return $this->db->count_all_results() > 0;
     }
@@ -383,7 +414,7 @@ class Presensi_model extends CI_Model
             if ($open_log && $open_log->tanggal !== $today) {
                 return [
                     'success' => false,
-                    'message' => 'Anda masih memiliki presensi yang belum check-out (tanggal ' . date('d F Y', strtotime($open_log->tanggal)) . ')'
+                    'message' => 'Anda masih memiliki presensi yang belum Pulang (tanggal ' . date('d F Y', strtotime($open_log->tanggal)) . ')'
                 ];
             }
         }
@@ -394,7 +425,7 @@ class Presensi_model extends CI_Model
             ->row();
 
         if ($existing_log && $existing_log->jam_masuk) {
-            return ['success' => false, 'message' => 'Anda sudah check-in hari ini'];
+            return ['success' => false, 'message' => 'Anda sudah Masuk hari ini'];
         }
 
         if ($existing_log && in_array($existing_log->status_kehadiran, ['Izin', 'Sakit', 'Cuti', 'Dinas Luar'])) {
@@ -410,7 +441,7 @@ class Presensi_model extends CI_Model
             if ($approved_bypass && !empty($approved_bypass->foto_bukti)) {
                 $data_effective['photo'] = $approved_bypass->foto_bukti;
             } else {
-            return ['success' => false, 'message' => 'Foto selfie diperlukan untuk check-in'];
+            return ['success' => false, 'message' => 'Foto selfie diperlukan untuk Masuk'];
             }
         }
 
@@ -561,11 +592,15 @@ class Presensi_model extends CI_Model
         }
 
         if ($action === 'checkin' && $token->token_type === 'checkout') {
-            return ['valid' => false, 'message' => 'QR Code ini hanya untuk Check-Out', 'method' => 'qr'];
+            return ['valid' => false, 'message' => 'QR Code ini hanya untuk Pulang', 'method' => 'qr'];
         }
 
         if ($action === 'checkout' && $token->token_type === 'checkin') {
-            return ['valid' => false, 'message' => 'QR Code ini hanya untuk Check-In', 'method' => 'qr'];
+            return ['valid' => false, 'message' => 'QR Code ini hanya untuk Masuk', 'method' => 'qr'];
+        }
+
+        if ($action === 'checkout' && $token->token_type === 'checkin') {
+            return ['valid' => false, 'message' => 'QR Code ini hanya untuk Masuk', 'method' => 'qr'];
         }
 
         if ($token->max_usage && $token->used_count >= $token->max_usage) {
@@ -609,8 +644,18 @@ class Presensi_model extends CI_Model
         $shift_time = strtotime($shift->jam_masuk);
         $batas = $shift_time + ($toleransi * 60);
 
-        if ($shift->is_lintas_hari && $masuk < 43200) {
-            $masuk += 86400;
+        // For overnight shifts (is_lintas_hari):
+        // - If shift starts in evening (e.g., 22:00) and check-in is after midnight (e.g., 01:00)
+        // - We need to add 24 hours to the check-in time for proper comparison
+        // - Also handle case where shift_time is in evening but check-in is early morning
+        if ($shift->is_lintas_hari) {
+            $shift_hour = (int) date('H', $shift_time);
+            $masuk_hour = (int) date('H', $masuk);
+            
+            // Shift starts in evening (after 12:00) and check-in is early morning (before 12:00)
+            if ($shift_hour >= 12 && $masuk_hour < 12) {
+                $masuk += 86400;
+            }
         }
 
         if ($masuk > $batas) {
@@ -1103,11 +1148,15 @@ class Presensi_model extends CI_Model
         $log = $this->getOpenAttendanceLog($id_user);
 
         if (!$log) {
-            return ['success' => false, 'message' => 'Tidak ada check-in yang belum di-checkout'];
+            return ['success' => false, 'message' => 'Tidak ada presensi masuk yang belum pulang'];
         }
 
         if ($log->jam_pulang) {
-            return ['success' => false, 'message' => 'Anda sudah check-out'];
+            return ['success' => false, 'message' => 'Anda sudah Pulang'];
+        }
+
+        if ($log->jam_pulang) {
+            return ['success' => false, 'message' => 'Anda sudah Pulang'];
         }
 
         $checkout_validation = $this->validateCheckOut($id_user, $data, $log->tanggal ?? null);
@@ -1138,8 +1187,27 @@ class Presensi_model extends CI_Model
             $pulang_time = strtotime($now);
             $shift_time = strtotime($shift->jam_pulang);
 
+            // For overnight shifts:
+            // - If shift ends in morning (e.g., 06:00) but shift_time was parsed for yesterday
+            // - We need to add 24 hours to shift_time for proper comparison
+            // - Also handle case where checkout is in evening but shift ends in morning
             if ($shift->is_lintas_hari) {
-                $shift_time += 86400;
+                $shift_hour = (int) date('H', $shift_time);
+                $pulang_hour = (int) date('H', $pulang_time);
+                
+                // Shift ends in morning (before 12:00) - add 24 hours to shift_time
+                // unless checkout is also in early morning (same day scenario)
+                if ($shift_hour < 12) {
+                    // If checkout is in evening/night (after 12:00), shift_time should be next day
+                    if ($pulang_hour >= 12) {
+                        $shift_time += 86400;
+                    }
+                } else {
+                    // Shift ends in evening, checkout is early morning - add 24h to pulang_time
+                    if ($pulang_hour < 12) {
+                        $pulang_time += 86400;
+                    }
+                }
             }
 
             $batas = $shift_time - ($toleransi * 60);
@@ -1197,7 +1265,7 @@ class Presensi_model extends CI_Model
 
         if ($this->db->trans_status() === FALSE) {
             $this->db->trans_rollback();
-            return ['success' => false, 'message' => 'Gagal menyimpan data check-out'];
+            return ['success' => false, 'message' => 'Gagal menyimpan data Pulang'];
         }
 
         $this->db->trans_commit();

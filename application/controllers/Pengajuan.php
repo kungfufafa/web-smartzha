@@ -110,19 +110,19 @@ class Pengajuan extends CI_Controller
         $data = [
             'id_user' => $user->id,
             'tipe_pengajuan' => $tipe,
-            'tgl_mulai' => $this->input->post('tgl_mulai'),
-            'tgl_selesai' => $this->input->post('tgl_selesai'),
-            'keterangan' => $this->security->xss_clean($this->input->post('keterangan')),
+            'tgl_mulai' => $this->input->post('tgl_mulai', true),
+            'tgl_selesai' => $this->input->post('tgl_selesai', true),
+            'keterangan' => $this->security->xss_clean($this->input->post('keterangan', true)),
             'status' => 'Pending'
         ];
 
         if ($tipe === 'Izin') {
-            $data['id_jenis_izin'] = $this->input->post('id_jenis_izin');
+            $data['id_jenis_izin'] = $this->input->post('id_jenis_izin', true);
         }
-        
+
         if ($tipe === 'Lembur') {
-            $data['jam_mulai'] = $this->input->post('jam_mulai');
-            $data['jam_selesai'] = $this->input->post('jam_selesai');
+            $data['jam_mulai'] = $this->input->post('jam_mulai', true);
+            $data['jam_selesai'] = $this->input->post('jam_selesai', true);
         }
 
         $start = new DateTime($data['tgl_mulai']);
@@ -165,9 +165,9 @@ class Pengajuan extends CI_Controller
             return;
         }
 
-        $id = $this->input->post('id_pengajuan');
-        $status = $this->input->post('status');
-        $alasan = $this->input->post('alasan_tolak');
+        $id = $this->input->post('id_pengajuan', true);
+        $status = $this->input->post('status', true);
+        $alasan = $this->input->post('alasan_tolak', true);
         $user = $this->ion_auth->user()->row();
 
         if (!in_array($status, ['Disetujui', 'Ditolak'])) {
@@ -211,7 +211,7 @@ class Pengajuan extends CI_Controller
         $existing = $this->presensi->getTodayLog($id_siswa, $tanggal);
 
         if (!$existing || !$existing->jam_masuk) {
-            $this->output_json(['status' => false, 'message' => 'Siswa belum check-in hari ini']);
+            $this->output_json(['status' => false, 'message' => 'Siswa belum masuk hari ini']);
             return;
         }
 
@@ -223,12 +223,12 @@ class Pengajuan extends CI_Controller
         $data = [
             'id_user' => $id_siswa,
             'tipe_pengajuan' => 'IzinKeluar',
-            'id_jenis_izin' => $this->input->post('id_jenis_izin'),
+            'id_jenis_izin' => $this->input->post('id_jenis_izin', true),
             'tgl_mulai' => $tanggal,
             'tgl_selesai' => $tanggal,
             'jam_selesai' => $jam_keluar,
             'jumlah_hari' => 1,
-            'keterangan' => $this->security->xss_clean($this->input->post('alasan')),
+            'keterangan' => $this->security->xss_clean($this->input->post('alasan', true)),
             'status' => 'Disetujui',
             'approved_by' => $user->id,
             'approved_at' => date('Y-m-d H:i:s')

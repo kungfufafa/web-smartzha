@@ -20,7 +20,7 @@
                 <div class="card-body">
                     <?php if ($existing_log && $existing_log->jam_masuk): ?>
                         <div class="alert alert-success text-center">
-                            <h4><i class="fas fa-check-circle"></i> Sudah Check-In</h4>
+                            <h4><i class="fas fa-check-circle"></i> Sudah Masuk</h4>
                             <p class="mb-0">
                                 Waktu Masuk: <strong><?= date('H:i:s', strtotime($existing_log->jam_masuk)) ?></strong><br>
                                 Status: <strong class="text-<?= $existing_log->status_kehadiran === 'Hadir' ? 'success' : 'warning' ?>">
@@ -31,7 +31,7 @@
                         
 	                        <?php if (!$existing_log->jam_pulang): ?>
 	                            <div class="text-center mt-4">
-	                                <h5>Anda belum Check-Out</h5>
+	                                <h5>Anda belum Pulang</h5>
 	                                <?php if (in_array($config->validation_mode, ['qr', 'gps_or_qr', 'any'], true)): ?>
 	                                    <div class="form-group mt-3 text-left">
 	                                        <label>QR Token<?= $config->validation_mode === 'qr' ? ' *' : '' ?></label>
@@ -39,12 +39,12 @@
 	                                    </div>
 	                                <?php endif; ?>
 	                                <button type="button" class="btn btn-warning btn-lg" onclick="doCheckout()">
-	                                    <i class="fas fa-sign-out-alt"></i> Check-Out
+	                                    <i class="fas fa-sign-out-alt"></i> Pulang
 	                                </button>
 	                            </div>
 	                        <?php else: ?>
                             <div class="alert alert-info text-center">
-                                <h4><i class="fas fa-check-circle"></i> Sudah Check-Out</h4>
+                                <h4><i class="fas fa-check-circle"></i> Sudah Pulang</h4>
                                 <p class="mb-0">
                                     Waktu Pulang: <strong><?= date('H:i:s', strtotime($existing_log->jam_pulang)) ?></strong>
                                 </p>
@@ -76,7 +76,7 @@
                         <div class="text-center">
                             <?php if ($config->require_photo): ?>
                                 <div class="alert alert-warning">
-                                    <i class="fas fa-camera mr-2"></i>Foto selfie wajib untuk check-in.
+                                    <i class="fas fa-camera mr-2"></i>Foto selfie wajib untuk masuk.
                                 </div>
                                 <div class="form-group">
                                     <label>Foto Selfie *</label>
@@ -90,12 +90,12 @@
                                         <i class="fas fa-map-marker-alt fa-2x"></i>
                                         <p class="mb-0 mt-2">
                                             <strong>Mode Validasi: GPS</strong><br>
-                                            Silakan aktifkan GPS dan tekan tombol Check-In
+                                            Silakan aktifkan GPS dan tekan tombol Masuk
                                         </p>
                                     </div>
                                     <div class="mt-4" id="gps-status">
                                         <button type="button" class="btn btn-primary btn-lg" id="btn-checkin" onclick="getGPSAndCheckIn()">
-                                            <i class="fas fa-location-arrow"></i> Ambil Lokasi &amp; Check-In
+                                            <i class="fas fa-location-arrow"></i> Ambil Lokasi &amp; Masuk
                                         </button>
                                     </div>
                                     <?php break;
@@ -114,7 +114,7 @@
                                             <input type="text" class="form-control form-control-lg" id="qr-token" placeholder="Masukkan QR token">
                                         </div>
                                         <button type="button" class="btn btn-primary btn-lg" onclick="checkInWithQR()">
-                                            <i class="fas fa-qrcode"></i> Check-In dengan QR
+                                            <i class="fas fa-qrcode"></i> Masuk dengan QR
                                         </button>
                                     </div>
                                     <?php break;
@@ -130,7 +130,7 @@
                                     <div class="row mt-4">
                                         <div class="col-md-6">
                                             <button type="button" class="btn btn-primary btn-lg btn-block" onclick="getGPSAndCheckIn()">
-                                                <i class="fas fa-location-arrow"></i> Check-In GPS
+                                                <i class="fas fa-location-arrow"></i> Masuk GPS
                                             </button>
                                         </div>
                                         <div class="col-md-6">
@@ -138,7 +138,7 @@
                                                 <input type="text" class="form-control form-control-lg" id="qr-token" placeholder="QR Token">
                                             </div>
                                             <button type="button" class="btn btn-success btn-lg btn-block" onclick="checkInWithQR()">
-                                                <i class="fas fa-qrcode"></i> Check-In QR
+                                                <i class="fas fa-qrcode"></i> Masuk QR
                                             </button>
                                         </div>
                                     </div>
@@ -149,12 +149,12 @@
                                         <i class="fas fa-hand-pointer fa-2x"></i>
                                         <p class="mb-0 mt-2">
                                             <strong>Mode Validasi: Manual</strong><br>
-                                            Klik tombol Check-In untuk presensi
+                                            Klik tombol Masuk untuk presensi
                                         </p>
                                     </div>
                                     <div class="mt-4">
                                         <button type="button" class="btn btn-primary btn-lg btn-block" onclick="doManualCheckIn()">
-                                            <i class="fas fa-check"></i> Check-In Manual
+                                            <i class="fas fa-check"></i> Masuk Manual
                                         </button>
                                     </div>
                                     <?php break;
@@ -172,7 +172,7 @@
                                             <input type="text" class="form-control form-control-lg" id="qr-token" placeholder="QR Token (opsional)">
                                         </div>
                                         <button type="button" class="btn btn-primary btn-lg btn-block" onclick="getGPSAndCheckIn()">
-                                            <i class="fas fa-location-arrow"></i> Ambil Lokasi &amp; Check-In
+                                            <i class="fas fa-location-arrow"></i> Ambil Lokasi &amp; Masuk
                                         </button>
                                     </div>
                                     <?php break;
@@ -213,8 +213,8 @@
                     <div class="form-group">
                         <label>Tipe Bypass *</label>
                         <select class="form-control" name="tipe" required>
-                            <option value="checkin">Check-In</option>
-                            <option value="checkout">Check-Out</option>
+                            <option value="checkin">Masuk</option>
+                            <option value="checkout">Pulang</option>
                             <option value="both">Keduanya</option>
                         </select>
                     </div>
@@ -288,13 +288,13 @@ function getGPSAndCheckIn() {
             },
             function(error) {
                 alert('Gagal mengambil lokasi GPS: ' + error.message);
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-location-arrow"></i> Ambil Lokasi & Check-In';
-                }
-            },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-location-arrow"></i> Ambil Lokasi & Masuk';
+            }
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
     } else {
         alert('Browser tidak mendukung geolocation');
     }
@@ -305,11 +305,11 @@ function doCheckIn(lat, lng, qrToken) {
     var photoFile = getPhotoFile();
 
     if (requirePhoto && !photoFile) {
-        alert('Foto selfie wajib untuk check-in');
+        alert('Foto selfie wajib untuk masuk');
         var btn = document.getElementById('btn-checkin');
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-location-arrow"></i> Ambil Lokasi & Check-In';
+            btn.innerHTML = '<i class="fas fa-location-arrow"></i> Ambil Lokasi & Masuk';
         }
         return;
     }
@@ -336,10 +336,10 @@ function doCheckIn(lat, lng, qrToken) {
     .then(function(response) { return response.json(); })
     .then(function(result) {
         if (result.success) {
-            alert('Check-In berhasil! Status: ' + result.status);
+            alert('Masuk berhasil! Status: ' + result.status);
             location.reload();
         } else {
-            alert('Check-In gagal: ' + result.message);
+            alert('Masuk gagal: ' + result.message);
             
             if (result.show_bypass) {
                 if (confirm('Gagal validasi. Apakah Anda ingin request bypass?')) {
@@ -350,7 +350,7 @@ function doCheckIn(lat, lng, qrToken) {
             var btn = document.getElementById('btn-checkin');
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-location-arrow"></i> Ambil Lokasi & Check-In';
+                btn.innerHTML = '<i class="fas fa-location-arrow"></i> Ambil Lokasi & Masuk';
             }
         }
     })
@@ -360,7 +360,43 @@ function doCheckIn(lat, lng, qrToken) {
         var btn = document.getElementById('btn-checkin');
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-location-arrow"></i> Ambil Lokasi & Check-In';
+            btn.innerHTML = '<i class="fas fa-location-arrow"></i> Ambil Lokasi & Masuk';
+        }
+    });
+}
+        }
+    })
+    .catch(function(error) {
+        alert('Terjadi kesalahan: ' + error.message);
+        
+        var btn = document.getElementById('btn-checkin');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-location-arrow"></i> Ambil Lokasi & Masuk';
+        }
+    });
+}
+        }
+    })
+    .catch(function(error) {
+        alert('Terjadi kesalahan: ' + error.message);
+        
+        var btn = document.getElementById('btn-checkin');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-location-arrow"></i> Ambil Lokasi & Masuk';
+        }
+    });
+}
+        }
+    })
+    .catch(function(error) {
+        alert('Terjadi kesalahan: ' + error.message);
+        
+        var btn = document.getElementById('btn-checkin');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-location-arrow"></i> Ambil Lokasi & Masuk';
         }
     });
 }
@@ -453,10 +489,10 @@ function submitCheckout(lat, lng, qrToken) {
     .then(function(response) { return response.json(); })
     .then(function(result) {
         if (result.success) {
-            alert('Check-Out berhasil!');
+            alert('Pulang berhasil!');
             location.reload();
         } else {
-            alert('Check-Out gagal: ' + result.message);
+            alert('Pulang gagal: ' + result.message);
 
             if (result.show_bypass || allowBypass) {
                 if (confirm('Gagal validasi. Apakah Anda ingin request bypass?')) {

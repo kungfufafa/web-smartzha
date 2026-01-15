@@ -216,7 +216,7 @@
                         </div>
                         <div class="col-md-4">
                             <div class="form-group">
-                                <label>Wajib Checkout</label>
+                                <label>Wajib Pulang</label>
                                 <select class="form-control form-control-sm" name="require_checkout" id="group-config-checkout">
                                     <option value="1">Ya (Wajib)</option>
                                     <option value="0">Tidak (Opsional)</option>

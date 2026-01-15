@@ -20,7 +20,7 @@
                         <ul class="mb-0">
                             <li><strong>Username:</strong> Nomor HP (NIP) Anda</li>
                             <li><strong>Password:</strong> Nomor HP (NIP) Anda</li>
-                            <li><strong>Absensi:</strong> Gunakan menu Absensi untuk check-in/check-out</li>
+                            <li><strong>Absensi:</strong> Gunakan menu Absensi untuk masuk/pulang</li>
                         </ul>
                     </div>
                 </div>

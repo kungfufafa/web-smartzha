@@ -212,7 +212,7 @@ class Api extends CI_Controller
 
     public function login()
     {
-        $identity = $this->input->post("identity");
+        $identity = $this->input->post("identity", true);
         $password = $this->input->post("password");
 
         if (empty($identity) || empty($password)) {
@@ -448,10 +448,10 @@ class Api extends CI_Controller
     {
         if (!$this->check_login()) return;
 
-        $id_jadwal = $this->input->post("jadwal");
-        $id_siswa = $this->input->post("siswa");
-        $id_bank = $this->input->post("bank");
-        $token_siswa = $this->input->post("token");
+        $id_jadwal = $this->input->post("jadwal", true);
+        $id_siswa = $this->input->post("siswa", true);
+        $id_bank = $this->input->post("bank", true);
+        $token_siswa = $this->input->post("token", true);
 
         $info = $this->cbt->getJadwalById($id_jadwal);
         if (!$info) {
@@ -685,11 +685,11 @@ class Api extends CI_Controller
     {
         if (!$this->check_login()) return;
 
-        $id_siswa = $this->input->post("siswa");
-        $id_jadwal = $this->input->post("jadwal");
-        $id_bank = $this->input->post("bank");
-        $nomor = $this->input->post("nomor") ?: 1;
-        $timer = $this->input->post("timer");
+        $id_siswa = $this->input->post("siswa", true);
+        $id_jadwal = $this->input->post("jadwal", true);
+        $id_bank = $this->input->post("bank", true);
+        $nomor = $this->input->post("nomor", true) ?: 1;
+        $timer = $this->input->post("timer", true);
 
         if (empty($id_siswa) || $id_siswa === "0") {
             $siswa_session = $this->get_siswa();
@@ -917,8 +917,8 @@ class Api extends CI_Controller
     {
         if (!$this->check_login()) return;
 
-        $id_siswa = $this->input->post("siswa");
-        $id_jadwal = $this->input->post("jadwal");
+        $id_siswa = $this->input->post("siswa", true);
+        $id_jadwal = $this->input->post("jadwal", true);
 
         // Sama dengan Siswa.php selesaiUjian
         $data["status_nilai"] = $this->olahNilai($id_siswa, $id_jadwal);

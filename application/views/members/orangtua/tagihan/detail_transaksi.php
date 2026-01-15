@@ -31,8 +31,8 @@
                                             <td><?= strtoupper($transaksi->metode_bayar ?? '-') ?></td>
                                         </tr>
                                         <tr>
-                                            <td>Jumlah</td>
-                                            <td><strong class="text-primary">Rp <?= number_format($transaksi->jumlah ?? 0, 0, ',', '.') ?></strong></td>
+                                             <td>Jumlah</td>
+                                             <td><strong class="text-primary">Rp <?= number_format($transaksi->nominal_tagihan ?? $transaksi->nominal_bayar, 0, ',', '.') ?></strong></td>
                                         </tr>
                                     </table>
                                 </div>

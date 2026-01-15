@@ -69,9 +69,10 @@
                     <option value="12">Desember</option>
                 </select>
             </div>
-        </div>
-        <table id="tableTagihan" class="table table-bordered table-striped">
-            <thead>
+         </div>
+         <div class="table-responsive">
+             <table id="tableTagihan" class="table table-bordered table-striped">
+                 <thead>
                 <tr>
                     <th width="3%"><input type="checkbox" id="checkAll"></th>
                     <th>Kode</th>

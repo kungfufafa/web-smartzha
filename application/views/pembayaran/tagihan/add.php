@@ -29,10 +29,10 @@
                         <label>Jenis Tagihan <span class="text-danger">*</span></label>
                         <select name="id_jenis" id="id_jenis" class="form-control" required>
                             <option value="">-- Pilih Jenis --</option>
-                            <?php foreach ($jenis as $j): ?>
-                                <option value="<?= $j->id_jenis ?>" data-nominal="<?= $j->nominal_default ?>" data-recurring="<?= $j->is_recurring ?>">
-                                    <?= $j->nama_jenis ?>
-                                </option>
+                             <?php foreach ($jenis as $j): ?>
+                                 <option value="<?= $j->id_jenis ?>" data-nominal="<?= $j->nominal_default ?>" data-recurring="<?= $j->is_recurring ?>">
+                                     <?= $j->nama_jenis ?> (<?= $j->kode_jenis ?>)
+                                 </option>
                             <?php endforeach; ?>
                         </select>
                     </div>

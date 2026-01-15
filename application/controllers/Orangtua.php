@@ -1,6 +1,22 @@
 <?php
 defined('BASEPATH') or exit('No direct script access allowed');
 
+/**
+ * @property Ion_auth|Ion_auth_model $ion_auth
+ * @property CI_Session $session
+ * @property CI_Output $output
+ * @property CI_Input $input
+ * @property CI_Upload $upload
+ * @property Orangtua_model $orangtua
+ * @property Dashboard_model $dashboard
+ * @property Pembayaran_model $pembayaran
+ * @property Rapor_model $rapor
+ * @property Kelas_model $kelas
+ * @property Cbt_model $cbt
+ * @property Master_model $master
+ * @property Kelas_model $kelas_model
+ * @property Qris $qris
+ */
 class Orangtua extends CI_Controller
 {
     private $user;
@@ -11,11 +27,13 @@ class Orangtua extends CI_Controller
     {
         parent::__construct();
 
-        if (!$this->ion_auth->logged_in()) {
+        if (!$this->ion_auth->logged_in())
+        {
             redirect('auth');
         }
 
-        if (!$this->ion_auth->in_group('orangtua')) {
+        if (!$this->ion_auth->in_group('orangtua'))
+        {
             show_error('Halaman ini hanya untuk Orang Tua. <a href="' . base_url('dashboard') . '">Kembali</a>', 403, 'Akses Ditolak');
         }
 
@@ -24,6 +42,7 @@ class Orangtua extends CI_Controller
         $this->load->model('Pembayaran_model', 'pembayaran');
         $this->load->model('Rapor_model', 'rapor');
         $this->load->model('Kelas_model', 'kelas');
+        $this->load->model('Log_model', 'logging');
 
         $this->user = $this->ion_auth->user()->row();
         $this->_loadAnakList();
@@ -34,9 +53,12 @@ class Orangtua extends CI_Controller
         $tp = $this->dashboard->getTahunActive();
         $smt = $this->dashboard->getSemesterActive();
 
-        if ($tp && $smt) {
+        if ($tp && $smt)
+        {
             $this->anak_list = $this->orangtua->getAnakByUserIdWithTpSmt($this->user->id, $tp->id_tp, $smt->id_smt);
-        } else {
+        }
+        else
+        {
             $this->anak_list = $this->orangtua->getAnakByUserId($this->user->id);
         }
 
@@ -44,24 +66,31 @@ class Orangtua extends CI_Controller
         // Validate selected_id is a positive integer
         $selected_id = filter_var($selected_id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         
-        if ($selected_id) {
-            foreach ($this->anak_list as $anak) {
-                if ($anak->id_siswa == $selected_id) {
+        if ($selected_id)
+        {
+            foreach ($this->anak_list as $anak)
+            {
+                if ($anak->id_siswa == $selected_id)
+                {
                     $this->selected_anak = $anak;
                     break;
                 }
             }
         }
 
-        if (!$this->selected_anak && count($this->anak_list) > 0) {
+        if (!$this->selected_anak && count($this->anak_list) > 0)
+        {
             $this->selected_anak = $this->anak_list[0];
             $this->session->set_userdata('selected_anak_id', $this->selected_anak->id_siswa);
         }
     }
 
-    private function output_json($data, $encode = true)
+    public function output_json($data, $encode = true)
     {
-        if ($encode) $data = json_encode($data);
+        if ($encode)
+        {
+            $data = json_encode($data);
+        }
         $this->output->set_content_type('application/json')->set_output($data);
     }
 
@@ -97,7 +126,8 @@ class Orangtua extends CI_Controller
 
     public function index()
     {
-        if (empty($this->anak_list)) {
+        if (empty($this->anak_list))
+        {
             $data = $this->getCommonData();
             $data['judul'] = 'Dashboard Orang Tua';
             $data['subjudul'] = 'Tidak Ada Data Anak';
@@ -122,7 +152,8 @@ class Orangtua extends CI_Controller
         // Validate id_siswa is a positive integer
         $id_siswa = filter_var($id_siswa, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         
-        if (!$id_siswa || !$this->orangtua->isParentOfSiswa($this->user->id, $id_siswa)) {
+        if (!$id_siswa || !$this->orangtua->isParentOfSiswa($this->user->id, $id_siswa))
+        {
             $this->session->set_flashdata('error', 'Anak tidak ditemukan');
             redirect('orangtua');
         }
@@ -133,7 +164,8 @@ class Orangtua extends CI_Controller
 
     public function hasil()
     {
-        if (!$this->selected_anak) {
+        if (!$this->selected_anak)
+        {
             redirect('orangtua');
         }
 
@@ -159,7 +191,8 @@ class Orangtua extends CI_Controller
         $data['tp'] = $this->dashboard->getTahun();
         $data['smt'] = $this->dashboard->getSemester();
 
-        if (!$siswa || !$siswa->id_kelas) {
+        if (!$siswa || !$siswa->id_kelas)
+        {
             $this->load->view('members/orangtua/templates/header', $data);
             $this->load->view('members/orangtua/nilai/data', $data);
             $this->load->view('members/orangtua/templates/footer');
@@ -177,17 +210,22 @@ class Orangtua extends CI_Controller
         $jawabans = [];
         $kelass_unset = [];
 
-        foreach ($jadwals as $kj => $jadwal) {
+        foreach ($jadwals as $kj => $jadwal)
+        {
             $kelass = unserialize($jadwal->bank_kelas);
             $arr_kls_jadwal = [];
-            foreach ($kelass as $kll) {
-                foreach ($kll as $kl) {
-                    if ($kl != null) {
+            foreach ($kelass as $kll)
+            {
+                foreach ($kll as $kl)
+                {
+                    if ($kl != null)
+                    {
                         $arr_kls_jadwal[] = $kl;
                     }
                 }
             }
-            if (!in_array($siswa->id_kelas, $arr_kls_jadwal)) {
+            if (!in_array($siswa->id_kelas, $arr_kls_jadwal))
+            {
                 unset($jadwals[$kj]);
                 $kelass_unset[] = $kj;
                 continue;
@@ -207,8 +245,10 @@ class Orangtua extends CI_Controller
 
             $jawabans = $this->cbt->getJawabanSiswaByJadwal($jadwal->id_jadwal, $siswa->id_siswa);
             $jawabans_siswa = [];
-            foreach ($jawabans as $jawaban_siswa) {
-                if ($jawaban_siswa->jenis_soal == "2") {
+            foreach ($jawabans as $jawaban_siswa)
+            {
+                if ($jawaban_siswa->jenis_soal == "2")
+                {
                     $jawaban_siswa->opsi_a = @unserialize($jawaban_siswa->opsi_a);
                     $jawaban_siswa->jawaban_siswa = @unserialize($jawaban_siswa->jawaban_siswa);
                     $jawaban_siswa->jawaban_benar = @unserialize($jawaban_siswa->jawaban_benar);
@@ -218,7 +258,8 @@ class Orangtua extends CI_Controller
                     $jawaban_siswa->jawaban = array_map("strtoupper", $jawaban_siswa->jawaban);
                     $jawaban_siswa->jawaban = array_filter($jawaban_siswa->jawaban, "strlen");
                 }
-                if ($jawaban_siswa->jenis_soal == "3") {
+                if ($jawaban_siswa->jenis_soal == "3")
+                {
                     $jawaban_siswa->jawaban_siswa = @unserialize($jawaban_siswa->jawaban_siswa);
                     $jawaban_siswa->jawaban_benar = @unserialize($jawaban_siswa->jawaban_benar);
                     $jawaban_siswa->jawaban = @unserialize($jawaban_siswa->jawaban);
@@ -238,17 +279,22 @@ class Orangtua extends CI_Controller
 
             $skor = new stdClass();
             $nilai_input = $this->cbt->getNilaiSiswaByJadwal($jadwal->id_jadwal, $siswa->id_siswa);
-            if ($nilai_input != null) {
+            if ($nilai_input != null)
+            {
                 $skor->dikoreksi = $nilai_input->dikoreksi;
             }
 
             // Calculate PG score
             $jawaban_pg = $ada_jawaban_pg ? $jawabans_siswa[$siswa->id_siswa]["1"] : [];
             $benar_pg = 0;
-            if ($info->tampil_pg > 0 && count($jawaban_pg) > 0) {
-                foreach ($jawaban_pg as $jwb_pg) {
-                    if ($jwb_pg != null && $jwb_pg->jawaban_siswa != null) {
-                        if (strtoupper($jwb_pg->jawaban_siswa) == strtoupper($jwb_pg->jawaban)) {
+            if ($info->tampil_pg > 0 && count($jawaban_pg) > 0)
+            {
+                foreach ($jawaban_pg as $jwb_pg)
+                {
+                    if ($jwb_pg != null && $jwb_pg->jawaban_siswa != null)
+                    {
+                        if (strtoupper($jwb_pg->jawaban_siswa) == strtoupper($jwb_pg->jawaban))
+                        {
                             $benar_pg += 1;
                         }
                     }
@@ -262,18 +308,24 @@ class Orangtua extends CI_Controller
             $benar_pg2 = 0;
             $skor_koreksi_pg2 = 0.0;
             $otomatis_pg2 = 0;
-            if ($info->tampil_kompleks > 0 && count($jawaban_pg2) > 0) {
-                foreach ($jawaban_pg2 as $jawab_pg2) {
+            if ($info->tampil_kompleks > 0 && count($jawaban_pg2) > 0)
+            {
+                foreach ($jawaban_pg2 as $jawab_pg2)
+                {
                     $skor_koreksi_pg2 += $jawab_pg2->nilai_koreksi;
                     $arr_benar = [];
-                    if ($jawab_pg2->jawaban_siswa) {
-                        foreach ($jawab_pg2->jawaban_siswa as $js) {
-                            if (in_array($js, $jawab_pg2->jawaban)) {
+                    if ($jawab_pg2->jawaban_siswa)
+                    {
+                        foreach ($jawab_pg2->jawaban_siswa as $js)
+                        {
+                            if (in_array($js, $jawab_pg2->jawaban))
+                            {
                                 array_push($arr_benar, true);
                             }
                         }
                     }
-                    if (count($jawab_pg2->jawaban) > 0) {
+                    if (count($jawab_pg2->jawaban) > 0)
+                    {
                         $benar_pg2 += 1 / count($jawab_pg2->jawaban) * count($arr_benar);
                     }
                     $otomatis_pg2 = $jawab_pg2->nilai_otomatis;
@@ -281,7 +333,8 @@ class Orangtua extends CI_Controller
             }
             $s_pg2 = $bagi_pg2 == 0 ? 0 : $benar_pg2 / $bagi_pg2 * $bobot_pg2;
             $input_pg2 = 0;
-            if ($nilai_input != null && $nilai_input->kompleks_nilai != null) {
+            if ($nilai_input != null && $nilai_input->kompleks_nilai != null)
+            {
                 $input_pg2 = $nilai_input->kompleks_nilai;
             }
             $skor_pg2 = $input_pg2 != 0 ? $input_pg2 : ($otomatis_pg2 == 0 ? $s_pg2 : $skor_koreksi_pg2);
@@ -293,18 +346,23 @@ class Orangtua extends CI_Controller
             $benar_jod = 0;
             $skor_koreksi_jod = 0.0;
             $otomatis_jod = 0;
-            if ($info->tampil_jodohkan > 0 && count($jawaban_jodoh) > 0) {
-                foreach ($jawaban_jodoh as $jawab_jod) {
+            if ($info->tampil_jodohkan > 0 && count($jawaban_jodoh) > 0)
+            {
+                foreach ($jawaban_jodoh as $jawab_jod)
+                {
                     $skor_koreksi_jod += $jawab_jod->nilai_koreksi;
                     $typeSoal = $jawab_jod->jawaban->type;
                     $arrSoal = $jawab_jod->jawaban->jawaban;
                     $headSoal = array_shift($arrSoal);
                     $arrJwbSoal = [];
                     $items = 0;
-                    foreach ($arrSoal as $kolSoal) {
+                    foreach ($arrSoal as $kolSoal)
+                    {
                         $jwb = new stdClass();
-                        foreach ($kolSoal as $pos => $kol) {
-                            if ($kol == "1") {
+                        foreach ($kolSoal as $pos => $kol)
+                        {
+                            if ($kol == "1")
+                            {
                                 $jwb->subtitle[] = $headSoal[$pos];
                                 $items++;
                             }
@@ -314,15 +372,19 @@ class Orangtua extends CI_Controller
                     }
                     $arrJawab = [];
                     $headJawab = null;
-                    if (isset($jawab_jod->jawaban_siswa->jawaban)) {
+                    if (isset($jawab_jod->jawaban_siswa->jawaban))
+                    {
                         $arrJawab = $jawab_jod->jawaban_siswa->jawaban;
                         $headJawab = array_shift($arrJawab);
                     }
                     $arrJwbJawab = [];
-                    foreach ($arrJawab as $kolJawab) {
+                    foreach ($arrJawab as $kolJawab)
+                    {
                         $jwbs = new stdClass();
-                        foreach ($kolJawab as $po => $kol) {
-                            if ($kol == "1") {
+                        foreach ($kolJawab as $po => $kol)
+                        {
+                            if ($kol == "1")
+                            {
                                 $sub = $headJawab[$po];
                                 $jwbs->subtitle[] = $sub;
                             }
@@ -331,19 +393,25 @@ class Orangtua extends CI_Controller
                         array_push($arrJwbJawab, $jwbs);
                     }
                     $item_benar = 0;
-                    foreach ($arrJwbJawab as $p => $ajjs) {
-                        if (!isset($ajjs->subtitle)) {
+                    foreach ($arrJwbJawab as $p => $ajjs)
+                    {
+                        if (!isset($ajjs->subtitle))
+                        {
                             continue;
                         }
-                        foreach ($ajjs->subtitle as $pp => $ajs) {
-                            if (isset($arrJwbSoal[$p]) && isset($arrJwbSoal[$p]->subtitle)) {
-                                if (in_array($ajs, $arrJwbSoal[$p]->subtitle)) {
+                        foreach ($ajjs->subtitle as $pp => $ajs)
+                        {
+                            if (isset($arrJwbSoal[$p]) && isset($arrJwbSoal[$p]->subtitle))
+                            {
+                                if (in_array($ajs, $arrJwbSoal[$p]->subtitle))
+                                {
                                     $item_benar++;
                                 }
                             }
                         }
                     }
-                    if ($items > 0) {
+                    if ($items > 0)
+                    {
                         $benar_jod += 1 / $items * $item_benar;
                     }
                     $otomatis_jod = $jawab_jod->nilai_otomatis;
@@ -351,7 +419,8 @@ class Orangtua extends CI_Controller
             }
             $s_jod = $bagi_jodoh == 0 ? 0 : $benar_jod / $bagi_jodoh * $bobot_jodoh;
             $input_jod = 0;
-            if ($nilai_input != null && $nilai_input->jodohkan_nilai != null) {
+            if ($nilai_input != null && $nilai_input->jodohkan_nilai != null)
+            {
                 $input_jod = $nilai_input->jodohkan_nilai;
             }
             $skor_jod = $input_jod != 0 ? $input_jod : ($otomatis_jod == 0 ? $s_jod : $skor_koreksi_jod);
@@ -363,11 +432,14 @@ class Orangtua extends CI_Controller
             $benar_is = 0;
             $skor_koreksi_is = 0.0;
             $otomatis_is = 0;
-            if ($info->tampil_isian > 0 && count($jawaban_is) > 0) {
-                foreach ($jawaban_is as $jawab_is) {
+            if ($info->tampil_isian > 0 && count($jawaban_is) > 0)
+            {
+                foreach ($jawaban_is as $jawab_is)
+                {
                     $skor_koreksi_is += $jawab_is->nilai_koreksi;
                     $benar = $jawab_is != null && strtolower($jawab_is->jawaban_siswa) == strtolower($jawab_is->jawaban);
-                    if ($benar) {
+                    if ($benar)
+                    {
                         $benar_is++;
                     }
                     $otomatis_is = $jawab_is->nilai_otomatis;
@@ -375,7 +447,8 @@ class Orangtua extends CI_Controller
             }
             $s_is = $bagi_isian == 0 ? 0 : $benar_is / $bagi_isian * $bobot_isian;
             $input_is = 0;
-            if ($nilai_input != null && $nilai_input->isian_nilai != null) {
+            if ($nilai_input != null && $nilai_input->isian_nilai != null)
+            {
                 $input_is = $nilai_input->isian_nilai;
             }
             $skor_is = $input_is != 0 ? $input_is : ($otomatis_is == 0 ? $s_is : $skor_koreksi_is);
@@ -387,11 +460,14 @@ class Orangtua extends CI_Controller
             $benar_es = 0;
             $skor_koreksi_es = 0.0;
             $otomatis_es = 0;
-            if ($info->tampil_esai > 0 && count($jawaban_es) > 0) {
-                foreach ($jawaban_es as $jawab_es) {
+            if ($info->tampil_esai > 0 && count($jawaban_es) > 0)
+            {
+                foreach ($jawaban_es as $jawab_es)
+                {
                     $skor_koreksi_es += $jawab_es->nilai_koreksi;
                     $benar = $jawab_es != null && strtolower($jawab_es->jawaban_siswa) == strtolower($jawab_es->jawaban);
-                    if ($benar) {
+                    if ($benar)
+                    {
                         $benar_es++;
                     }
                     $otomatis_es = $jawab_es->nilai_otomatis;
@@ -399,7 +475,8 @@ class Orangtua extends CI_Controller
             }
             $s_es = $bagi_essai == 0 ? 0 : $benar_es / $bagi_essai * $bobot_essai;
             $input_es = 0;
-            if ($nilai_input != null && $nilai_input->essai_nilai != null) {
+            if ($nilai_input != null && $nilai_input->essai_nilai != null)
+            {
                 $input_es = $nilai_input->essai_nilai;
             }
             $skor_es = $input_es != 0 ? $input_es : ($otomatis_es == 0 ? $s_es : $skor_koreksi_es);
@@ -428,7 +505,8 @@ class Orangtua extends CI_Controller
 
     public function kehadiran()
     {
-        if (!$this->selected_anak) {
+        if (!$this->selected_anak)
+        {
             redirect('orangtua');
         }
 
@@ -452,23 +530,27 @@ class Orangtua extends CI_Controller
 
         $result = $this->dashboard->loadJadwalHariIni($tp->id_tp, $smt->id_smt, $siswa->id_kelas, null);
         $jadwals = [];
-        foreach ($result as $row) {
+        foreach ($result as $row)
+        {
             $jadwals[$row->id_hari][$row->jam_ke] = $row;
         }
 
         $mapels = $this->master->getAllMapel();
         $arrIdMapel = [];
-        foreach ($mapels as $mpl) {
+        foreach ($mapels as $mpl)
+        {
             array_push($arrIdMapel, $mpl->id_mapel);
         }
 
-        if ($kbm != null) {
+        if ($kbm != null)
+        {
             $bulan = date('m');
             $tahun = date('Y');
             $tgl = cal_days_in_month(CAL_GREGORIAN, $bulan, $tahun);
 
             $materi_sebulan = [];
-            for ($i = 0; $i < $tgl; $i++) {
+            for ($i = 0; $i < $tgl; $i++)
+            {
                 $t = $i + 1 < 10 ? '0' . ($i + 1) : $i + 1;
                 $materi_sebulan[$t] = $this->kelas_model->getAllMateriByTgl($siswa->id_kelas, $tahun . '-' . $bulan . '-' . $t, $arrIdMapel);
             }
@@ -480,7 +562,9 @@ class Orangtua extends CI_Controller
                 'log' => isset($logs[$siswa->id_siswa]) ? $logs[$siswa->id_siswa] : [],
                 'materis' => $materi_sebulan
             ];
-        } else {
+        }
+        else
+        {
             $data['sebulan'] = ['log' => [], 'materis' => []];
         }
 
@@ -496,7 +580,8 @@ class Orangtua extends CI_Controller
 
     public function tagihan()
     {
-        if (!$this->selected_anak) {
+        if (!$this->selected_anak)
+        {
             redirect('orangtua');
         }
 
@@ -519,21 +604,30 @@ class Orangtua extends CI_Controller
 
     public function bayar($id_tagihan)
     {
-        if (!$this->selected_anak) {
+        if (!$this->selected_anak)
+        {
             redirect('orangtua');
+        }
+
+        if (!$id_tagihan || !is_numeric($id_tagihan) || $id_tagihan <= 0)
+        {
+            show_error('ID tagihan tidak valid', 400);
         }
 
         $tagihan = $this->pembayaran->getTagihanById($id_tagihan);
 
-        if (!$tagihan || $tagihan->id_siswa != $this->selected_anak->id_siswa) {
+        if (!$tagihan || $tagihan->id_siswa != $this->selected_anak->id_siswa)
+        {
             show_404();
         }
 
-        if (!$this->orangtua->isParentOfSiswa($this->user->id, $tagihan->id_siswa)) {
+        if (!$this->orangtua->isParentOfSiswa($this->user->id, $tagihan->id_siswa))
+        {
             show_error('Anda tidak memiliki akses ke tagihan ini', 403);
         }
 
-        if (!in_array($tagihan->status, ['belum_bayar', 'ditolak'])) {
+        if (!in_array($tagihan->status, ['belum_bayar', 'ditolak']))
+        {
             redirect('orangtua/tagihan');
         }
 
@@ -555,6 +649,11 @@ class Orangtua extends CI_Controller
         if (!$this->selected_anak)
         {
             redirect('orangtua');
+        }
+
+        if (!$id_tagihan || !is_numeric($id_tagihan) || $id_tagihan <= 0)
+        {
+            show_error('ID tagihan tidak valid', 400);
         }
 
         $tagihan = $this->pembayaran->getTagihanById($id_tagihan);
@@ -592,7 +691,7 @@ class Orangtua extends CI_Controller
         catch (Throwable $e)
         {
             log_message('error', 'QRIS dinamis gagal (Orangtua/qris): ' . $e->getMessage());
-
+            
             // Fallback to static image if available
             if (!empty($config->qris_image) && file_exists('./' . $config->qris_image))
             {
@@ -607,42 +706,57 @@ class Orangtua extends CI_Controller
                         $mime = $detected;
                     }
                 }
-
+                
+                // Return static image with warning header
                 $this->output
                     ->set_header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0')
                     ->set_header('Pragma: no-cache')
+                    ->set_header('X-QRIS-Status: static-fallback')
                     ->set_content_type($mime)
                     ->set_output(file_get_contents($path));
                 return;
             }
-
-            show_error('Gagal membuat QRIS dinamis.', 500);
+            
+            // If both dynamic and static QRIS fail, redirect with helpful message
+            $this->session->set_flashdata('warning', 'QRIS tidak tersedia saat ini. Silakan gunakan metode transfer bank.');
+            redirect('orangtua/tagihan');
         }
     }
 
     public function uploadBukti()
     {
-        if (!$this->selected_anak) {
+        if (!$this->selected_anak)
+        {
             $this->output_json(['status' => false, 'message' => 'Tidak ada anak yang dipilih']);
             return;
         }
 
         $id_tagihan = $this->input->post('id_tagihan');
+
+        if (!$id_tagihan || !is_numeric($id_tagihan) || $id_tagihan <= 0)
+        {
+            $this->output_json(['status' => false, 'message' => 'ID tagihan tidak valid']);
+            return;
+        }
+
         $tagihan = $this->pembayaran->getTagihanById($id_tagihan);
 
-        if (!$tagihan || !$this->orangtua->isParentOfSiswa($this->user->id, $tagihan->id_siswa)) {
+        if (!$tagihan || !$this->orangtua->isParentOfSiswa($this->user->id, $tagihan->id_siswa))
+        {
             $this->output_json(['status' => false, 'message' => 'Tagihan tidak valid']);
             return;
         }
 
-        if (!isset($_FILES['bukti']) || $_FILES['bukti']['error'] != 0) {
+        if (!isset($_FILES['bukti']) || $_FILES['bukti']['error'] != 0)
+        {
             $this->output_json(['status' => false, 'message' => 'File bukti pembayaran wajib diupload']);
             return;
         }
 
         $this->load->library('upload');
         $upload_path = './uploads/pembayaran/bukti/' . date('Y/m/');
-        if (!is_dir($upload_path)) {
+        if (!is_dir($upload_path))
+        {
             mkdir($upload_path, 0755, true);
         }
 
@@ -656,7 +770,8 @@ class Orangtua extends CI_Controller
 
         $this->upload->initialize($config_upload);
 
-        if (!$this->upload->do_upload('bukti')) {
+        if (!$this->upload->do_upload('bukti'))
+        {
             $this->output_json(['status' => false, 'message' => strip_tags($this->upload->display_errors())]);
             return;
         }
@@ -670,6 +785,9 @@ class Orangtua extends CI_Controller
         $catatan_siswa = $this->input->post('catatan_siswa', true);
         $last_transaksi = $this->pembayaran->getLatestTransaksiByTagihan($id_tagihan);
 
+        // Start transaction for atomic operation
+        $this->db->trans_start();
+
         $result = $this->pembayaran->processUploadBukti(
             $id_tagihan,
             $tagihan->id_siswa,
@@ -681,12 +799,19 @@ class Orangtua extends CI_Controller
             $last_transaksi
         );
 
-        if (!$result['success']) {
-            if (file_exists($file_path)) {
+        $this->db->trans_complete();
+
+        if (!$result['success'] || $this->db->trans_status() === FALSE)
+        {
+            if (file_exists($file_path))
+            {
                 unlink($file_path);
             }
-            $this->output_json(['status' => false, 'message' => $result['message']]);
-        } else {
+            $this->output_json(['status' => false, 'message' => $result['message'] ?? 'Gagal menyimpan transaksi']);
+        }
+        else
+        {
+            $this->logging->saveLog(3, 'orangtua upload bukti pembayaran tagihan #' . $id_tagihan);
             $this->output_json([
                 'status' => true,
                 'message' => $result['message'],
@@ -697,7 +822,8 @@ class Orangtua extends CI_Controller
 
     public function riwayat()
     {
-        if (!$this->selected_anak) {
+        if (!$this->selected_anak)
+        {
             redirect('orangtua');
         }
 
@@ -713,9 +839,15 @@ class Orangtua extends CI_Controller
 
     public function detailTransaksi($id)
     {
+        if (!$id || !is_numeric($id) || $id <= 0)
+        {
+            show_error('ID transaksi tidak valid', 400);
+        }
+
         $transaksi = $this->pembayaran->getTransaksiById($id);
 
-        if (!$transaksi || !$this->orangtua->isParentOfSiswa($this->user->id, $transaksi->id_siswa)) {
+        if (!$transaksi || !$this->orangtua->isParentOfSiswa($this->user->id, $transaksi->id_siswa))
+        {
             show_404();
         }
 

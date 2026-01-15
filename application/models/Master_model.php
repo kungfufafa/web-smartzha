@@ -640,7 +640,7 @@ class Master_model extends CI_Model
         $this->datatables->from("kelas_guru");
         $this->datatables->join("master_kelas", "kelas_id=id_kelas");
         $this->datatables->join("master_guru", "guru_id=id_guru");
-        $this->datatables->group_by("guru.nama_guru");
+        $this->datatables->group_by("kelas_guru.id, guru.id_guru, guru.nip, guru.nama_guru");
         return $this->datatables->generate();
     }
 
@@ -673,7 +673,7 @@ class Master_model extends CI_Model
         $this->datatables->from("jurusan_mapel");
         $this->datatables->join("master_mapel", "mapel_id=id_mapel");
         $this->datatables->join("master_jurusan", "jurusan_id=id_jurusan");
-        $this->datatables->group_by("master_mapel.nama_mapel");
+        $this->datatables->group_by("jurusan_mapel.id, mapel.id_mapel, mapel.nama_mapel, jurusan.id_jurusan");
         return $this->datatables->generate();
     }
 

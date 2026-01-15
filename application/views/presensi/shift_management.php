@@ -1,5 +1,3 @@
-<?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
-
 <div class="content-wrapper bg-white pt-4">
     <section class="content-header">
         <div class="container-fluid">
@@ -13,220 +11,298 @@
 
     <section class="content">
         <div class="container-fluid">
-            <div class="card">
+            <div class="card card-default my-shadow mb-4">
                 <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-business-time mr-1"></i> <?= $subjudul ?></h3>
+                    <h3 class="card-title"><?= $subjudul ?></h3>
                     <div class="card-tools">
-                        <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#shiftModal" onclick="clearShiftForm()">
-                            <i class="fas fa-plus"></i> Tambah Shift
+                        <button type="button" onclick="reload_ajax()" class="btn btn-sm btn-default">
+                            <i class="fa fa-sync"></i> <span class="d-none d-sm-inline-block ml-1">Reload</span>
+                        </button>
+                        <button type="button" data-toggle="modal" data-target="#createShiftModal" class="btn btn-sm btn-primary">
+                            <i class="fa fa-plus"></i> <span class="d-none d-sm-inline-block ml-1">Tambah Shift</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger" id="bulk_delete">
+                            <i class="fa fa-trash"></i> <span class="d-none d-sm-inline-block ml-1">Hapus Terpilih</span>
                         </button>
                     </div>
                 </div>
                 <div class="card-body">
-                    <?php if (empty($shifts)): ?>
-                        <div class="alert alert-warning text-center">
-                            <i class="fas fa-clock fa-3x mb-3"></i>
-                            <h4>Tidak Ada Shift</h4>
-                            <p class="mb-0">Belum ada shift yang dibuat</p>
-                        </div>
-                    <?php else: ?>
-                        <div class="table-responsive">
-                            <table class="table table-striped table-bordered">
-                                <thead>
-                                    <tr>
-                                        <th>Kode</th>
-                                        <th>Nama Shift</th>
-                                        <th>Jam Masuk</th>
-                                        <th>Jam Pulang</th>
-                                        <th>Toleransi (menit)</th>
-                                        <th>Lintas Hari</th>
-                                        <th>Durasi (menit)</th>
-                                        <th>Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($shifts as $shift): ?>
-                                    <tr>
-                                        <td><strong><?= $shift->kode_shift ?></strong></td>
-                                        <td><?= $shift->nama_shift ?></td>
-                                        <td><?= $shift->jam_masuk ?></td>
-                                        <td><?= $shift->jam_pulang ?></td>
-                                        <td><?= $shift->toleransi_masuk_menit ?></td>
-                                        <td><?= $shift->is_lintas_hari ? 'Ya' : 'Tidak' ?></td>
-                                        <td><?= $shift->durasi_kerja_menit ?></td>
-                                        <td>
-                                            <button type="button" class="btn btn-sm btn-info" onclick="editShift(<?= $shift->id_shift ?>)">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-danger" onclick="deleteShift(<?= $shift->id_shift ?>)">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    <?php endif; ?>
+                    <div class="table-responsive">
+                        <?= form_open('presensi/shift_delete', array('id' => 'bulk')) ?>
+                        <table id="table-shift" class="table table-striped table-bordered table-hover" style="width: 100%">
+                            <thead>
+                                <tr>
+                                    <th width="30" class="text-center p-0 align-middle">
+                                        <div class="icheck-primary d-inline">
+                                            <input type="checkbox" id="check_all">
+                                            <label for="check_all"></label>
+                                        </div>
+                                    </th>
+                                    <th width="50" class="text-center p-0 align-middle">No.</th>
+                                    <th>Nama Shift</th>
+                                    <th>Kode</th>
+                                    <th>Jam Masuk</th>
+                                    <th>Jam Pulang</th>
+                                    <th>Status</th>
+                                    <th class="text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                        </table>
+                        <?= form_close() ?>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 </div>
 
-<!-- Shift Modal -->
-<div class="modal fade" id="shiftModal" tabindex="-1">
-    <div class="modal-dialog">
+<!-- Modal -->
+<div class="modal fade" id="createShiftModal" tabindex="-1" role="dialog" aria-labelledby="createModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="shiftModalTitle">Tambah Shift</h5>
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            <div class="modal-header">
+                <h5 class="modal-title" id="createModalLabel">Tambah Shift</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
+            <?= form_open('presensi/shift_save', array('id' => 'formShift')) ?>
             <div class="modal-body">
-                <form id="shiftForm">
-                    <input type="hidden" name="id_shift" id="shift-id">
-                    
-                    <div class="form-group">
-                        <label>Nama Shift *</label>
-                        <input type="text" class="form-control" name="nama_shift" id="shift-nama" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Kode Shift *</label>
-                        <input type="text" class="form-control" name="kode_shift" id="shift-kode" required>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Jam Masuk *</label>
-                                <input type="time" class="form-control" name="jam_masuk" id="shift-jam-masuk" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Jam Pulang *</label>
-                                <input type="time" class="form-control" name="jam_pulang" id="shift-jam-pulang" required>
-                            </div>
+                <input type="hidden" name="method" id="method" value="add">
+                <input type="hidden" name="id_shift" id="id_shift">
+                
+                <div class="form-group">
+                    <label>Nama Shift</label>
+                    <input type="text" name="nama_shift" id="nama_shift" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Kode Shift</label>
+                    <input type="text" name="kode_shift" id="kode_shift" class="form-control" required>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Jam Masuk</label>
+                            <input type="time" name="jam_masuk" id="jam_masuk" class="form-control" required>
                         </div>
                     </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Toleransi Masuk (menit)</label>
-                                <input type="number" class="form-control" name="toleransi_masuk_menit" id="shift-toleransi-masuk" value="15">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Toleransi Pulang (menit)</label>
-                                <input type="number" class="form-control" name="toleransi_pulang_menit" id="shift-toleransi-pulang" value="0">
-                            </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Jam Pulang</label>
+                            <input type="time" name="jam_pulang" id="jam_pulang" class="form-control" required>
                         </div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" name="is_lintas_hari" id="shift-lintas-hari">
-                            Shift Lintas Hari (melewati tengah malam)
-                        </label>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Toleransi Masuk (Menit)</label>
+                            <input type="number" name="toleransi_masuk_menit" id="toleransi_masuk_menit" class="form-control" value="15">
+                        </div>
                     </div>
-                </form>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Toleransi Pulang (Menit)</label>
+                            <input type="number" name="toleransi_pulang_menit" id="toleransi_pulang_menit" class="form-control" value="0">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input" id="is_lintas_hari" name="is_lintas_hari" value="1">
+                        <label class="custom-control-label" for="is_lintas_hari">Lintas Hari (Pulang besoknya)</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input" id="is_active" name="is_active" value="1" checked>
+                        <label class="custom-control-label" for="is_active">Aktif</label>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-primary" onclick="saveShift()">Simpan</button>
+                <button type="submit" class="btn btn-primary">Simpan</button>
             </div>
+            <?= form_close() ?>
         </div>
     </div>
 </div>
 
 <script>
-var shiftsData = <?= json_encode($shifts) ?>;
-var csrfName = '<?= $this->security->get_csrf_token_name() ?>';
-var csrfHash = '<?= $this->security->get_csrf_hash() ?>';
+    var table;
 
-function appendCsrf(formData) {
-    formData.append(csrfName, csrfHash);
-    return formData;
-}
+    $(document).ready(function() {
+        ajaxcsrf();
 
-function clearShiftForm() {
-    document.getElementById('shift-id').value = '';
-    document.getElementById('shift-nama').value = '';
-    document.getElementById('shift-kode').value = '';
-    document.getElementById('shift-jam-masuk').value = '';
-    document.getElementById('shift-jam-pulang').value = '';
-    document.getElementById('shift-toleransi-masuk').value = '15';
-    document.getElementById('shift-toleransi-pulang').value = '0';
-    document.getElementById('shift-lintas-hari').checked = false;
-    document.getElementById('shiftModalTitle').textContent = 'Tambah Shift';
-}
-
-function editShift(id) {
-    var shift = shiftsData.find(function(s) { return String(s.id_shift) === String(id); });
-    
-    if (shift) {
-        document.getElementById('shift-id').value = shift.id_shift;
-        document.getElementById('shift-nama').value = shift.nama_shift;
-        document.getElementById('shift-kode').value = shift.kode_shift;
-        document.getElementById('shift-jam-masuk').value = shift.jam_masuk;
-        document.getElementById('shift-jam-pulang').value = shift.jam_pulang;
-        document.getElementById('shift-toleransi-masuk').value = shift.toleransi_masuk_menit;
-        document.getElementById('shift-toleransi-pulang').value = shift.toleransi_pulang_menit;
-        document.getElementById('shift-lintas-hari').checked = String(shift.is_lintas_hari) === '1';
-        document.getElementById('shiftModalTitle').textContent = 'Edit Shift';
-        
-        $('#shiftModal').modal('show');
-    }
-}
-
-function saveShift() {
-    var form = document.getElementById('shiftForm');
-    var formData = appendCsrf(new FormData(form));
-    
-    fetch('<?= base_url('presensi/save_shift') ?>', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            alert(result.message);
-            $('#shiftModal').modal('hide');
-            location.reload();
-        } else {
-            alert('Gagal menyimpan: ' + result.message);
-        }
-    })
-    .catch(error => {
-        alert('Terjadi kesalahan: ' + error.message);
-    });
-}
-
-function deleteShift(id) {
-    if (confirm('Apakah Anda yakin ingin menghapus shift ini?')) {
-        var formData = new FormData();
-        formData.append('id_shift', id);
-        appendCsrf(formData);
-        
-        fetch('<?= base_url('presensi/delete_shift') ?>', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                alert(result.message);
-                location.reload();
-            } else {
-                alert('Gagal menghapus: ' + result.message);
-            }
-        })
-        .catch(error => {
-            alert('Terjadi kesalahan: ' + error.message);
+        table = $('#table-shift').DataTable({
+            "processing": true,
+            "serverSide": true,
+            "order": [],
+            "ajax": {
+                "url": base_url + "presensi/shift_data",
+                "type": "POST"
+            },
+            "columnDefs": [
+                { "targets": [0, 1, 7], "orderable": false },
+                { "targets": [0, 1, 7], "className": "text-center" }
+            ],
+            "columns": [
+                { 
+                    "data": "id_shift",
+                    "render": function(data, type, row) {
+                        return '<div class="icheck-primary d-inline"><input type="checkbox" class="check-item" name="checked[]" value="'+data+'" id="check'+data+'"><label for="check'+data+'"></label></div>';
+                    }
+                },
+                { "data": null, "render": function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
+                { "data": "nama_shift" },
+                { "data": "kode_shift" },
+                { "data": "jam_masuk" },
+                { "data": "jam_pulang" },
+                { 
+                    "data": "is_active",
+                    "render": function(data, type, row) {
+                        return data == 1 ? '<span class="badge badge-success">Aktif</span>' : '<span class="badge badge-secondary">Non-Aktif</span>';
+                    }
+                },
+                { 
+                    "data": "id_shift",
+                    "render": function(data, type, row) {
+                        var btn = '<button type="button" class="btn btn-xs btn-warning btn-edit" data-id="'+data+'" title="Edit"><i class="fa fa-pencil-alt"></i></button>';
+                        return btn;
+                    }
+                }
+            ]
         });
+
+        $('#check_all').on('click', function() {
+            if (this.checked) {
+                $('.check-item').each(function() {
+                    this.checked = true;
+                });
+            } else {
+                $('.check-item').each(function() {
+                    this.checked = false;
+                });
+            }
+        });
+
+        $('#createShiftModal').on('hidden.bs.modal', function() {
+            $('#formShift')[0].reset();
+            $('#method').val('add');
+            $('#id_shift').val('');
+            $('#createModalLabel').text('Tambah Shift');
+            $('#is_active').prop('checked', true);
+        });
+
+        $('#table-shift').on('click', '.btn-edit', function() {
+            var data = table.row($(this).parents('tr')).data();
+            $('#method').val('edit');
+            $('#id_shift').val(data.id_shift);
+            $('#nama_shift').val(data.nama_shift);
+            $('#kode_shift').val(data.kode_shift);
+            $('#jam_masuk').val(data.jam_masuk);
+            $('#jam_pulang').val(data.jam_pulang);
+            $('#toleransi_masuk_menit').val(data.toleransi_masuk_menit);
+            $('#toleransi_pulang_menit').val(data.toleransi_pulang_menit);
+            $('#is_lintas_hari').prop('checked', data.is_lintas_hari == 1);
+            $('#is_active').prop('checked', data.is_active == 1);
+            
+            $('#createModalLabel').text('Edit Shift');
+            $('#createShiftModal').modal('show');
+        });
+
+        $('#formShift').on('submit', function(e) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            $.ajax({
+                url: $(this).attr('action'),
+                type: 'POST',
+                data: $(this).serialize(),
+                dataType: 'JSON',
+                success: function(data) {
+                    if (data.status) {
+                        $('#createShiftModal').modal('hide');
+                        reload_ajax();
+                        swal.fire({
+                            title: "Berhasil",
+                            text: data.msg,
+                            icon: "success"
+                        });
+                    } else {
+                        swal.fire({
+                            title: "Gagal",
+                            text: data.msg,
+                            icon: "error"
+                        });
+                    }
+                },
+                error: function(xhr, status, error) {
+                    swal.fire({
+                        title: "Error",
+                        text: "Terjadi kesalahan server",
+                        icon: "error"
+                    });
+                }
+            });
+        });
+
+        $('#bulk_delete').on('click', function() {
+            if ($('.check-item:checked').length === 0) {
+                swal.fire({
+                    title: "Peringatan",
+                    text: "Silahkan pilih data yang akan dihapus",
+                    icon: "warning"
+                });
+                return;
+            }
+
+            swal.fire({
+                title: "Konfirmasi",
+                text: "Anda yakin ingin menghapus data ini?",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#3085d6",
+                cancelButtonColor: "#d33",
+                confirmButtonText: "Ya, Hapus!"
+            }).then((result) => {
+                if (result.value) {
+                    $.ajax({
+                        url: base_url + "presensi/shift_delete",
+                        type: "POST",
+                        data: $('#bulk').serialize(),
+                        dataType: "JSON",
+                        success: function(data) {
+                            if (data.status) {
+                                reload_ajax();
+                                swal.fire({
+                                    title: "Berhasil",
+                                    text: data.msg,
+                                    icon: "success"
+                                });
+                            } else {
+                                swal.fire({
+                                    title: "Gagal",
+                                    text: data.msg,
+                                    icon: "error"
+                                });
+                            }
+                        },
+                        error: function() {
+                            swal.fire({
+                                title: "Error",
+                                text: "Terjadi kesalahan server",
+                                icon: "error"
+                            });
+                        }
+                    });
+                }
+            });
+        });
+    });
+
+    function reload_ajax() {
+        table.ajax.reload(null, false);
     }
-}
 </script>

@@ -67,7 +67,7 @@
 	                            <a href="<?= base_url('presensi') ?>"
 	                               class="nav-link <?= $page === 'presensi' && $this->uri->segment(2) == '' ? "active" : "" ?>">
 	                                <i class="far fa-circle nav-icon"></i>
-	                                <p>Check-in / Check-out</p>
+	                                <p>Masuk / Pulang</p>
 	                            </a>
 	                        </li>
 	                        <li class="nav-item">

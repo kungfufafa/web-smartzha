@@ -24,6 +24,7 @@ class Tagihanku extends CI_Controller
         $this->load->library(['form_validation', 'upload']);
         $this->load->model('Pembayaran_model', 'pembayaran');
         $this->load->model('Dashboard_model', 'dashboard');
+        $this->load->model('Log_model', 'logging');
     }
 
     private function output_json($data, $encode = true)
@@ -196,6 +197,9 @@ class Tagihanku extends CI_Controller
         // Get last transaction for reject count
         $last_transaksi = $this->pembayaran->getLatestTransaksiByTagihan($id_tagihan);
 
+        // Start transaction for atomic operation
+        $this->db->trans_start();
+
         // Call shared Model method to process upload
         $result = $this->pembayaran->processUploadBukti(
             $id_tagihan,
@@ -208,8 +212,10 @@ class Tagihanku extends CI_Controller
             $last_transaksi
         );
 
+        $this->db->trans_complete();
+
         // Cleanup and return response
-        if (!$result['success']) {
+        if (!$result['success'] || $this->db->trans_status() === FALSE) {
             if (file_exists($file_path)) {
                 unlink($file_path);
             }
@@ -217,9 +223,10 @@ class Tagihanku extends CI_Controller
             $http_code = $result['code'] ?? 400;
             $this->output_json([
                 'status' => false,
-                'message' => $result['message']
+                'message' => $result['message'] ?? 'Gagal menyimpan transaksi'
             ], $http_code);
         } else {
+            $this->logging->saveLog(3, 'siswa upload bukti pembayaran tagihan #' . $id_tagihan);
             $this->output_json([
                 'status' => true,
                 'message' => $result['message'],

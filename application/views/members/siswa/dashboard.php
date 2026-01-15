@@ -36,11 +36,11 @@
 	                                <h5><i class="fas fa-info-circle mr-2"></i>Status - <?= date('d F Y') ?></h5>
 	                                <?php if ($log_display): ?>
 	                                    <p class="mb-1">
-	                                        <strong>Check-in:</strong>
+	                                        <strong>Masuk:</strong>
 	                                        <?= $log_display->jam_masuk ? date('H:i', strtotime($log_display->jam_masuk)) : '<span class="text-danger">Belum</span>' ?>
 	                                    </p>
 	                                    <p class="mb-1">
-	                                        <strong>Check-out:</strong>
+	                                        <strong>Pulang:</strong>
 	                                        <?= $log_display->jam_pulang ? date('H:i', strtotime($log_display->jam_pulang)) : '<span class="text-warning">Belum</span>' ?>
 	                                    </p>
 	                                    <p class="mb-0">
@@ -116,7 +116,7 @@
 	                                <div class="form-group">
 	                                    <label>Foto Selfie *</label>
 	                                    <input type="file" class="form-control" id="presensi-photo" accept="image/*" capture="user">
-	                                    <small class="text-muted">Wajib untuk check-in.</small>
+	                                    <small class="text-muted">Wajib untuk masuk.</small>
 	                                </div>
 	                            <?php endif; ?>
 
@@ -132,7 +132,7 @@
 	                                    ?>
 	                                    <button type="button" class="btn btn-success btn-lg btn-block" <?= $can_checkin ? '' : 'disabled' ?> onclick="doCheckin()">
 	                                        <i class="fas fa-sign-in-alt fa-2x mb-2"></i><br>
-	                                        CHECK-IN
+	                                        MASUK
 	                                    </button>
 	                                </div>
 	                                <div class="col-6">
@@ -141,7 +141,7 @@
 	                                    ?>
 	                                    <button type="button" class="btn btn-danger btn-lg btn-block" <?= $can_checkout ? '' : 'disabled' ?> onclick="doCheckout()">
 	                                        <i class="fas fa-sign-out-alt fa-2x mb-2"></i><br>
-	                                        CHECK-OUT
+	                                        PULANG
 	                                    </button>
 	                                </div>
 	                            </div>
@@ -993,13 +993,13 @@
 
     function doCheckin() {
         Swal.fire({
-            title: 'Check-in',
-            text: 'Lakukan check-in sekarang?',
+            title: 'Masuk',
+            text: 'Lakukan absensi masuk sekarang?',
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#28a745',
             cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Ya, Check-in!',
+            confirmButtonText: 'Ya, Masuk!',
             cancelButtonText: 'Batal'
         }).then((result) => {
             if (result.value || result.isConfirmed) {
@@ -1007,7 +1007,7 @@
                 var photoFile = getPresensiPhotoFile();
 
                 if (presensiRequirePhoto && !photoFile) {
-                    Swal.fire('Gagal!', 'Foto selfie wajib untuk check-in.', 'error');
+                    Swal.fire('Gagal!', 'Foto selfie wajib untuk masuk.', 'error');
                     return;
                 }
 
@@ -1115,13 +1115,13 @@
 
     function doCheckout() {
         Swal.fire({
-            title: 'Check-out',
-            text: 'Lakukan check-out sekarang?',
+            title: 'Pulang',
+            text: 'Lakukan absensi pulang sekarang?',
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
             cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Ya, Check-out!',
+            confirmButtonText: 'Ya, Pulang!',
             cancelButtonText: 'Batal'
         }).then((result) => {
             if (result.value || result.isConfirmed) {

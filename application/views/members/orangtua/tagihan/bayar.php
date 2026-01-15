@@ -230,11 +230,52 @@ $(document).ready(function() {
 
     $('#formBayar').on('submit', function(e) {
         e.preventDefault();
-
+        
+        // Client-side validation for file upload
+        var fileInput = $('#bukti')[0];
+        var file = fileInput.files[0];
+        
+        if (file) {
+            // Check file size (2MB = 2097152 bytes)
+            var maxSize = 2097152; // 2MB in bytes
+            if (file.size > maxSize) {
+                Swal.fire({
+                    title: 'File Terlalu Besar',
+                    text: 'Ukuran file maksimal adalah 2MB. File anda: ' + (file.size / 1024 / 1024).toFixed(2) + 'MB',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+                return false;
+            }
+            
+            // Check file type
+            var allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+            var fileType = file.type.toLowerCase();
+            
+            if (!allowedTypes.includes(fileType)) {
+                Swal.fire({
+                    title: 'Format File Tidak Didukung',
+                    text: 'Hanya file JPG, PNG, atau PDF yang diperbolehkan',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+                return false;
+            }
+        } else {
+            Swal.fire({
+                title: 'File Belum Dipilih',
+                text: 'Silakan pilih bukti pembayaran terlebih dahulu',
+                icon: 'warning',
+                confirmButtonText: 'OK'
+            });
+            return false;
+        }
+        
+        // If validation passes, proceed with AJAX
         var formData = new FormData(this);
         var btn = $('#btnSubmit');
         btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Mengirim...');
-
+        
         $.ajax({
             url: '<?= base_url('orangtua/uploadBukti') ?>',
             type: 'POST',

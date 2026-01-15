@@ -47,7 +47,7 @@ function submitajax(url, data, msg, btn) {
 }
 
 function createDropdownKelasMapel() {
-	mapelGuru = JSON.parse(mapel_guru);
+	mapelGuru = mapel_guru || [];
 
 	var inputgroup = $('#input-mapel');
 
@@ -97,7 +97,7 @@ function createDropdownKelasMapel() {
 }
 
 function createDropdownKelasEkstra() {
-    ekstraGuru = JSON.parse(ekstra_guru);
+    ekstraGuru = ekstra_guru || [];
 
     var inputgroup = $('#input-mapel');
 

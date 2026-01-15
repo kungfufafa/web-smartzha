@@ -1,5 +1,3 @@
-<?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
-
 <div class="content-wrapper bg-white pt-4">
     <section class="content-header">
         <div class="container-fluid">
@@ -13,215 +11,302 @@
 
     <section class="content">
         <div class="container-fluid">
-            <div class="card">
+            <div class="card card-default my-shadow mb-4">
                 <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-map-marker-alt mr-1"></i> <?= $subjudul ?></h3>
+                    <h3 class="card-title"><?= $subjudul ?></h3>
                     <div class="card-tools">
-                        <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#lokasiModal" onclick="clearLokasiForm()">
-                            <i class="fas fa-plus"></i> Tambah Lokasi
+                        <button type="button" onclick="reload_ajax()" class="btn btn-sm btn-default">
+                            <i class="fa fa-sync"></i> <span class="d-none d-sm-inline-block ml-1">Reload</span>
+                        </button>
+                        <button type="button" data-toggle="modal" data-target="#createLokasiModal" class="btn btn-sm btn-primary">
+                            <i class="fa fa-plus"></i> <span class="d-none d-sm-inline-block ml-1">Tambah Lokasi</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger" id="bulk_delete">
+                            <i class="fa fa-trash"></i> <span class="d-none d-sm-inline-block ml-1">Hapus Terpilih</span>
                         </button>
                     </div>
                 </div>
                 <div class="card-body">
-                    <?php if (empty($lokasi)): ?>
-                        <div class="alert alert-warning text-center">
-                            <i class="fas fa-map-marker-alt fa-3x mb-3"></i>
-                            <h4>Tidak Ada Lokasi</h4>
-                            <p class="mb-0">Belum ada lokasi yang dibuat</p>
-                        </div>
-                    <?php else: ?>
-                        <div class="table-responsive">
-                            <table class="table table-striped table-bordered">
-                                <thead>
-                                    <tr>
-                                        <th>Kode</th>
-                                        <th>Nama Lokasi</th>
-                                        <th>Alamat</th>
-                                        <th>Latitude</th>
-                                        <th>Longitude</th>
-                                        <th>Radius (meter)</th>
-                                        <th>Default</th>
-                                        <th>Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($lokasi as $loc): ?>
-                                    <tr>
-                                        <td><strong><?= $loc->kode_lokasi ?></strong></td>
-                                        <td><?= $loc->nama_lokasi ?></td>
-                                        <td><?= $loc->alamat ?></td>
-                                        <td><?= $loc->latitude ?></td>
-                                        <td><?= $loc->longitude ?></td>
-                                        <td><?= $loc->radius_meter ?></td>
-                                        <td><?= $loc->is_default ? '<span class="badge badge-success">Ya</span>' : '<span class="badge badge-secondary">Tidak</span>' ?></td>
-                                        <td>
-                                            <button type="button" class="btn btn-sm btn-info" onclick="editLokasi(<?= $loc->id_lokasi ?>)">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-danger" onclick="deleteLokasi(<?= $loc->id_lokasi ?>)">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    <?php endif; ?>
+                    <div class="table-responsive">
+                        <?= form_open('presensi/lokasi_delete', array('id' => 'bulk')) ?>
+                        <table id="table-lokasi" class="table table-striped table-bordered table-hover" style="width: 100%">
+                            <thead>
+                                <tr>
+                                    <th width="30" class="text-center p-0 align-middle">
+                                        <div class="icheck-primary d-inline">
+                                            <input type="checkbox" id="check_all">
+                                            <label for="check_all"></label>
+                                        </div>
+                                    </th>
+                                    <th width="50" class="text-center p-0 align-middle">No.</th>
+                                    <th>Nama Lokasi</th>
+                                    <th>Kode</th>
+                                    <th>Koordinat</th>
+                                    <th>Radius</th>
+                                    <th>Status</th>
+                                    <th class="text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                        </table>
+                        <?= form_close() ?>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 </div>
 
-<!-- Lokasi Modal -->
-<div class="modal fade" id="lokasiModal" tabindex="-1">
-    <div class="modal-dialog">
+<!-- Modal -->
+<div class="modal fade" id="createLokasiModal" tabindex="-1" role="dialog" aria-labelledby="createModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="lokasiModalTitle">Tambah Lokasi</h5>
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            <div class="modal-header">
+                <h5 class="modal-title" id="createModalLabel">Tambah Lokasi</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
+            <?= form_open('presensi/lokasi_save', array('id' => 'formLokasi')) ?>
             <div class="modal-body">
-                <form id="lokasiForm">
-                    <input type="hidden" name="id_lokasi" id="lokasi-id">
-                    
-                    <div class="form-group">
-                        <label>Nama Lokasi *</label>
-                        <input type="text" class="form-control" name="nama_lokasi" id="lokasi-nama" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Kode Lokasi *</label>
-                        <input type="text" class="form-control" name="kode_lokasi" id="lokasi-kode" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Alamat</label>
-                        <textarea class="form-control" name="alamat" id="lokasi-alamat" rows="2"></textarea>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Latitude *</label>
-                                <input type="text" class="form-control" name="latitude" id="lokasi-lat" step="any" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Longitude *</label>
-                                <input type="text" class="form-control" name="longitude" id="lokasi-lng" step="any" required>
-                            </div>
+                <input type="hidden" name="method" id="method" value="add">
+                <input type="hidden" name="id_lokasi" id="id_lokasi">
+                
+                <div class="form-group">
+                    <label>Nama Lokasi</label>
+                    <input type="text" name="nama_lokasi" id="nama_lokasi" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Kode Lokasi</label>
+                    <input type="text" name="kode_lokasi" id="kode_lokasi" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Alamat</label>
+                    <textarea name="alamat" id="alamat" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Latitude</label>
+                            <input type="text" name="latitude" id="latitude" class="form-control" required>
                         </div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label>Radius (meter)</label>
-                        <input type="number" class="form-control" name="radius_meter" id="lokasi-radius" value="100">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Longitude</label>
+                            <input type="text" name="longitude" id="longitude" class="form-control" required>
+                        </div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" name="is_default" id="lokasi-default">
-                            Jadikan Lokasi Default
-                        </label>
+                </div>
+                <div class="form-group">
+                    <label>Radius (Meter)</label>
+                    <input type="number" name="radius_meter" id="radius_meter" class="form-control" value="100">
+                </div>
+                <div class="form-group">
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input" id="is_default" name="is_default" value="1">
+                        <label class="custom-control-label" for="is_default">Set sebagai Lokasi Default</label>
                     </div>
-                </form>
+                </div>
+                <div class="form-group">
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input" id="is_active" name="is_active" value="1" checked>
+                        <label class="custom-control-label" for="is_active">Aktif</label>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-primary" onclick="saveLokasi()">Simpan</button>
+                <button type="submit" class="btn btn-primary">Simpan</button>
             </div>
+            <?= form_close() ?>
         </div>
     </div>
 </div>
 
 <script>
-var lokasiData = <?= json_encode($lokasi) ?>;
-var csrfName = '<?= $this->security->get_csrf_token_name() ?>';
-var csrfHash = '<?= $this->security->get_csrf_hash() ?>';
+    var table;
 
-function appendCsrf(formData) {
-    formData.append(csrfName, csrfHash);
-    return formData;
-}
+    $(document).ready(function() {
+        ajaxcsrf();
 
-function clearLokasiForm() {
-    document.getElementById('lokasi-id').value = '';
-    document.getElementById('lokasi-nama').value = '';
-    document.getElementById('lokasi-kode').value = '';
-    document.getElementById('lokasi-alamat').value = '';
-    document.getElementById('lokasi-lat').value = '';
-    document.getElementById('lokasi-lng').value = '';
-    document.getElementById('lokasi-radius').value = '100';
-    document.getElementById('lokasi-default').checked = false;
-    document.getElementById('lokasiModalTitle').textContent = 'Tambah Lokasi';
-}
-
-function editLokasi(id) {
-    var lokasi = lokasiData.find(function(l) { return String(l.id_lokasi) === String(id); });
-    
-    if (lokasi) {
-        document.getElementById('lokasi-id').value = lokasi.id_lokasi;
-        document.getElementById('lokasi-nama').value = lokasi.nama_lokasi;
-        document.getElementById('lokasi-kode').value = lokasi.kode_lokasi;
-        document.getElementById('lokasi-alamat').value = lokasi.alamat;
-        document.getElementById('lokasi-lat').value = lokasi.latitude;
-        document.getElementById('lokasi-lng').value = lokasi.longitude;
-        document.getElementById('lokasi-radius').value = lokasi.radius_meter;
-        document.getElementById('lokasi-default').checked = String(lokasi.is_default) === '1';
-        document.getElementById('lokasiModalTitle').textContent = 'Edit Lokasi';
-        
-        $('#lokasiModal').modal('show');
-    }
-}
-
-function saveLokasi() {
-    var form = document.getElementById('lokasiForm');
-    var formData = appendCsrf(new FormData(form));
-    
-    fetch('<?= base_url('presensi/save_location') ?>', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            alert(result.message);
-            $('#lokasiModal').modal('hide');
-            location.reload();
-        } else {
-            alert('Gagal menyimpan: ' + result.message);
-        }
-    })
-    .catch(error => {
-        alert('Terjadi kesalahan: ' + error.message);
-    });
-}
-
-function deleteLokasi(id) {
-    if (confirm('Apakah Anda yakin ingin menghapus lokasi ini?')) {
-        var formData = new FormData();
-        formData.append('id_lokasi', id);
-        appendCsrf(formData);
-        
-        fetch('<?= base_url('presensi/delete_location') ?>', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                alert(result.message);
-                location.reload();
-            } else {
-                alert('Gagal menghapus: ' + result.message);
-            }
-        })
-        .catch(error => {
-            alert('Terjadi kesalahan: ' + error.message);
+        table = $('#table-lokasi').DataTable({
+            "processing": true,
+            "serverSide": true,
+            "order": [],
+            "ajax": {
+                "url": base_url + "presensi/lokasi_data",
+                "type": "POST"
+            },
+            "columnDefs": [
+                { "targets": [0, 1, 7], "orderable": false },
+                { "targets": [0, 1, 7], "className": "text-center" }
+            ],
+            "columns": [
+                { 
+                    "data": "id_lokasi",
+                    "render": function(data, type, row) {
+                        return '<div class="icheck-primary d-inline"><input type="checkbox" class="check-item" name="checked[]" value="'+data+'" id="check'+data+'"><label for="check'+data+'"></label></div>';
+                    }
+                },
+                { "data": null, "render": function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
+                { 
+                    "data": "nama_lokasi",
+                    "render": function(data, type, row) {
+                        return data + (row.is_default == 1 ? ' <span class="badge badge-primary">Default</span>' : '');
+                    }
+                },
+                { "data": "kode_lokasi" },
+                { 
+                    "data": null,
+                    "render": function(data, type, row) {
+                        return row.latitude + ', ' + row.longitude;
+                    }
+                },
+                { "data": "radius_meter" },
+                { 
+                    "data": "is_active",
+                    "render": function(data, type, row) {
+                        return data == 1 ? '<span class="badge badge-success">Aktif</span>' : '<span class="badge badge-secondary">Non-Aktif</span>';
+                    }
+                },
+                { 
+                    "data": "id_lokasi",
+                    "render": function(data, type, row) {
+                        var btn = '<button type="button" class="btn btn-xs btn-warning btn-edit" data-id="'+data+'" title="Edit"><i class="fa fa-pencil-alt"></i></button>';
+                        return btn;
+                    }
+                }
+            ]
         });
+
+        $('#check_all').on('click', function() {
+            if (this.checked) {
+                $('.check-item').each(function() {
+                    this.checked = true;
+                });
+            } else {
+                $('.check-item').each(function() {
+                    this.checked = false;
+                });
+            }
+        });
+
+        $('#createLokasiModal').on('hidden.bs.modal', function() {
+            $('#formLokasi')[0].reset();
+            $('#method').val('add');
+            $('#id_lokasi').val('');
+            $('#createModalLabel').text('Tambah Lokasi');
+            $('#is_active').prop('checked', true);
+        });
+
+        $('#table-lokasi').on('click', '.btn-edit', function() {
+            var data = table.row($(this).parents('tr')).data();
+            $('#method').val('edit');
+            $('#id_lokasi').val(data.id_lokasi);
+            $('#nama_lokasi').val(data.nama_lokasi);
+            $('#kode_lokasi').val(data.kode_lokasi);
+            $('#alamat').val(data.alamat); 
+            $('#latitude').val(data.latitude);
+            $('#longitude').val(data.longitude);
+            $('#radius_meter').val(data.radius_meter);
+            $('#is_default').prop('checked', data.is_default == 1);
+            $('#is_active').prop('checked', data.is_active == 1);
+            
+            $('#createModalLabel').text('Edit Lokasi');
+            $('#createLokasiModal').modal('show');
+        });
+
+        $('#formLokasi').on('submit', function(e) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            $.ajax({
+                url: $(this).attr('action'),
+                type: 'POST',
+                data: $(this).serialize(),
+                dataType: 'JSON',
+                success: function(data) {
+                    if (data.status) {
+                        $('#createLokasiModal').modal('hide');
+                        reload_ajax();
+                        swal.fire({
+                            title: "Berhasil",
+                            text: data.msg,
+                            icon: "success"
+                        });
+                    } else {
+                        swal.fire({
+                            title: "Gagal",
+                            text: data.msg,
+                            icon: "error"
+                        });
+                    }
+                },
+                error: function(xhr, status, error) {
+                    swal.fire({
+                        title: "Error",
+                        text: "Terjadi kesalahan server",
+                        icon: "error"
+                    });
+                }
+            });
+        });
+
+        $('#bulk_delete').on('click', function() {
+            if ($('.check-item:checked').length === 0) {
+                swal.fire({
+                    title: "Peringatan",
+                    text: "Silahkan pilih data yang akan dihapus",
+                    icon: "warning"
+                });
+                return;
+            }
+
+            swal.fire({
+                title: "Konfirmasi",
+                text: "Anda yakin ingin menghapus data ini?",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#3085d6",
+                cancelButtonColor: "#d33",
+                confirmButtonText: "Ya, Hapus!"
+            }).then((result) => {
+                if (result.value) {
+                    $.ajax({
+                        url: base_url + "presensi/lokasi_delete",
+                        type: "POST",
+                        data: $('#bulk').serialize(),
+                        dataType: "JSON",
+                        success: function(data) {
+                            if (data.status) {
+                                reload_ajax();
+                                swal.fire({
+                                    title: "Berhasil",
+                                    text: data.msg,
+                                    icon: "success"
+                                });
+                            } else {
+                                swal.fire({
+                                    title: "Gagal",
+                                    text: data.msg,
+                                    icon: "error"
+                                });
+                            }
+                        },
+                        error: function() {
+                            swal.fire({
+                                title: "Error",
+                                text: "Terjadi kesalahan server",
+                                icon: "error"
+                            });
+                        }
+                    });
+                }
+            });
+        });
+    });
+
+    function reload_ajax() {
+        table.ajax.reload(null, false);
     }
-}
 </script>

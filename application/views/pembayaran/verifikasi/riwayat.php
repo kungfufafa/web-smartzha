@@ -37,9 +37,10 @@
                     <i class="fas fa-filter"></i> Filter
                 </button>
             </div>
-        </div>
-        <table id="tableRiwayat" class="table table-bordered table-striped">
-            <thead>
+         </div>
+         <div class="table-responsive">
+             <table id="tableRiwayat" class="table table-bordered table-striped">
+                 <thead>
                 <tr>
                     <th width="5%">No</th>
                     <th>Kode Transaksi</th>

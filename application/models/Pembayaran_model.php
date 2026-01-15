@@ -29,14 +29,15 @@ class Pembayaran_model extends CI_Model
     public function updateConfig($data)
     {
         // Filter out unknown columns to keep backward compatibility with older DB schemas.
-        // (e.g. when new config columns are added but migrations haven't run yet)
         $fields = $this->db->list_fields('pembayaran_config');
-        if (!empty($fields)) {
+        if (!empty($fields))
+        {
             $data = array_intersect_key((array) $data, array_flip($fields));
         }
 
         $config = $this->getConfig();
-        if ($config) {
+        if ($config)
+        {
             $this->db->where('id_config', $config->id_config);
             return $this->db->update('pembayaran_config', $data);
         }
@@ -49,7 +50,8 @@ class Pembayaran_model extends CI_Model
 
     public function getAllJenisTagihan($active_only = true)
     {
-        if ($active_only) {
+        if ($active_only)
+        {
             $this->db->where('is_active', 1);
         }
         $this->db->order_by('kode_jenis', 'ASC');
@@ -80,11 +82,15 @@ class Pembayaran_model extends CI_Model
 
     public function deleteJenisTagihan($id)
     {
+        // CRITICAL FIX: Check dependency in correct table (pembayaran_tagihan, not pembayaran_transaksi)
         $this->db->where('id_jenis', $id);
         $count = $this->db->count_all_results('pembayaran_tagihan');
-        if ($count > 0) {
+        
+        if ($count > 0)
+        {
             return false;
         }
+        
         $this->db->where('id_jenis', $id);
         return $this->db->delete('pembayaran_jenis');
     }
@@ -94,6 +100,67 @@ class Pembayaran_model extends CI_Model
         $this->datatables->select('id_jenis, kode_jenis, nama_jenis, nominal_default, is_recurring, is_active');
         $this->datatables->from('pembayaran_jenis');
         return $this->datatables->generate();
+    }
+
+    public function batchUpdateJenisTagihan($data_array)
+    {
+        if (!is_array($data_array) || empty($data_array))
+        {
+            return false;
+        }
+
+        $this->db->trans_start();
+        try
+        {
+            foreach ($data_array as $data)
+            {
+                $this->db->where('id_jenis', $data['id_jenis']);
+                $this->db->update('pembayaran_jenis', [
+                    'is_active' => $data['is_active']
+                ]);
+            }
+            
+            $this->db->trans_complete();
+            return $this->db->trans_status();
+        }
+        catch (Exception $e)
+        {
+            $this->db->trans_rollback();
+            return false;
+        }
+    }
+
+    public function batchDeleteJenisTagihan($ids)
+    {
+        if (!is_array($ids) || empty($ids))
+        {
+            return false;
+        }
+
+        $this->db->trans_start();
+        try
+        {
+            // CRITICAL FIX: Check dependency in correct table (pembayaran_tagihan, not pembayaran_transaksi)
+            $this->db->where_in('id_jenis', $ids);
+            $count = $this->db->count_all_results('pembayaran_tagihan');
+
+            if ($count > 0)
+            {
+                $this->db->trans_rollback();
+                return false;
+            }
+
+            $this->db->where_in('id_jenis', $ids);
+            $this->db->delete('pembayaran_jenis');
+
+            $this->db->trans_complete();
+            return $this->db->trans_status();
+        }
+        catch (Exception $e)
+        {
+            $this->db->trans_rollback();
+            return false;
+        }
     }
 
     // ==========================================
@@ -107,10 +174,13 @@ class Pembayaran_model extends CI_Model
         $this->db->like('kode_tagihan', $prefix, 'after');
         $row = $this->db->get('pembayaran_tagihan')->row();
 
-        if ($row && $row->kode_tagihan) {
+        if ($row && $row->kode_tagihan)
+        {
             $last_num = (int) substr($row->kode_tagihan, -5);
             $new_num = str_pad($last_num + 1, 5, '0', STR_PAD_LEFT);
-        } else {
+        }
+        else
+        {
             $new_num = '00001';
         }
         return $prefix . $new_num;
@@ -118,7 +188,30 @@ class Pembayaran_model extends CI_Model
 
     public function getTagihanById($id)
     {
-        $this->db->select('t.*, j.kode_jenis, j.nama_jenis, s.nama as nama_siswa, s.nis, s.nisn');
+        $this->db->select('
+            t.id_tagihan,
+            t.kode_tagihan,
+            t.id_siswa,
+            t.id_jenis,
+            t.id_tp,
+            t.id_smt,
+            t.bulan,
+            t.tahun,
+            t.nominal,
+            t.diskon,
+            t.denda,
+            t.total,
+            t.jatuh_tempo,
+            t.keterangan,
+            t.status,
+            t.created_at,
+            t.updated_at,
+            j.kode_jenis,
+            j.nama_jenis,
+            s.nama as nama_siswa,
+            s.nis,
+            s.nisn
+        ');
         $this->db->from('pembayaran_tagihan t');
         $this->db->join('pembayaran_jenis j', 't.id_jenis = j.id_jenis');
         $this->db->join('master_siswa s', 't.id_siswa = s.id_siswa');
@@ -128,14 +221,37 @@ class Pembayaran_model extends CI_Model
 
     public function getTagihanBySiswa($id_siswa, $status = null)
     {
-        $this->db->select('t.*, j.kode_jenis, j.nama_jenis');
+        $this->db->select('
+            t.id_tagihan,
+            t.kode_tagihan,
+            t.id_siswa,
+            t.id_jenis,
+            t.id_tp,
+            t.id_smt,
+            t.bulan,
+            t.tahun,
+            t.nominal,
+            t.diskon,
+            t.denda,
+            t.total,
+            t.jatuh_tempo,
+            t.keterangan,
+            t.status,
+            t.created_at,
+            j.kode_jenis,
+            j.nama_jenis
+        ');
         $this->db->from('pembayaran_tagihan t');
         $this->db->join('pembayaran_jenis j', 't.id_jenis = j.id_jenis');
         $this->db->where('t.id_siswa', $id_siswa);
-        if ($status) {
-            if (is_array($status)) {
+        if ($status)
+        {
+            if (is_array($status))
+            {
                 $this->db->where_in('t.status', $status);
-            } else {
+            }
+            else
+            {
                 $this->db->where('t.status', $status);
             }
         }
@@ -152,12 +268,15 @@ class Pembayaran_model extends CI_Model
         $row = $this->db->get('pembayaran_tagihan')->row();
         
         $last_num = 0;
-        if ($row && $row->kode_tagihan) {
+        if ($row && $row->kode_tagihan)
+        {
             $last_num = (int) substr($row->kode_tagihan, -5);
         }
 
-        foreach ($data_array as &$data) {
-            if (empty($data['kode_tagihan'])) {
+        foreach ($data_array as &$data)
+        {
+            if (empty($data['kode_tagihan']))
+            {
                 $last_num++;
                 $new_num = str_pad($last_num, 5, '0', STR_PAD_LEFT);
                 $data['kode_tagihan'] = $prefix . $new_num;
@@ -175,7 +294,8 @@ class Pembayaran_model extends CI_Model
 
     public function deleteTagihan($ids)
     {
-        if (!is_array($ids)) {
+        if (!is_array($ids))
+        {
             $ids = [$ids];
         }
         
@@ -183,7 +303,8 @@ class Pembayaran_model extends CI_Model
         $this->db->where_in('id_tagihan', $ids);
         $count = $this->db->count_all_results('pembayaran_transaksi');
         
-        if ($count > 0) {
+        if ($count > 0)
+        {
             return false;
         }
 
@@ -204,13 +325,45 @@ class Pembayaran_model extends CI_Model
         return $this->db->get('pembayaran_tagihan')->row();
     }
 
+    public function getAutoIncrementStatus()
+    {
+        $query = $this->db->query("
+            SELECT
+                AUTO_INCREMENT,
+                TABLE_ROWS
+            FROM
+                INFORMATION_SCHEMA.TABLES
+            WHERE
+                TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'pembayaran_tagihan'
+        ");
+        return $query->row();
+    }
+
+    public function fixAutoIncrement()
+    {
+        $status = $this->getAutoIncrementStatus();
+
+        if (!$status)
+        {
+            return false;
+        }
+
+        $maxIdQuery = $this->db->select('MAX(id_tagihan) as max_id')->get('pembayaran_tagihan')->row();
+        $maxId = $maxIdQuery ? $maxIdQuery->max_id : 0;
+
+        if ($status->AUTO_INCREMENT == 0 || $status->AUTO_INCREMENT <= $maxId)
+        {
+            $nextId = $maxId + 1;
+            $this->db->query("ALTER TABLE pembayaran_tagihan AUTO_INCREMENT = ?", [$nextId]);
+            return $nextId;
+        }
+
+        return $status->AUTO_INCREMENT;
+    }
+
     /**
      * Get DataTables data for tagihan
-     * 
-     * Suggested indexes for better performance:
-     * - ALTER TABLE pembayaran_tagihan ADD INDEX idx_tp_smt_status (id_tp, id_smt, status);
-     * - ALTER TABLE pembayaran_tagihan ADD INDEX idx_id_siswa (id_siswa);
-     * - ALTER TABLE kelas_siswa ADD INDEX idx_siswa_tp_smt (id_siswa, id_tp, id_smt);
      */
     public function getDataTableTagihan($id_tp, $id_smt, $filters = [])
     {
@@ -231,16 +384,20 @@ class Pembayaran_model extends CI_Model
         $this->datatables->where('t.id_tp', $id_tp);
         $this->datatables->where('t.id_smt', $id_smt);
 
-        if (!empty($filters['id_kelas'])) {
+        if (!empty($filters['id_kelas']))
+        {
             $this->datatables->where('ks.id_kelas', $filters['id_kelas']);
         }
-        if (!empty($filters['id_jenis'])) {
+        if (!empty($filters['id_jenis']))
+        {
             $this->datatables->where('t.id_jenis', $filters['id_jenis']);
         }
-        if (!empty($filters['status'])) {
+        if (!empty($filters['status']))
+        {
             $this->datatables->where('t.status', $filters['status']);
         }
-        if (!empty($filters['bulan'])) {
+        if (!empty($filters['bulan']))
+        {
             $this->datatables->where('t.bulan', $filters['bulan']);
         }
 
@@ -258,10 +415,13 @@ class Pembayaran_model extends CI_Model
         $this->db->like('kode_transaksi', $prefix, 'after');
         $row = $this->db->get('pembayaran_transaksi')->row();
 
-        if ($row && $row->kode_transaksi) {
+        if ($row && $row->kode_transaksi)
+        {
             $last_num = (int) substr($row->kode_transaksi, -5);
             $new_num = str_pad($last_num + 1, 5, '0', STR_PAD_LEFT);
-        } else {
+        }
+        else
+        {
             $new_num = '00001';
         }
         return $prefix . $new_num;
@@ -316,7 +476,8 @@ class Pembayaran_model extends CI_Model
     {
         $this->db->where('bukti_bayar_hash', $file_hash);
         $this->db->where('status !=', 'rejected');
-        if ($exclude_id) {
+        if ($exclude_id)
+        {
             $this->db->where('id_transaksi !=', $exclude_id);
         }
         return $this->db->get('pembayaran_transaksi')->num_rows() > 0;
@@ -324,25 +485,32 @@ class Pembayaran_model extends CI_Model
 
     public function createTransaksi($data)
     {
-        if (empty($data['kode_transaksi'])) {
+        if (empty($data['kode_transaksi']))
+        {
             $data['kode_transaksi'] = $this->generateKodeTransaksi();
         }
-        if (!isset($data['status']) || $data['status'] === '' || $data['status'] === null) {
+        if (!isset($data['status']) || $data['status'] === '' || $data['status'] === null)
+        {
             $data['status'] = 'pending';
         }
-        if (!isset($data['reject_count']) || $data['reject_count'] === '' || $data['reject_count'] === null) {
+        if (!isset($data['reject_count']) || $data['reject_count'] === '' || $data['reject_count'] === null)
+        {
             $data['reject_count'] = 0;
         }
-        if (empty($data['waktu_upload'])) {
+        if (empty($data['waktu_upload']))
+        {
             $data['waktu_upload'] = date('Y-m-d H:i:s');
         }
-        if (empty($data['tanggal_bayar'])) {
+        if (empty($data['tanggal_bayar']))
+        {
             $data['tanggal_bayar'] = date('Y-m-d');
         }
-        if (!isset($data['ip_address']) || $data['ip_address'] === '' || $data['ip_address'] === null) {
+        if (!isset($data['ip_address']) || $data['ip_address'] === '' || $data['ip_address'] === null)
+        {
             $data['ip_address'] = $this->input->ip_address();
         }
-        if (!isset($data['user_agent']) || $data['user_agent'] === '' || $data['user_agent'] === null) {
+        if (!isset($data['user_agent']) || $data['user_agent'] === '' || $data['user_agent'] === null)
+        {
             $data['user_agent'] = substr($this->input->user_agent(), 0, 500);
         }
         $this->db->insert('pembayaran_transaksi', $data);
@@ -355,13 +523,6 @@ class Pembayaran_model extends CI_Model
         return $this->db->update('pembayaran_transaksi', $data);
     }
 
-    /**
-     * Get DataTables data for pending transactions
-     * 
-     * Suggested indexes:
-     * - ALTER TABLE pembayaran_transaksi ADD INDEX idx_status (status);
-     * - ALTER TABLE pembayaran_transaksi ADD INDEX idx_tagihan (id_tagihan);
-     */
     public function getDataTableTransaksiPending()
     {
         $this->db->query("SET SQL_BIG_SELECTS=1");
@@ -383,13 +544,6 @@ class Pembayaran_model extends CI_Model
         return $this->datatables->generate();
     }
 
-    /**
-     * Get DataTables data for verification history
-     * 
-     * Suggested indexes:
-     * - ALTER TABLE pembayaran_transaksi ADD INDEX idx_verified_at (verified_at);
-     * - ALTER TABLE pembayaran_transaksi ADD INDEX idx_status (status);
-     */
     public function getDataTableRiwayatVerifikasi($filters = [])
     {
         $this->db->query("SET SQL_BIG_SELECTS=1");
@@ -413,10 +567,12 @@ class Pembayaran_model extends CI_Model
         $this->datatables->join('users_profile up', 'u.id = up.id_user', 'left');
         $this->datatables->where_in('tr.status', ['verified', 'rejected', 'cancelled']);
 
-        if (!empty($filters['tanggal_dari'])) {
+        if (!empty($filters['tanggal_dari']))
+        {
             $this->datatables->where('DATE(tr.verified_at) >=', $filters['tanggal_dari']);
         }
-        if (!empty($filters['tanggal_sampai'])) {
+        if (!empty($filters['tanggal_sampai']))
+        {
             $this->datatables->where('DATE(tr.verified_at) <=', $filters['tanggal_sampai']);
         }
 
@@ -433,25 +589,13 @@ class Pembayaran_model extends CI_Model
     // SHARED PAYMENT UPLOAD LOGIC
     // ==========================================
     
-    /**
-     * Process payment proof upload - shared logic for web and API controllers
-     * 
-     * @param int $id_tagihan Tagihan ID
-     * @param int $id_siswa Student ID
-     * @param string $file_path Uploaded file path
-     * @param string $file_hash SHA256 hash of file
-     * @param string $metode_bayar Payment method (qris|transfer)
-     * @param string $tanggal_bayar Payment date
-     * @param string $catatan_siswa Student note
-     * @param object $last_transaksi Last transaction record
-     * @return array Result with success status, error message if any, transaction ID
-     */
     public function processUploadBukti($id_tagihan, $id_siswa, $file_path, $file_hash, $metode_bayar, $tanggal_bayar, $catatan_siswa, $last_transaksi)
     {
         // Get tagihan info
         $tagihan = $this->getTagihanById($id_tagihan);
         
-        if (!$tagihan || $tagihan->id_siswa != $id_siswa) {
+        if (!$tagihan || $tagihan->id_siswa != $id_siswa)
+        {
             return [
                 'success' => false,
                 'message' => 'Tagihan tidak ditemukan',
@@ -459,7 +603,8 @@ class Pembayaran_model extends CI_Model
             ];
         }
         
-        if (!in_array($tagihan->status, ['belum_bayar', 'ditolak'])) {
+        if (!in_array($tagihan->status, ['belum_bayar', 'ditolak']))
+        {
             return [
                 'success' => false,
                 'message' => 'Tagihan tidak dapat dibayar',
@@ -467,7 +612,8 @@ class Pembayaran_model extends CI_Model
             ];
         }
         
-        if ($last_transaksi && $last_transaksi->reject_count >= self::MAX_REJECT_ATTEMPTS) {
+        if ($last_transaksi && $last_transaksi->reject_count >= self::MAX_REJECT_ATTEMPTS)
+        {
             return [
                 'success' => false,
                 'message' => 'Pembayaran sudah ditolak ' . self::MAX_REJECT_ATTEMPTS . ' kali. Silakan hubungi admin.',
@@ -476,7 +622,8 @@ class Pembayaran_model extends CI_Model
         }
         
         // Check for duplicate proof
-        if ($this->isDuplicateBukti($file_hash)) {
+        if ($this->isDuplicateBukti($file_hash))
+        {
             return [
                 'success' => false,
                 'message' => 'Bukti pembayaran ini sudah pernah digunakan untuk transaksi lain',
@@ -486,15 +633,18 @@ class Pembayaran_model extends CI_Model
         
         // Prepare transaction data
         $reject_count = 0;
-        if ($last_transaksi && $last_transaksi->status == 'rejected') {
+        if ($last_transaksi && $last_transaksi->status == 'rejected')
+        {
             $reject_count = $last_transaksi->reject_count;
         }
         
-        if (!in_array($metode_bayar, ['qris', 'transfer'], true)) {
+        if (!in_array($metode_bayar, ['qris', 'transfer'], true))
+        {
             $metode_bayar = 'qris';
         }
         
-        if (empty($tanggal_bayar)) {
+        if (empty($tanggal_bayar))
+        {
             $tanggal_bayar = date('Y-m-d');
         }
         
@@ -513,7 +663,8 @@ class Pembayaran_model extends CI_Model
         // Begin transaction
         $this->db->trans_start();
         
-        try {
+        try
+        {
             // Create transaction
             $id_transaksi = $this->createTransaksi($transaksi_data);
             
@@ -537,21 +688,26 @@ class Pembayaran_model extends CI_Model
             
             $this->db->trans_complete();
             
-            if ($this->db->trans_status()) {
+            if ($this->db->trans_status())
+            {
                 return [
                     'success' => true,
                     'message' => 'Bukti pembayaran berhasil diupload. Mohon tunggu verifikasi dari admin.',
                     'id_transaksi' => $id_transaksi,
                     'code' => 200
                 ];
-            } else {
+            }
+            else
+            {
                 return [
                     'success' => false,
                     'message' => 'Gagal menyimpan data. Silakan coba lagi.',
                     'code' => 500
                 ];
             }
-        } catch (Exception $e) {
+        }
+        catch (Exception $e)
+        {
             $this->db->trans_rollback();
             return [
                 'success' => false,
@@ -583,17 +739,8 @@ class Pembayaran_model extends CI_Model
     // DASHBOARD & REPORTING METHODS
     // ==========================================
 
-    /**
-     * Get dashboard statistics - optimized single query instead of multiple COUNT queries
-     * 
-     * @param int $id_tp Tahun Pelajaran ID
-     * @param int $id_smt Semester ID
-     * @return array Statistics data
-     */
     public function getDashboardStats($id_tp, $id_smt)
     {
-        // Use single query with CASE statements for better performance
-        // This replaces 6 separate COUNT queries with 1 query
         $sql = "
             SELECT 
                 COUNT(*) as total_tagihan,
@@ -621,13 +768,6 @@ class Pembayaran_model extends CI_Model
         return $stats;
     }
 
-    /**
-     * Get daily report of verified payments
-     * 
-     * Suggested indexes:
-     * - ALTER TABLE pembayaran_transaksi ADD INDEX idx_verified_at (verified_at);
-     * - ALTER TABLE pembayaran_transaksi ADD INDEX idx_status (status);
-     */
     public function getLaporanHarian($tanggal)
     {
         $this->db->select("
@@ -652,13 +792,6 @@ class Pembayaran_model extends CI_Model
         return $this->db->get()->result();
     }
 
-    /**
-     * Get arrears/tunggakan report
-     * 
-     * Suggested indexes:
-     * - ALTER TABLE pembayaran_tagihan ADD INDEX idx_status (status);
-     * - ALTER TABLE pembayaran_tagihan ADD INDEX idx_jatuh_tempo (jatuh_tempo);
-     */
     public function getLaporanTunggakan($id_tp, $id_smt, $id_kelas = null)
     {
         $this->db->select("
@@ -676,7 +809,8 @@ class Pembayaran_model extends CI_Model
         $this->db->where('t.id_smt', $id_smt);
         $this->db->where_in('t.status', ['belum_bayar', 'ditolak']);
 
-        if ($id_kelas) {
+        if ($id_kelas)
+        {
             $this->db->where('ks.id_kelas', $id_kelas);
         }
 
@@ -686,13 +820,6 @@ class Pembayaran_model extends CI_Model
         return $this->db->get()->result();
     }
 
-    /**
-     * Get total arrears per class
-     * 
-     * Suggested indexes:
-     * - ALTER TABLE pembayaran_tagihan ADD INDEX idx_status (status);
-     * - ALTER TABLE kelas_siswa ADD INDEX idx_kelas_tp_smt (id_kelas, id_tp, id_smt);
-     */
     public function getTotalTunggakanPerKelas($id_tp, $id_smt)
     {
         $this->db->select("
@@ -707,7 +834,7 @@ class Pembayaran_model extends CI_Model
         $this->db->where('t.id_tp', $id_tp);
         $this->db->where('t.id_smt', $id_smt);
         $this->db->where_in('t.status', ['belum_bayar', 'ditolak']);
-        $this->db->group_by('k.id_kelas');
+        $this->db->group_by('k.id_kelas, k.nama_kelas');
         $this->db->order_by('k.nama_kelas', 'ASC');
         return $this->db->get()->result();
     }
